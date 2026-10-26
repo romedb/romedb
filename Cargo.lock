@@ -2186,10 +2186,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "fastdb"
-version = "2.9.2"
+name = "romedb"
+version = "0.2.9"
 dependencies = [
- "fastql-parser",
+ "romeql-parser",
  "h3o",
  "half",
  "rquickjs",
@@ -2206,21 +2206,21 @@ dependencies = [
 ]
 
 [[package]]
-name = "fastdb-c"
-version = "2.9.2"
+name = "romedb-c"
+version = "0.2.9"
 dependencies = [
- "fastdb",
- "fastdb-protocol",
+ "romedb",
+ "romedb-protocol",
  "serde_json",
 ]
 
 [[package]]
-name = "fastdb-cli"
-version = "2.9.2"
+name = "romedb-cli"
+version = "0.2.9"
 dependencies = [
- "fastdb",
- "fastdb-service",
- "fastql-parser",
+ "romedb",
+ "romedb-service",
+ "romeql-parser",
  "libc",
  "reqwest",
  "rusqlite",
@@ -2234,10 +2234,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "fastdb-node"
-version = "2.9.2"
+name = "romedb-node"
+version = "0.2.9"
 dependencies = [
- "fastdb",
+ "romedb",
  "napi",
  "napi-build",
  "napi-derive",
@@ -2245,31 +2245,31 @@ dependencies = [
 ]
 
 [[package]]
-name = "fastdb-protocol"
-version = "2.9.2"
+name = "romedb-protocol"
+version = "0.2.9"
 dependencies = [
- "fastdb",
+ "romedb",
  "serde",
  "serde_json",
 ]
 
 [[package]]
-name = "fastdb-python"
-version = "2.9.2"
+name = "romedb-python"
+version = "0.2.9"
 dependencies = [
- "fastdb",
- "fastdb-protocol",
+ "romedb",
+ "romedb-protocol",
  "pyo3",
  "serde_json",
 ]
 
 [[package]]
-name = "fastdb-service"
-version = "2.9.2"
+name = "romedb-service"
+version = "0.2.9"
 dependencies = [
  "bytes",
- "fastdb",
- "fastql-parser",
+ "romedb",
+ "romeql-parser",
  "http-body-util",
  "hyper",
  "hyper-util",
@@ -2284,11 +2284,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "fastdb-tests"
-version = "2.9.2"
+name = "romedb-tests"
+version = "0.2.9"
 dependencies = [
- "fastdb",
- "fastql-parser",
+ "romedb",
+ "romeql-parser",
  "tempfile",
  "turso_core",
 ]
@@ -2300,8 +2300,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9afc2bd4d5a73106dd53d10d73d3401c2f32730ba2c0b93ddb888a8983680471"
 
 [[package]]
-name = "fastql-parser"
-version = "2.9.2"
+name = "romeql-parser"
+version = "0.2.9"
 dependencies = [
  "serde",
  "thiserror 2.0.16",

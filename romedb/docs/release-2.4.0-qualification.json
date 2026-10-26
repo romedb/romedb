@@ -1,0 +1,157 @@
+{
+  "version": "2.4.0",
+  "qualified": true,
+  "qualifiedAtUtc": "2026-10-12T10:42:52.237443+00:00",
+  "sourceCommit": "fb0ba254810177f857ea307c43fb5283de3bbca0",
+  "sourceArchiveSha256": "d5cde01241fb2b5d3ee69f4bd3ae321742ad81942c68327e8ae530ffc27236cb",
+  "cargoLockSha256": "ce0d889d618d7f6e0d27e8409423d2f82b1d65493837bc801de22fa1f10d449a",
+  "buildManifestSha256": "2d923553d20b5eae1e1785ac3dbedfaab67528e156d0f17cb47ef7c07fb2f37d",
+  "buildChecksumsSha256": "db818917dd83d2efa107cb06a79e8859d91c56b65f8f4a2ca348f056312972a1",
+  "buildProfile": "romedb-production",
+  "sourceCi": {
+    "conclusion": "success",
+    "headSha": "fb0ba254810177f857ea307c43fb5283de3bbca0",
+    "status": "completed",
+    "url": "https://github.com/romedb/romedb/actions/runs/38232774422"
+  },
+  "sourceTests": {
+    "rust": 1046,
+    "node": 185,
+    "cAbi": 5,
+    "releasePolicy": 2,
+    "formatting": "passed",
+    "scopedClippy": "passed",
+    "strictTypeScript": "passed"
+  },
+  "installedGroups": [
+    "c-abi",
+    "cli",
+    "cli-v22",
+    "cli-graph",
+    "sqlite-adoption",
+    "cli-elf",
+    "c-elf",
+    "node-0",
+    "node-1",
+    "python-0",
+    "python-1",
+    "python-2",
+    "php-package",
+    "go-package",
+    "swift-package",
+    "node-upgrade-install",
+    "v1-upgrade-restore",
+    "node-ownership-0",
+    "v2-upgrade-restore-0",
+    "v21-upgrade-restore-0",
+    "v22-upgrade-restore-0",
+    "v23-upgrade-restore-0",
+    "node-ownership-1",
+    "v2-upgrade-restore-1",
+    "v21-upgrade-restore-1",
+    "v22-upgrade-restore-1",
+    "v23-upgrade-restore-1",
+    "nuget-package"
+  ],
+  "nodeVersions": [
+    "22.0.0",
+    "24.19.0"
+  ],
+  "pythonVersions": [
+    "3.10.21",
+    "3.12.3",
+    "3.14.7"
+  ],
+  "standaloneRustConsumer": "passed with the romedb-production profile; 342 registry/git package identities match the workspace lockfile",
+  "upgradeRestore": "Immutable 1.0.0/2.0.0/2.1.0/2.2.0/2.3.0 libraries; candidate writes, reopen, rollback, unchanged previous backups and independent restores. The 2.3.0 package refuses a graph-enabled file.",
+  "graph": {
+    "catalogVersion": 6,
+    "previousReaderRejection": "2.3.0 CLI and Node package refuse graph files, including after every edge table is dropped",
+    "cliGraphCheck": "passed",
+    "sample": {
+      "nodes": 10000,
+      "edges": 100000,
+      "oneHop": {
+        "count": 50,
+        "p50Ms": 2.947489999991376,
+        "p95Ms": 3.624365999989095,
+        "maxMs": 10.520982999994885,
+        "lastMetrics": {
+          "graphAdjacencyEntries": 10,
+          "graphDocuments": 0,
+          "graphExpansions": 10,
+          "graphPeakBytes": 2877,
+          "graphRows": 10,
+          "graphVisited": 0
+        }
+      },
+      "twoHopFixed": {
+        "count": 50,
+        "p50Ms": 6.83499099999608,
+        "p95Ms": 7.904464999999618,
+        "maxMs": 13.300931999998284,
+        "lastMetrics": {
+          "graphAdjacencyEntries": 110,
+          "graphDocuments": 0,
+          "graphExpansions": 110,
+          "graphPeakBytes": 38068,
+          "graphRows": 100,
+          "graphVisited": 0
+        }
+      },
+      "reachableDepth2": {
+        "count": 50,
+        "p50Ms": 6.39109799999278,
+        "p95Ms": 6.9504610000003595,
+        "maxMs": 8.092737999992096,
+        "lastMetrics": {
+          "graphAdjacencyEntries": 110,
+          "graphDocuments": 0,
+          "graphExpansions": 110,
+          "graphPeakBytes": 34192,
+          "graphRows": 110,
+          "graphVisited": 111
+        }
+      },
+      "filteredReachableDepth3": {
+        "count": 20,
+        "p50Ms": 9.957517999995616,
+        "p95Ms": 12.772776000012527,
+        "maxMs": 13.955635999998776,
+        "lastMetrics": {
+          "graphAdjacencyEntries": 50,
+          "graphDocuments": 65,
+          "graphExpansions": 50,
+          "graphPeakBytes": 2799,
+          "graphRows": 9,
+          "graphVisited": 10
+        }
+      }
+    }
+  },
+  "supportedScope": {
+    "platform": "Linux x64",
+    "clients": [
+      "rust",
+      "node",
+      "python",
+      "php",
+      "swift",
+      "csharp",
+      "go"
+    ],
+    "ownership": "One owning process per database file; shared clients connect to its service"
+  },
+  "security": {
+    "unresolvedFindings": 0,
+    "acceptedInformational": [
+      "RUSTSEC-2026-0253"
+    ],
+    "advisoryDatabase": "7a656e76726dc815b52f1bdb7b2a5ea6b51ad3ba"
+  },
+  "documentationOverrides": {
+    "ENVELOPE.md": "Historical raw-evidence reference points to its immutable 2.1.0 release"
+  },
+  "performance": "Historical 2.1.0 operating envelope retained; fresh bounded application sample and 10k-node/100k-edge graph sample, not capacity guarantees",
+  "publication": "Qualified for publication; anonymous public-download verification is separate"
+}

@@ -1,5 +1,0 @@
-module CFastDB [system] {
-    header "shim.h"
-    link "fastdb_c"
-    export *
-}

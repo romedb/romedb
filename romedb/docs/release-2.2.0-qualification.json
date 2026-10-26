@@ -1,0 +1,277 @@
+{
+  "version": "2.2.0",
+  "qualified": true,
+  "qualifiedAtUtc": "2026-10-02T03:25:28.854415+00:00",
+  "sourceCommit": "468be008ed477bb88a9b43cfd72a20c95ff325ca",
+  "sourceArchiveSha256": "f43887edcea003645be4dddc8476d86816eac22f8f06e61bdb857622ced3e7b9",
+  "cargoLockSha256": "9126da52f5870fa826648a7ae76718650026cc70bcf4d5623ea62d8a1aed962b",
+  "buildManifestSha256": "db64b0303016d1a153ac4760db2c9e57139ee9aea6e34aa3421bca2da5f5bb14",
+  "buildChecksumsSha256": "50163d2cc4d7bb077b96859e29894e319d2d40ca15b7c7cb88cbf6c40069f879",
+  "buildProfile": "romedb-production",
+  "sourceCi": {
+    "conclusion": "success",
+    "headSha": "468be008ed477bb88a9b43cfd72a20c95ff325ca",
+    "status": "completed",
+    "url": "https://github.com/romedb/romedb/actions/runs/36955122727"
+  },
+  "sourceTests": {
+    "rust": 966,
+    "node": 139,
+    "cAbi": 5,
+    "releasePolicy": 2,
+    "rustIgnored": 0,
+    "formatting": "passed",
+    "scopedClippy": "passed",
+    "strictTypeScript": "passed"
+  },
+  "installedGroups": [
+    "c-abi",
+    "cli",
+    "cli-v22",
+    "sqlite-adoption",
+    "cli-elf",
+    "c-elf",
+    "node-0",
+    "node-1",
+    "python-0",
+    "python-1",
+    "python-2",
+    "php-package",
+    "go-package",
+    "swift-package",
+    "node-upgrade-install",
+    "v1-upgrade-restore",
+    "node-ownership-0",
+    "v2-upgrade-restore-0",
+    "v21-upgrade-restore-0",
+    "node-ownership-1",
+    "v2-upgrade-restore-1",
+    "v21-upgrade-restore-1",
+    "nuget-package"
+  ],
+  "nodeVersions": [
+    "22.0.0",
+    "24.19.0"
+  ],
+  "pythonVersions": [
+    "3.10.21",
+    "3.12.3",
+    "3.14.7"
+  ],
+  "standaloneArchivedRustConsumer": "passed against exact distributed source archive",
+  "upgradeRestore": "Immutable published 1.0.0/2.0.0/2.1.0 libraries; candidate writes, explicit legacy FTS REINDEX, reopen, preserved backups and independent restores",
+  "security": {
+    "unresolvedFindings": 0,
+    "acceptedInformational": [
+      "RUSTSEC-2026-0253"
+    ],
+    "receipt": "dependency-security-rustsec.json",
+    "scope": "Pinned shipping dependency review"
+  },
+  "supportedScope": {
+    "platform": "Linux x64; Ubuntu 24.04 under WSL2",
+    "clients": [
+      "rust",
+      "node",
+      "python",
+      "php",
+      "swift",
+      "csharp",
+      "go"
+    ],
+    "ownership": "One operating-system process per database file",
+    "cloud": false,
+    "browser": false,
+    "graphDatabase": false
+  },
+  "operatingEnvelope": "ENVELOPE.md retains the explicitly versioned 2.1.0 workload measurements; no fresh performance claim is made for 2.2.0.",
+  "sourceArchiveDocumentation": "Frozen tested source, including the corrected quickstart. Final qualification evidence is added separately.",
+  "documentationOverrides": {},
+  "publication": "Qualified for publication; public download verification is separate",
+  "evidenceFiles": {
+    "c-abi.log": {
+      "sha256": "040cd383b4ba11a6b1f343e2b74c34d27008791323b814cf3ce8bc70fed072d7",
+      "bytes": 103
+    },
+    "c-elf.json": {
+      "sha256": "254e57d72a7d05d72c3c60be984fbb707a9c83c0e4d39445902ef8450d0b9986",
+      "bytes": 1387
+    },
+    "c-elf.log": {
+      "sha256": "c3f2bd611572f0dcc6d8ebd090fbf20b10a5c321227b398976f5eeb7fdfab7f8",
+      "bytes": 68
+    },
+    "cli-elf.json": {
+      "sha256": "3372ae20e4562757037ec8ed0b865ba2e2b4fddd6102377c0d9ebafc3338fa01",
+      "bytes": 1445
+    },
+    "cli-elf.log": {
+      "sha256": "adf920eb8ed093046d1f27d82f9e175e48d583f2cd306b6d66756df89d7bfb82",
+      "bytes": 68
+    },
+    "cli-v22.log": {
+      "sha256": "4ff7d46443af83865ae3cfb1df654cacf89a870b757530ea658d8abd5c309a20",
+      "bytes": 2615
+    },
+    "cli.log": {
+      "sha256": "8a8821c0ea405393251664683fb4e7454f7103b8976dfb50bea2d9c5fe29628b",
+      "bytes": 190
+    },
+    "final-build.log": {
+      "sha256": "df2bc59de495eeb7a35ba72429e6197b4f2fb836af79c81e7b5a45f6bc5067ae",
+      "bytes": 2390
+    },
+    "final-ci-failure.log": {
+      "sha256": "5bda85a203f3ac9a052c80b828b9760f1230a754bb7d546702f16792bc6ba9b3",
+      "bytes": 277331
+    },
+    "final-demo.log": {
+      "sha256": "6550d893ed55e83428d6125812f61acfeae6759eb02f16f7d19fd64e686c3251",
+      "bytes": 1484
+    },
+    "final-pr-ci.json": {
+      "sha256": "a8d03977c856dbe7105be8ab96bc9738aefa1d30539a7e1dc14497b78c73e2f7",
+      "bytes": 168
+    },
+    "final-runtime-versions.json": {
+      "sha256": "ded56ba5038d9429f68171b0a937368e26b8aca0fd5552667249b7d1eb5732d1",
+      "bytes": 1537
+    },
+    "final-rust-client.log": {
+      "sha256": "bb4d398f27f3dc3d3be74b53a78a33ee6ae007d55524d7b282f9c86126ad3c7a",
+      "bytes": 1557
+    },
+    "final-rust-consumer.json": {
+      "sha256": "956c5e62b4b8d1d7f26b5cabb9edf9b033c63f065672380a5dccea858d8a83d0",
+      "bytes": 789
+    },
+    "final-source-check.log": {
+      "sha256": "9d55f798a305a3f0df008836c9b1d1229238706e12c0422f7af529f1fa06bed5",
+      "bytes": 107005
+    },
+    "final-source-ci.json": {
+      "sha256": "ef33391021d271415cec7532ce03c20cc0ab26deaf917dd7a170f694f520d4d8",
+      "bytes": 168
+    },
+    "final-source-ci.log": {
+      "sha256": "c0b5d762634e651dea3c9ea3f0d5ed7e3e3c8afe10bdd7936833760f95f607c1",
+      "bytes": 304968
+    },
+    "go-package.log": {
+      "sha256": "c7a7d20120f14125908ec2aeaa4a4876f28396e1468c7708dce98435d04e1c98",
+      "bytes": 189
+    },
+    "node-0.log": {
+      "sha256": "c5e007b01ebf97f13d7a868d635842bda1f738cbcc077af12b20f5404ca1fe98",
+      "bytes": 120
+    },
+    "node-1.log": {
+      "sha256": "eaf0542c8bd589f918763c5c313e68f1953019ad74bf5809214d94e065749b05",
+      "bytes": 121
+    },
+    "node-ownership-0.log": {
+      "sha256": "9afb50ca4c4c1f25720cf7eaf54e488bb061afa2be487ba931ee50427c8e8c5b",
+      "bytes": 976
+    },
+    "node-ownership-1.log": {
+      "sha256": "08a41351735025d399593b3e8e5f5d2f05a9b2f654b4c981c6db1e3d52011fa1",
+      "bytes": 509
+    },
+    "node-upgrade-install.log": {
+      "sha256": "09df588bd4b2470eb1fb463268e1e2c5edc7c905e1ca46a47a0212eb7ab8ce1a",
+      "bytes": 409
+    },
+    "nuget-package.log": {
+      "sha256": "7beccbfea97470222cfa1697399aa86c35945a1232c8eacfae49effeab11ef80",
+      "bytes": 35
+    },
+    "php-package.log": {
+      "sha256": "f18f908cdea700c581c3598051e153e07ab989d3b38efc91616ea313912567d3",
+      "bytes": 36
+    },
+    "python-0.log": {
+      "sha256": "de3676f085b248c3dff2ed2134042db7ddd8176794215dc7a68d95fd27f3dd6d",
+      "bytes": 1283
+    },
+    "python-1.log": {
+      "sha256": "d5ed01d977c279307d532fcb17074bce20cd2475aca187ca506625c21552b4b2",
+      "bytes": 1614
+    },
+    "python-2.log": {
+      "sha256": "a3c43730875abdf3f2698f2e9f9050350de0a5c18074cf4f0e48f94376df41b3",
+      "bytes": 1674
+    },
+    "release-cancel-after.log": {
+      "sha256": "1d6ac26201201d14d153b8d73ae0d77b0554d8bdce274a90cf69725344b1028b",
+      "bytes": 2165
+    },
+    "release-cancel-before.log": {
+      "sha256": "f4e0fb9901683ffad3942d6467c482f638b08be7f04c653ee75c4fe53f919ee4",
+      "bytes": 1086
+    },
+    "source-review.json": {
+      "sha256": "2c6f4d3a0e9d5720e83f14385885b77634f48ba0c2683c56d956288e3a151bf3",
+      "bytes": 1101
+    },
+    "sqlite-adoption.json": {
+      "sha256": "b080f228ef0edcc489cd831d218556b87ec150d0d927613abfa37f1900589abe",
+      "bytes": 6935
+    },
+    "sqlite-adoption.log": {
+      "sha256": "a3f0c75b938afbd04f05930fe7492b70e24e778796adc8125a76d0b5996fa703",
+      "bytes": 233
+    },
+    "swift-package.log": {
+      "sha256": "d4e700fdba179b1fc1e9eaf544e084f48ceb26b5896a58599516085d259a2d03",
+      "bytes": 1432
+    },
+    "upgrade-fixture/fixture.json": {
+      "sha256": "9416dbcf09b539ee5705c68d05cb1afc77da6638c78760ccecd31a80c2f73754",
+      "bytes": 6318
+    },
+    "upgrade-fixture/report.json": {
+      "sha256": "a7117e1d51ea963ff3037468608f82b2329d636006f6ae77fa6d9cba1e6b8c57",
+      "bytes": 715
+    },
+    "v1-upgrade-restore.log": {
+      "sha256": "ceead46ce18d0ff04a64d42be151f4c76a5fb252cfb9c1c1b61aafbc50ebacab",
+      "bytes": 1120
+    },
+    "v2-upgrade-fixture-0/report.json": {
+      "sha256": "af38f3ddd4dde23e43d5474b3ead9b2b40b488b05152e7de10f55def4b415157",
+      "bytes": 984
+    },
+    "v2-upgrade-fixture-1/report.json": {
+      "sha256": "17eb7bb1990e56b9d9cddda26d43a315c2e6497ea62fbc4a12089514cb9cf8c1",
+      "bytes": 985
+    },
+    "v2-upgrade-restore-0.log": {
+      "sha256": "564f70a9a4a3ac14cbc363afb6a48314d9b482501c7bd941c8b741b0878d1f04",
+      "bytes": 1144
+    },
+    "v2-upgrade-restore-1.log": {
+      "sha256": "dd64b0df366bf7337fe5178d0fa35d6f781ef42f66ffc4c1080da202128998eb",
+      "bytes": 1145
+    },
+    "v21-upgrade-fixture-0/report.json": {
+      "sha256": "0ac11c6eb93c36194ccdcb7c94566a30e07f432897adf97d77166952643b2811",
+      "bytes": 984
+    },
+    "v21-upgrade-fixture-1/report.json": {
+      "sha256": "4c960e866585c44d5dd5dd1f1cd7723e8842d1734775a377db2baf4d14f2ad25",
+      "bytes": 985
+    },
+    "v21-upgrade-restore-0.log": {
+      "sha256": "6425c6e405438d596263b8d8ea5827cd6dd8c6caba369684dff735ac9fb7b520",
+      "bytes": 1144
+    },
+    "v21-upgrade-restore-1.log": {
+      "sha256": "2cdd3e156ccae6e7bfea8a7483ddb6db1ff20940408a449621eb47fa5124b7bb",
+      "bytes": 1145
+    },
+    "verification.json": {
+      "sha256": "9ca7f68bd1724e712fdac94059b7c6bdb7d688861df0e87f23c95235600eab05",
+      "bytes": 8578
+    }
+  }
+}

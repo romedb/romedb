@@ -1,0 +1,64 @@
+name: RomeDB
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: romedb-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      # The scoped suite links many integration binaries on a small hosted disk.
+      # Keep debug assertions and the full test scope; omit bulky build metadata.
+      CARGO_PROFILE_DEV_DEBUG: '0'
+      CARGO_PROFILE_TEST_DEBUG: '0'
+      CARGO_INCREMENTAL: '0'
+      CARGO_BUILD_JOBS: '2'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.88 --profile minimal --component rustfmt --component clippy
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24.19.0
+      - name: Install pnpm
+        run: npm install --global pnpm@11.23.0
+      - name: Install Node declaration checker
+        run: pnpm --dir romedb/bindings/node install --frozen-lockfile --ignore-scripts
+      - name: RomeDB checks
+        run: romedb/scripts/check.sh
+  bindings:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CARGO_PROFILE_DEV_DEBUG: '0'
+      CARGO_PROFILE_TEST_DEBUG: '0'
+      CARGO_INCREMENTAL: '0'
+      CARGO_BUILD_JOBS: '2'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.88 --profile minimal
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.0.0
+      - name: Node 22 client checks
+        env:
+          ROMEDB_SKIP_TYPECHECK: '1'
+        run: romedb/scripts/check-node.sh
+      - name: Install uv
+        run: pipx install uv==0.12.10
+      - name: Python client checks
+        run: |
+          uv tool run --from maturin==1.12.6 maturin build --locked --profile dev --manifest-path romedb/bindings/python/Cargo.toml --out target/ci-wheels
+          python3 romedb/scripts/check-python-wheel.py target/ci-wheels/*.whl --python python3

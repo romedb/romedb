@@ -1,0 +1,15 @@
+[package]
+name = "romedb-node"
+version = "0.2.9"
+edition = "2021"
+license = "MIT"
+publish = false
+[lib]
+crate-type = ["cdylib"]
+[dependencies]
+romedb = { path = "../../frontend" }
+serde_json.workspace = true
+napi = { version = "=3.8.3", default-features = false, features = ["napi6"] }
+napi-derive = "=3.5.2"
+[build-dependencies]
+napi-build = "=2.3.1"

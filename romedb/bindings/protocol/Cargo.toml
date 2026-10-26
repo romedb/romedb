@@ -1,0 +1,11 @@
+[package]
+name = "romedb-protocol"
+version = "0.2.9"
+edition = "2021"
+license = "MIT"
+publish = false
+
+[dependencies]
+romedb = { path = "../../frontend" }
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true

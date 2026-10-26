@@ -1,0 +1,24 @@
+[package]
+name = "romedb-service"
+version = "0.2.9"
+edition = "2021"
+license = "MIT"
+publish = false
+
+[dependencies]
+romedb = { path = "../frontend" }
+romeql-parser = { path = "../parser" }
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+sha2 = "=0.10.9"
+uuid = { version = "=1.17.0", features = ["v4"] }
+bytes = "=1.11.1"
+http-body-util = "=0.1.3"
+hyper = { version = "=1.8.1", features = ["http1", "server"] }
+hyper-util = { version = "=0.1.19", features = ["tokio"] }
+tokio = { version = "=1.47.0", features = ["rt-multi-thread", "net", "time", "sync", "macros", "signal"] }
+libc = "=0.2.186"
+
+[dev-dependencies]
+tempfile.workspace = true
+turso_core = { path = "../../core" }

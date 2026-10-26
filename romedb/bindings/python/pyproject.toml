@@ -1,0 +1,16 @@
+[build-system]
+requires = ["maturin==1.12.6"]
+build-backend = "maturin"
+
+[project]
+name = "romedb-embedded"
+version = "0.2.9"
+description = "Embedded RomeDB and RomeQL for Python"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE.md", "THIRD_PARTY_NOTICES.md", "THIRD_PARTY_CRATE_NOTICES.md", "RUST-LIBRARY-NOTICES.html"]
+readme = "README.md"
+
+[tool.maturin]
+python-source = "python"
+module-name = "romedb._native"

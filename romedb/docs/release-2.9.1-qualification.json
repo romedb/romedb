@@ -1,0 +1,130 @@
+{
+  "version": "2.9.1",
+  "qualified": true,
+  "qualifiedAtUtc": "2026-10-20T09:57:34.528099+00:00",
+  "sourceCommit": "364091ab9799e1aa562505fe5c93fc426587fd3e",
+  "sourceArchiveSha256": "183ac5c9027b894cf88b717a24b96e3767a11e2f7ba9acaafdbba52267df4d19",
+  "cargoLockSha256": "e739228fb40a35cf85818456aa4d98b2067f6e760f6f767e57800886b6fec2b1",
+  "buildManifestSha256": "608bdb5987a4b73ccc3d27cc75dda36756454846c160d37d40cebc950c0098d2",
+  "buildChecksumsSha256": "a029a4619b762c9d9503c7bb38911fe0fc110a7887526f1636d93b9731abfcc4",
+  "buildProfile": "romedb-production",
+  "sourceCi": {
+    "conclusion": "success",
+    "headSha": "364091ab9799e1aa562505fe5c93fc426587fd3e",
+    "status": "completed",
+    "url": "https://github.com/romedb/romedb/actions/runs/39389429641",
+    "note": "Attempt 2. Attempt 1 failed one timing-dependent C ABI cancellation test (interrupt arrived before the first insert on the hosted runner); the rerun and all local runs pass."
+  },
+  "sourceTests": {
+    "rust": 1104,
+    "rustIgnored": 4,
+    "node": 191,
+    "cAbi": 5,
+    "releasePolicy": 2,
+    "upgradeTable": 3,
+    "formatting": "passed",
+    "scopedClippy": "passed",
+    "strictTypeScript": "passed"
+  },
+  "installedGroups": [
+    "c-abi",
+    "cli",
+    "cli-v22",
+    "cli-graph",
+    "cli-spatial",
+    "sqlite-adoption",
+    "cli-elf",
+    "c-elf",
+    "node-0",
+    "node-1",
+    "python-0",
+    "python-1",
+    "python-2",
+    "php-package",
+    "go-package",
+    "swift-package",
+    "node-upgrade-install",
+    "v1-upgrade-restore",
+    "node-ownership-0",
+    "v2-upgrade-restore-0",
+    "v21-upgrade-restore-0",
+    "v22-upgrade-restore-0",
+    "v23-upgrade-restore-0",
+    "v24-upgrade-restore-0",
+    "v25-upgrade-restore-0",
+    "v251-upgrade-restore-0",
+    "v252-upgrade-restore-0",
+    "v253-upgrade-restore-0",
+    "v254-upgrade-restore-0",
+    "v260-upgrade-restore-0",
+    "v270-upgrade-restore-0",
+    "v280-upgrade-restore-0",
+    "v290-upgrade-restore-0",
+    "node-ownership-1",
+    "v2-upgrade-restore-1",
+    "v21-upgrade-restore-1",
+    "v22-upgrade-restore-1",
+    "v23-upgrade-restore-1",
+    "v24-upgrade-restore-1",
+    "v25-upgrade-restore-1",
+    "v251-upgrade-restore-1",
+    "v252-upgrade-restore-1",
+    "v253-upgrade-restore-1",
+    "v254-upgrade-restore-1",
+    "v260-upgrade-restore-1",
+    "v270-upgrade-restore-1",
+    "v280-upgrade-restore-1",
+    "v290-upgrade-restore-1",
+    "nuget-package"
+  ],
+  "nodeVersions": [
+    "22.0.0",
+    "24.19.0"
+  ],
+  "pythonVersions": [
+    "3.10.21",
+    "3.12.3",
+    "3.14.7"
+  ],
+  "standaloneRustConsumer": "passed with the romedb-production profile; 342 registry/git package identities match the workspace lockfile",
+  "upgradeRestore": "Immutable 1.0.0/2.0.0/2.1.0/2.2.0/2.3.0/2.4.0/2.5.0/2.5.1/2.5.2/2.5.3/2.5.4/2.6.0/2.7.0/2.8.0/2.9.0 libraries, driven by the version-range table in scripts/upgrade_matrix.py; candidate writes, reopen, rollback, unchanged previous backups and independent restores. 1.0.0 and 2.4.0 refuse files with a new-format spatial index; 2.5.0 to 2.9.0 read files written by 2.9.1.",
+  "engine": {
+    "upstream": "Turso v0.8.3",
+    "upstreamCommit": "607bff9fd0e547a25a97b3bf06e83bcc5d99d53c",
+    "previousUpstream": "8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a",
+    "exceptions": "all eight maintained engine exceptions retained (romedb/docs/core-exceptions.md)",
+    "storageFormat": "unchanged; catalog version 7",
+    "sync": "romedb/romedb#30"
+  },
+  "spatial": {
+    "catalogVersion": 7,
+    "explainReadsNoData": "metered EXPLAIN reports zero rows read for every spatial form (spatial_explain_reads_no_documents_or_index_entries)",
+    "cliSpatialCheck": "passed"
+  },
+  "supportedScope": {
+    "platform": "Linux x64",
+    "clients": [
+      "rust",
+      "node",
+      "python",
+      "php",
+      "swift",
+      "csharp",
+      "go"
+    ],
+    "ownership": "One owning process per database file; shared clients connect to its service"
+  },
+  "security": {
+    "unresolvedFindings": 0,
+    "acceptedInformational": [
+      "RUSTSEC-2026-0253"
+    ],
+    "advisoryDatabase": "999ec89d5d3f10f20be14750ec8c2d8b44e0ac9b"
+  },
+  "documentationOverrides": {
+    "ENVELOPE.md": "Historical raw-evidence reference points to its immutable 2.1.0 release"
+  },
+  "performance": "Historical 2.1.0 operating envelope retained; fresh bounded application sample, not capacity guarantees",
+  "buildHost": "Built and qualified under scripts/romedb-heavy (shared lock, two jobs, cgroup memory ceiling)",
+  "publication": "Qualified for publication; anonymous public-download verification is separate"
+}

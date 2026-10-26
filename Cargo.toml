@@ -3,15 +3,15 @@
 [workspace]
 resolver = "2"
 members = [
-    "fastdb/parser",
-    "fastdb/frontend",
-    "fastdb/service",
-    "fastdb/cli",
-    "fastdb/tests",
-    "fastdb/bindings/node",
-    "fastdb/bindings/python",
-    "fastdb/bindings/protocol",
-    "fastdb/bindings/c",
+    "romedb/parser",
+    "romedb/frontend",
+    "romedb/service",
+    "romedb/cli",
+    "romedb/tests",
+    "romedb/bindings/node",
+    "romedb/bindings/python",
+    "romedb/bindings/protocol",
+    "romedb/bindings/c",
     "bindings/java",
     "bindings/javascript",
     "bindings/javascript/sync",
@@ -187,9 +187,9 @@ shuttle = { version = "0.8.1" }
 [profile.dev.package.similar]
 opt-level = 3
 
-# FastDB distribution profile. Keep dev's assertions, checked arithmetic and
+# RomeDB distribution profile. Keep dev's assertions, checked arithmetic and
 # unwinding while optimizing shipped native code; never invoke --release.
-[profile.fastdb-production]
+[profile.romedb-production]
 inherits = "dev"
 opt-level = 3
 debug = "line-tables-only"

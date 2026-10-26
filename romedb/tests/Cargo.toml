@@ -1,0 +1,12 @@
+[package]
+name = "romedb-tests"
+version = "0.2.9"
+edition = "2021"
+license = "MIT"
+publish = false
+
+[dependencies]
+romedb = { path = "../frontend" }
+romeql-parser = { path = "../parser" }
+tempfile.workspace = true
+turso_core = { path = "../../core" }

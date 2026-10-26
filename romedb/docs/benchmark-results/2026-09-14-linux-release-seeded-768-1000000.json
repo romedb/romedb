@@ -1,0 +1,343 @@
+{
+  "format": "romedb-benchmark-v1",
+  "created_utc": "2026-09-14T13:03:43Z",
+  "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+  "machine": "x86_64",
+  "binary": "/home/tan/Sites/romedb/turso/target/release/romedb-cli",
+  "binary_sha256": "c3790cdfc097d6e82018f51569fe694202d5994b9e1fd85d1f5f876ca1dafa24",
+  "commit": "6b9076f2562c5adc040ac439691d413c9a89090f",
+  "worktree_status": [],
+  "rows": 1000000,
+  "dimensions": 768,
+  "samples": 3,
+  "fixture": "seeded-v1",
+  "python_version": "3.12.3",
+  "cosine_reference": {
+    "top10": [
+      {
+        "key": 0,
+        "distance": 0.0
+      },
+      {
+        "key": 606291,
+        "distance": 0.9323542757833332
+      },
+      {
+        "key": 49062,
+        "distance": 0.9323679273956991
+      },
+      {
+        "key": 936300,
+        "distance": 0.9324913656069761
+      },
+      {
+        "key": 59170,
+        "distance": 0.9326183453726706
+      },
+      {
+        "key": 899847,
+        "distance": 0.9326457457743729
+      },
+      {
+        "key": 875088,
+        "distance": 0.9326842290848709
+      },
+      {
+        "key": 460095,
+        "distance": 0.932720245609595
+      },
+      {
+        "key": 906702,
+        "distance": 0.9327342558245041
+      },
+      {
+        "key": 469824,
+        "distance": 0.9327879746675549
+      }
+    ],
+    "absolute_tolerance": 2e-06,
+    "calculation": "float64 fsum over rounded float32 coordinates"
+  },
+  "load_seconds": 2278.8832764420076,
+  "index_build_seconds": 154.90114537300542,
+  "database_bytes_after_checkpoint": 12482203648,
+  "workloads": [
+    {
+      "name": "unindexed_filter",
+      "sql": "SELECT count(*) FROM docs WHERE group_no=7",
+      "milliseconds": [
+        111991.496411,
+        112855.942982,
+        115989.342954
+      ],
+      "median_ms": 112855.942982,
+      "p95_ms": 115989.342954,
+      "process_peak_rss_bytes": 26047537152,
+      "plan": [
+        [
+          {
+            "type": "Integer",
+            "value": 1
+          },
+          {
+            "type": "Integer",
+            "value": 0
+          },
+          {
+            "type": "Integer",
+            "value": 0
+          },
+          {
+            "type": "String",
+            "value": "SCAN __romedb_c_646f6373 AS docs"
+          }
+        ]
+      ],
+      "engine_rows_read": 1000000,
+      "engine_fullscan_steps": 999999,
+      "engine_counters": [
+        {
+          "rows_read": 1000000,
+          "rows_written": 0,
+          "fullscan_steps": 999999,
+          "index_steps": 0,
+          "vm_steps": 4010015,
+          "sort_operations": 0,
+          "btree_seeks": 0,
+          "fetch_batches": 0,
+          "fetch_rows_read": 0,
+          "fetch_vm_steps": 0
+        },
+        {
+          "rows_read": 1000000,
+          "rows_written": 0,
+          "fullscan_steps": 999999,
+          "index_steps": 0,
+          "vm_steps": 4010015,
+          "sort_operations": 0,
+          "btree_seeks": 0,
+          "fetch_batches": 0,
+          "fetch_rows_read": 0,
+          "fetch_vm_steps": 0
+        },
+        {
+          "rows_read": 1000000,
+          "rows_written": 0,
+          "fullscan_steps": 999999,
+          "index_steps": 0,
+          "vm_steps": 4010015,
+          "sort_operations": 0,
+          "btree_seeks": 0,
+          "fetch_batches": 0,
+          "fetch_rows_read": 0,
+          "fetch_vm_steps": 0
+        }
+      ]
+    },
+    {
+      "name": "indexed_filter",
+      "sql": "SELECT count(*) FROM docs WHERE group_no=7",
+      "milliseconds": [
+        1512.375758,
+        1472.291002,
+        1507.114843
+      ],
+      "median_ms": 1507.114843,
+      "p95_ms": 1512.375758,
+      "process_peak_rss_bytes": 26047660032,
+      "plan": [
+        [
+          {
+            "type": "Integer",
+            "value": 1
+          },
+          {
+            "type": "Integer",
+            "value": 0
+          },
+          {
+            "type": "Integer",
+            "value": 0
+          },
+          {
+            "type": "String",
+            "value": "SCAN docs"
+          }
+        ],
+        [
+          {
+            "type": "Integer",
+            "value": 3
+          },
+          {
+            "type": "Integer",
+            "value": 1
+          },
+          {
+            "type": "Integer",
+            "value": 0
+          },
+          {
+            "type": "String",
+            "value": "SEARCH i USING INDEX docs_group (key=?)"
+          }
+        ],
+        [
+          {
+            "type": "Integer",
+            "value": 4
+          },
+          {
+            "type": "Integer",
+            "value": 1
+          },
+          {
+            "type": "Integer",
+            "value": 0
+          },
+          {
+            "type": "String",
+            "value": "SEARCH c USING INDEX sqlite_autoindex___romedb_c_646f6373_1 (id=?)"
+          }
+        ]
+      ],
+      "engine_rows_read": 20000,
+      "engine_fullscan_steps": 0,
+      "engine_counters": [
+        {
+          "rows_read": 20000,
+          "rows_written": 0,
+          "fullscan_steps": 0,
+          "index_steps": 20000,
+          "vm_steps": 180025,
+          "sort_operations": 0,
+          "btree_seeks": 30001,
+          "fetch_batches": 0,
+          "fetch_rows_read": 0,
+          "fetch_vm_steps": 0
+        },
+        {
+          "rows_read": 20000,
+          "rows_written": 0,
+          "fullscan_steps": 0,
+          "index_steps": 20000,
+          "vm_steps": 180025,
+          "sort_operations": 0,
+          "btree_seeks": 30001,
+          "fetch_batches": 0,
+          "fetch_rows_read": 0,
+          "fetch_vm_steps": 0
+        },
+        {
+          "rows_read": 20000,
+          "rows_written": 0,
+          "fullscan_steps": 0,
+          "index_steps": 20000,
+          "vm_steps": 180025,
+          "sort_operations": 0,
+          "btree_seeks": 30001,
+          "fetch_batches": 0,
+          "fetch_rows_read": 0,
+          "fetch_vm_steps": 0
+        }
+      ]
+    },
+    {
+      "name": "exact_vector_top10",
+      "sql": "SELECT record::id(id) AS key,vector_distance_cos(embedding,vector32('[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]')) AS distance FROM docs ORDER BY distance,id LIMIT 10",
+      "milliseconds": [
+        410515.989442,
+        405927.152951,
+        401096.861903
+      ],
+      "median_ms": 405927.152951,
+      "p95_ms": 410515.989442,
+      "process_peak_rss_bytes": 26047909888,
+      "plan": [
+        [
+          {
+            "type": "Integer",
+            "value": 1
+          },
+          {
+            "type": "Integer",
+            "value": 0
+          },
+          {
+            "type": "Integer",
+            "value": 0
+          },
+          {
+            "type": "String",
+            "value": "SCAN __romedb_c_646f6373 AS docs"
+          }
+        ],
+        [
+          {
+            "type": "Integer",
+            "value": 18
+          },
+          {
+            "type": "Integer",
+            "value": 0
+          },
+          {
+            "type": "Integer",
+            "value": 0
+          },
+          {
+            "type": "String",
+            "value": "USE SORTER FOR ORDER BY"
+          }
+        ]
+      ],
+      "engine_rows_read": 1000000,
+      "engine_fullscan_steps": 999999,
+      "engine_counters": [
+        {
+          "rows_read": 1000000,
+          "rows_written": 0,
+          "fullscan_steps": 999999,
+          "index_steps": 0,
+          "vm_steps": 11000080,
+          "sort_operations": 1,
+          "btree_seeks": 0,
+          "fetch_batches": 0,
+          "fetch_rows_read": 0,
+          "fetch_vm_steps": 0
+        },
+        {
+          "rows_read": 1000000,
+          "rows_written": 0,
+          "fullscan_steps": 999999,
+          "index_steps": 0,
+          "vm_steps": 11000080,
+          "sort_operations": 1,
+          "btree_seeks": 0,
+          "fetch_batches": 0,
+          "fetch_rows_read": 0,
+          "fetch_vm_steps": 0
+        },
+        {
+          "rows_read": 1000000,
+          "rows_written": 0,
+          "fullscan_steps": 999999,
+          "index_steps": 0,
+          "vm_steps": 11000080,
+          "sort_operations": 1,
+          "btree_seeks": 0,
+          "fetch_batches": 0,
+          "fetch_rows_read": 0,
+          "fetch_vm_steps": 0
+        }
+      ]
+    }
+  ],
+  "measurement": "warm CLI round trip, including frontend execution and JSON transport; one warmup per workload",
+  "limitations": [
+    "Binary build flags/profile must be recorded separately; the default binary is unoptimized.",
+    "Linux process high-water RSS includes loading and earlier workloads, not isolated query memory.",
+    "Engine counters cover the primary statement, excluding catalog/lowering queries and Rust decoding.",
+    "Synthetic deterministic vectors and one process do not qualify production workloads, cold caches or concurrency."
+  ]
+}

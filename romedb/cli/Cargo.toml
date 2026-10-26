@@ -1,0 +1,28 @@
+[package]
+name = "romedb-cli"
+version = "0.2.9"
+edition = "2021"
+license = "MIT"
+publish = false
+default-run = "romedb-cli"
+
+[[bin]]
+name = "romedb"
+path = "src/bin/romedb.rs"
+
+[dependencies]
+romedb = { path = "../frontend" }
+romedb-service = { path = "../service" }
+romeql-parser = { path = "../parser" }
+serde_json.workspace = true
+sha2 = "=0.10.9"
+rusqlite = { workspace = true, features = ["backup"] }
+tempfile.workspace = true
+reqwest = { version = "=0.13.2", default-features = false, features = ["blocking", "rustls"] }
+uuid = { version = "=1.17.0", features = ["v4"] }
+rustyline = { version = "=15.0.0", default-features = false, features = ["with-file-history"] }
+
+[target.'cfg(unix)'.dependencies]
+signal-hook = "=0.3.18"
+tokio = { version = "=1.47.0", features = ["rt-multi-thread", "net", "signal"] }
+libc = "=0.2.186"
