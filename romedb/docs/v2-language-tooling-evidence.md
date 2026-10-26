@@ -32,12 +32,12 @@ supplied local V2 Node package. It used the active debug addon whose SHA-256 is
 
 ## Reproduction and artifact
 
-From `/home/tan/Sites/romedb/vscode`, Node 24.19.0 and pnpm 11.23.0:
+From `/home/tan/Sites/fastdb/vscode`, Node 24.19.0 and pnpm 11.23.0:
 
 ```sh
 pnpm install --frozen-lockfile
 pnpm test
-node scripts/check-v2-engine.cjs /home/tan/Sites/romedb/turso/romedb/bindings/node
+node scripts/check-v2-engine.cjs /home/tan/Sites/fastdb/turso/romedb/bindings/node
 pnpm run package
 xvfb-run -a pnpm run test:host
 ```
@@ -50,7 +50,7 @@ scripts are explicitly disabled for these unsigned local VSIX checks. The pnpm 1
 configuration uses `allowBuilds` and requires an explicit install before script
 execution, preventing automatic dependency changes during verification.
 
-Artifact: `/home/tan/Sites/romedb/vscode/romeql-0.2.0.vsix`, **18,096 bytes**.
+Artifact: `/home/tan/Sites/fastdb/vscode/romeql-0.2.0.vsix`, **18,096 bytes**.
 SHA-256: `44d407ee85f12f3c5c779583ec87a676363ed3eeba2309ec19fe77af9925d788`.
 Logs: `/tmp/romeql-v2-editor-control.log`, `/tmp/romeql-v2-editor-tests.log`,
 `/tmp/romeql-v2-editor-engine.log`, `/tmp/romeql-v2-editor-package.log`, and

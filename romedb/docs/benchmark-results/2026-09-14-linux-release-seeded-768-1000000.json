@@ -3,7 +3,7 @@
   "created_utc": "2026-09-14T13:03:43Z",
   "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
   "machine": "x86_64",
-  "binary": "/home/tan/Sites/romedb/turso/target/release/romedb-cli",
+  "binary": "/home/tan/Sites/fastdb/turso/target/release/romedb-cli",
   "binary_sha256": "c3790cdfc097d6e82018f51569fe694202d5994b9e1fd85d1f5f876ca1dafa24",
   "commit": "6b9076f2562c5adc040ac439691d413c9a89090f",
   "worktree_status": [],

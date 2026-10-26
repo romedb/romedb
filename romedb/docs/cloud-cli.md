@@ -6,7 +6,7 @@ From a clean committed engine checkout, with Rust 1.88.0, Node 24, Python 3.12+
 and the locked Cargo cache available:
 
 ```sh
-/home/tan/Sites/romedb/scripts/romedb-heavy python3 romedb/scripts/build-cloud-cli.py /home/tan/romedb-cloud-cli-0.4.0-read-v2
+/home/tan/Sites/fastdb/scripts/romedb-heavy python3 romedb/scripts/build-cloud-cli.py /home/tan/romedb-cloud-cli-0.4.0-read-v2
 ```
 
 The output directory must be new. The builder verifies the CLI dependency/notice

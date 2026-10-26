@@ -106,7 +106,7 @@ bash romedb/scripts/check-node.sh
 pnpm --dir romedb/bindings/node run typecheck
 node romedb/scripts/check-v2-upgrade.cjs \
   /tmp/romedb-v1-upgrade-consumer/node_modules/@romedb/node \
-  /home/tan/Sites/romedb/turso/romedb/bindings/node \
+  /home/tan/Sites/fastdb/turso/romedb/bindings/node \
   /tmp/romedb-v2-upgrade-restore-integrated
 ```
 

@@ -9,7 +9,7 @@ Command from the checkout:
 ```sh
 node romedb/scripts/check-preview-upgrade.cjs \
   /tmp/romedb-preview2-consumer/node_modules/@romedb/node \
-  /home/tan/Sites/romedb/turso/romedb/bindings/node
+  /home/tan/Sites/fastdb/turso/romedb/bindings/node
 ```
 
 Log: /tmp/romedb-v1-upgrade.log. Current implementation source is c4dd652bc;

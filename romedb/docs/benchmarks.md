@@ -8,7 +8,7 @@ performance. Intermediate development runs were removed during [cleanup](documen
 
 Use `romedb/scripts/benchmark.py` with the intended qualified CLI and record its
 binary/source identity, workload, dimensions, samples, and limits. Run heavy builds
-and benchmarks through `/home/tan/Sites/romedb/scripts/romedb-heavy`; do not run
+and benchmarks through `/home/tan/Sites/fastdb/scripts/romedb-heavy`; do not run
 heavy workloads concurrently. Keep temporary output in the workspace `.local/logs/`
 and remove it after retaining a concise result. Historical commands below record
 previous runs, not current build instructions.

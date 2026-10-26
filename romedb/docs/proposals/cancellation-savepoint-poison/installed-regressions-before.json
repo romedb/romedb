@@ -53,11 +53,11 @@
   ],
   "testSources": [
     {
-      "path": "/home/tan/Sites/romedb/turso/romedb/scripts/check-node-package.cjs",
+      "path": "/home/tan/Sites/fastdb/turso/romedb/scripts/check-node-package.cjs",
       "sha256": "f3881b87158615d72aad8f6093bd8d66f9faad72886e94cb36eca21a596e73c1"
     },
     {
-      "path": "/home/tan/Sites/romedb/turso/romedb/scripts/check-c-abi.py",
+      "path": "/home/tan/Sites/fastdb/turso/romedb/scripts/check-c-abi.py",
       "sha256": "6e51e7e05f72731933789c3acf599591751260033f7b2538939ed6058d5dce7b"
     }
   ],

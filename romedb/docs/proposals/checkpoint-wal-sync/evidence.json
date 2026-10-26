@@ -4,7 +4,7 @@
   "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
   "rust": "rustc 1.88.0 (6b00bc388 2025-06-23)",
   "before": {
-    "checkout": "/home/tan/Sites/romedb/turso",
+    "checkout": "/home/tan/Sites/fastdb/turso",
     "results": {
       "trace": 101,
       "crash": 101,

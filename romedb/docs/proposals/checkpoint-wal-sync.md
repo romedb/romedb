@@ -159,7 +159,7 @@ directory must be new, and baseline failure is expected:
 ```sh
 source /tmp/romedb-v2-env.sh
 python3 romedb/docs/proposals/checkpoint-wal-sync/reproduce.py . /tmp/checkpoint-before-evidence
-python3 romedb/docs/proposals/checkpoint-wal-sync/reproduce.py /tmp/romedb-checkpoint-wal-sync-patched /tmp/checkpoint-after-evidence --target-dir /home/tan/Sites/romedb/turso/target
+python3 romedb/docs/proposals/checkpoint-wal-sync/reproduce.py /tmp/romedb-checkpoint-wal-sync-patched /tmp/checkpoint-after-evidence --target-dir /home/tan/Sites/fastdb/turso/target
 ```
 
 The harness runs one native trace, two crash-model cases and five boundary tests;

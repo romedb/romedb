@@ -27,7 +27,7 @@ Current lock SHA-256:
 ## Retained history
 
 Before removal, source files were archived outside the engine checkout at
-`/home/tan/Sites/romedb/archives/browser-experiment-20260925.tar.gz`.
+`/home/tan/Sites/fastdb/archives/browser-experiment-20260925.tar.gz`.
 Every archived source file was checked byte-for-byte before deleting the active
 copy. The archive excludes generated dist, node_modules, target and cache folders.
 Size: 133,468 bytes. SHA-256:

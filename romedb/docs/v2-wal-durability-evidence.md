@@ -107,7 +107,7 @@ with Node 24.19.0:
 ```sh
 node romedb/scripts/check-preview-upgrade.cjs \
   /tmp/romedb-v1-upgrade-consumer/node_modules/@romedb/node \
-  /home/tan/Sites/romedb/turso/romedb/bindings/node
+  /home/tan/Sites/fastdb/turso/romedb/bindings/node
 ```
 
 The released client creates indexed documents and a relational table. The
