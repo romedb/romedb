@@ -48,7 +48,7 @@ impl Cloud {
                     .into(),
             );
         }
-        let opaque = (key.starts_with("fdbk_") || key.starts_with("fdbo_"))
+        let opaque = (key.starts_with("fdbk_") || key.starts_with("rdbo_"))
             && key.len() == 69
             && key[5..].bytes().all(|b| b.is_ascii_hexdigit());
         // This is only transport validation. The service verifies all JWT claims.
@@ -459,7 +459,7 @@ mod tests {
 
     #[test]
     fn romedb_scheme_is_an_https_alias_with_the_same_origin_rules() {
-        let key = format!("fdbo_{}", "a".repeat(64));
+        let key = format!("rdbo_{}", "a".repeat(64));
         let cloud = Cloud::new("romedb://cloud.romedb.com", key.clone()).unwrap();
         assert_eq!(cloud.origin.as_str(), "https://cloud.romedb.com/");
         for endpoint in [
@@ -470,5 +470,12 @@ mod tests {
         ] {
             assert!(Cloud::new(endpoint, key.clone()).is_err(), "{endpoint}");
         }
+    }
+
+    #[test]
+    fn organization_keys_must_use_the_rdbo_prefix() {
+        let hex = "a".repeat(64);
+        assert!(Cloud::new("https://cloud.romedb.com", format!("rdbo_{hex}")).is_ok());
+        assert!(Cloud::new("https://cloud.romedb.com", format!("fdbo_{hex}")).is_err());
     }
 }

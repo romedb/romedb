@@ -11,7 +11,7 @@ from pathlib import Path
 import uuid
 
 binary = sys.argv[1]
-key = 'fdbo_' + 'a' * 64
+key = 'rdbo_' + 'a' * 64
 database = str(uuid.uuid4())
 organization = str(uuid.uuid4())
 base = f"/v1/organizations/{organization}/databases"
