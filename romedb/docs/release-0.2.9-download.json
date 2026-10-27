@@ -1,0 +1,19 @@
+{
+  "version": "0.2.9",
+  "verifiedAtUtc": "2026-10-27T02:31:54.890742+00:00",
+  "releaseUrl": "https://github.com/romedb/romedb/releases/tag/romedb-v0.2.9",
+  "archiveUrl": "https://github.com/romedb/romedb/releases/download/romedb-v0.2.9/romedb-0.2.9-linux-x64.tar.gz",
+  "archiveSha256": "193a663220e358cd94ec41d04cb79f1abd55d99322eb5cbd6c1bb3f9ba23df99",
+  "archiveBytes": 104485569,
+  "archiveReproduced": "the downloaded tar.gz is byte-identical to the archive built from the assembled bundle (fixed owner and commit-time mtimes)",
+  "sourceCommit": "81bda5f69043ae46e313cb936671f7fd37f44d4a",
+  "sourceArchiveSha256": "01c5493e40a87852781bfc90ae8de3446fcbfeaf4c2c270955b48337cc1cbc5c",
+  "anonymousDownload": true,
+  "outerChecksumMatches": true,
+  "internalChecksumsPass": true,
+  "internalFiles": 73,
+  "sourceArchiveMatchesTag": true,
+  "cAbiSmoke": "passed",
+  "cliVersion": "bin/romedb --version prints 'romedb 0.2.9'",
+  "manifestSha256": "0d6721670aa623fea110f834df440dd67c33b9b2988e6395aa371a3caea64a51"
+}
