@@ -8,7 +8,7 @@ Target: `x86_64-unknown-linux-gnu`. Cargo.lock SHA-256: `fd14778135a39262701acbb
 
 ## Packages without collected archive or supplemental texts
 
-tantivy-bitpacker 0.27.0, tantivy-columnar 0.27.0, tantivy-common 0.27.0, tantivy-query-grammar 0.27.0, tantivy-sstable 0.27.0, tantivy-stacker 0.27.0
+
 
 ## Source file index
 
@@ -993,6 +993,18 @@ tantivy-bitpacker 0.27.0, tantivy-columnar 0.27.0, tantivy-common 0.27.0, tantiv
 ### synstructure 0.13.1
 - `LICENSE`: [source text 219920e865eee70b7dcfc948a86b099e7f4fe2de01bcca2ca9a20c0a033f2b59](#text-219920e865eee70b7dcfc948a86b099e7f4fe2de01bcca2ca9a20c0a033f2b59)
 
+### tantivy-bitpacker 0.27.0
+- Repository source [https://raw.githubusercontent.com/quickwit-oss/tantivy/50ac63df66084b8f77bfd067b81b5b8076b8a905/LICENSE](https://raw.githubusercontent.com/quickwit-oss/tantivy/50ac63df66084b8f77bfd067b81b5b8076b8a905/LICENSE): [source text acacd14bebbffdb30d62443c282fb4da3e81915a9f69c63d5d745a029f44de8a](#text-acacd14bebbffdb30d62443c282fb4da3e81915a9f69c63d5d745a029f44de8a)
+- Repository source [https://raw.githubusercontent.com/quickwit-oss/tantivy/50ac63df66084b8f77bfd067b81b5b8076b8a905/AUTHORS](https://raw.githubusercontent.com/quickwit-oss/tantivy/50ac63df66084b8f77bfd067b81b5b8076b8a905/AUTHORS): [source text 141e25490cf9e0d3a05374171cb0a42c91a0cf0fb2041ba4c010f466e89b596d](#text-141e25490cf9e0d3a05374171cb0a42c91a0cf0fb2041ba4c010f466e89b596d)
+
+### tantivy-columnar 0.27.0
+- Repository source [https://raw.githubusercontent.com/quickwit-oss/tantivy/67889269cae67063c372bc236b102d632a021568/LICENSE](https://raw.githubusercontent.com/quickwit-oss/tantivy/67889269cae67063c372bc236b102d632a021568/LICENSE): [source text acacd14bebbffdb30d62443c282fb4da3e81915a9f69c63d5d745a029f44de8a](#text-acacd14bebbffdb30d62443c282fb4da3e81915a9f69c63d5d745a029f44de8a)
+- Repository source [https://raw.githubusercontent.com/quickwit-oss/tantivy/67889269cae67063c372bc236b102d632a021568/AUTHORS](https://raw.githubusercontent.com/quickwit-oss/tantivy/67889269cae67063c372bc236b102d632a021568/AUTHORS): [source text 141e25490cf9e0d3a05374171cb0a42c91a0cf0fb2041ba4c010f466e89b596d](#text-141e25490cf9e0d3a05374171cb0a42c91a0cf0fb2041ba4c010f466e89b596d)
+
+### tantivy-common 0.27.0
+- Repository source [https://raw.githubusercontent.com/quickwit-oss/tantivy/50ac63df66084b8f77bfd067b81b5b8076b8a905/LICENSE](https://raw.githubusercontent.com/quickwit-oss/tantivy/50ac63df66084b8f77bfd067b81b5b8076b8a905/LICENSE): [source text acacd14bebbffdb30d62443c282fb4da3e81915a9f69c63d5d745a029f44de8a](#text-acacd14bebbffdb30d62443c282fb4da3e81915a9f69c63d5d745a029f44de8a)
+- Repository source [https://raw.githubusercontent.com/quickwit-oss/tantivy/50ac63df66084b8f77bfd067b81b5b8076b8a905/AUTHORS](https://raw.githubusercontent.com/quickwit-oss/tantivy/50ac63df66084b8f77bfd067b81b5b8076b8a905/AUTHORS): [source text 141e25490cf9e0d3a05374171cb0a42c91a0cf0fb2041ba4c010f466e89b596d](#text-141e25490cf9e0d3a05374171cb0a42c91a0cf0fb2041ba4c010f466e89b596d)
+
 ### tantivy-fst 0.5.0
 - `COPYING`: [source text 01c266bced4a434da0051174d6bee16a4c82cf634e2679b6155d40d75012390f](#text-01c266bced4a434da0051174d6bee16a4c82cf634e2679b6155d40d75012390f)
 - `LICENSE-MIT`: [source text 7297a3511ab0870ee32e2922ba73fbc8e9160c7e1c0007ddc0f509aede016653](#text-7297a3511ab0870ee32e2922ba73fbc8e9160c7e1c0007ddc0f509aede016653)
@@ -1000,6 +1012,18 @@ tantivy-bitpacker 0.27.0, tantivy-columnar 0.27.0, tantivy-common 0.27.0, tantiv
 ### tantivy-query-grammar 0.26.0
 - Repository source [https://raw.githubusercontent.com/quickwit-oss/tantivy/9e63fc508153ef770f9ff980c8fa2f11e8e2e6db/LICENSE](https://raw.githubusercontent.com/quickwit-oss/tantivy/9e63fc508153ef770f9ff980c8fa2f11e8e2e6db/LICENSE): [source text acacd14bebbffdb30d62443c282fb4da3e81915a9f69c63d5d745a029f44de8a](#text-acacd14bebbffdb30d62443c282fb4da3e81915a9f69c63d5d745a029f44de8a)
 - Repository source [https://raw.githubusercontent.com/quickwit-oss/tantivy/9e63fc508153ef770f9ff980c8fa2f11e8e2e6db/AUTHORS](https://raw.githubusercontent.com/quickwit-oss/tantivy/9e63fc508153ef770f9ff980c8fa2f11e8e2e6db/AUTHORS): [source text 141e25490cf9e0d3a05374171cb0a42c91a0cf0fb2041ba4c010f466e89b596d](#text-141e25490cf9e0d3a05374171cb0a42c91a0cf0fb2041ba4c010f466e89b596d)
+
+### tantivy-query-grammar 0.27.0
+- Repository source [https://raw.githubusercontent.com/quickwit-oss/tantivy/50ac63df66084b8f77bfd067b81b5b8076b8a905/LICENSE](https://raw.githubusercontent.com/quickwit-oss/tantivy/50ac63df66084b8f77bfd067b81b5b8076b8a905/LICENSE): [source text acacd14bebbffdb30d62443c282fb4da3e81915a9f69c63d5d745a029f44de8a](#text-acacd14bebbffdb30d62443c282fb4da3e81915a9f69c63d5d745a029f44de8a)
+- Repository source [https://raw.githubusercontent.com/quickwit-oss/tantivy/50ac63df66084b8f77bfd067b81b5b8076b8a905/AUTHORS](https://raw.githubusercontent.com/quickwit-oss/tantivy/50ac63df66084b8f77bfd067b81b5b8076b8a905/AUTHORS): [source text 141e25490cf9e0d3a05374171cb0a42c91a0cf0fb2041ba4c010f466e89b596d](#text-141e25490cf9e0d3a05374171cb0a42c91a0cf0fb2041ba4c010f466e89b596d)
+
+### tantivy-sstable 0.27.0
+- Repository source [https://raw.githubusercontent.com/quickwit-oss/tantivy/50ac63df66084b8f77bfd067b81b5b8076b8a905/LICENSE](https://raw.githubusercontent.com/quickwit-oss/tantivy/50ac63df66084b8f77bfd067b81b5b8076b8a905/LICENSE): [source text acacd14bebbffdb30d62443c282fb4da3e81915a9f69c63d5d745a029f44de8a](#text-acacd14bebbffdb30d62443c282fb4da3e81915a9f69c63d5d745a029f44de8a)
+- Repository source [https://raw.githubusercontent.com/quickwit-oss/tantivy/50ac63df66084b8f77bfd067b81b5b8076b8a905/AUTHORS](https://raw.githubusercontent.com/quickwit-oss/tantivy/50ac63df66084b8f77bfd067b81b5b8076b8a905/AUTHORS): [source text 141e25490cf9e0d3a05374171cb0a42c91a0cf0fb2041ba4c010f466e89b596d](#text-141e25490cf9e0d3a05374171cb0a42c91a0cf0fb2041ba4c010f466e89b596d)
+
+### tantivy-stacker 0.27.0
+- Repository source [https://raw.githubusercontent.com/quickwit-oss/tantivy/67889269cae67063c372bc236b102d632a021568/LICENSE](https://raw.githubusercontent.com/quickwit-oss/tantivy/67889269cae67063c372bc236b102d632a021568/LICENSE): [source text acacd14bebbffdb30d62443c282fb4da3e81915a9f69c63d5d745a029f44de8a](#text-acacd14bebbffdb30d62443c282fb4da3e81915a9f69c63d5d745a029f44de8a)
+- Repository source [https://raw.githubusercontent.com/quickwit-oss/tantivy/67889269cae67063c372bc236b102d632a021568/AUTHORS](https://raw.githubusercontent.com/quickwit-oss/tantivy/67889269cae67063c372bc236b102d632a021568/AUTHORS): [source text 141e25490cf9e0d3a05374171cb0a42c91a0cf0fb2041ba4c010f466e89b596d](#text-141e25490cf9e0d3a05374171cb0a42c91a0cf0fb2041ba4c010f466e89b596d)
 
 ### tantivy-tokenizer-api 0.7.0
 - Repository source [https://raw.githubusercontent.com/quickwit-oss/tantivy/9e63fc508153ef770f9ff980c8fa2f11e8e2e6db/LICENSE](https://raw.githubusercontent.com/quickwit-oss/tantivy/9e63fc508153ef770f9ff980c8fa2f11e8e2e6db/LICENSE): [source text acacd14bebbffdb30d62443c282fb4da3e81915a9f69c63d5d745a029f44de8a](#text-acacd14bebbffdb30d62443c282fb4da3e81915a9f69c63d5d745a029f44de8a)
