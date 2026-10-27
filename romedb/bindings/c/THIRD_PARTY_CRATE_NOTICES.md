@@ -4,7 +4,7 @@ Generated from the pinned Cargo dependency inventory and checksummed source arch
 
 This is a partial notice collection. It supplements LICENSE.md and THIRD_PARTY_NOTICES.md. Inline attributions, unconventional filenames and other bundled components require further review before a complete distribution-notice claim.
 
-Target: `x86_64-unknown-linux-gnu`. Cargo.lock SHA-256: `de51c5e96d6bd41bcc266ff0e3ff88ab2e20906ec8669192c4d8278ae6bd76fd`.
+Target: `x86_64-unknown-linux-gnu`. Cargo.lock SHA-256: `fd14778135a39262701acbb28b5c02fa7f7ea170433d31427cd4c35efd2bf4c0`.
 
 ## Packages without collected archive or supplemental texts
 
@@ -61,9 +61,9 @@ Target: `x86_64-unknown-linux-gnu`. Cargo.lock SHA-256: `de51c5e96d6bd41bcc266ff
 - `LICENSE-APACHE`: [source text a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2](#text-a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2)
 - `LICENSE-MIT`: [source text 27995d58ad5c1145c1a8cd86244ce844886958a35eb2b78c6b772748669999ac](#text-27995d58ad5c1145c1a8cd86244ce844886958a35eb2b78c6b772748669999ac)
 
-### base64 0.22.1
+### base64 0.23.1
 - `LICENSE-APACHE`: [source text a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2](#text-a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2)
-- `LICENSE-MIT`: [source text 0dd882e53de11566d50f8e8e2d5a651bcf3fabee4987d70f306233cf39094ba7](#text-0dd882e53de11566d50f8e8e2d5a651bcf3fabee4987d70f306233cf39094ba7)
+- `LICENSE-MIT`: [source text ab499c75a0f0da8e0fe83bf9ba3a27e5c39705310f07107c6c66b69958d2401c](#text-ab499c75a0f0da8e0fe83bf9ba3a27e5c39705310f07107c6c66b69958d2401c)
 
 ### bigdecimal 0.4.10
 - `LICENSE-APACHE`: [source text 74df43338fc1a37b5a744b7d4991662ad9936157abeb4d9ea7bdd5b702c5e3fd](#text-74df43338fc1a37b5a744b7d4991662ad9936157abeb4d9ea7bdd5b702c5e3fd)
@@ -205,9 +205,9 @@ Target: `x86_64-unknown-linux-gnu`. Cargo.lock SHA-256: `de51c5e96d6bd41bcc266ff
 ### darling_macro 0.20.11
 - `LICENSE`: [source text 8ea93490d74a5a1b1af3ff71d786271b3f1e5f0bea79ac16e02ec533cef040d6](#text-8ea93490d74a5a1b1af3ff71d786271b3f1e5f0bea79ac16e02ec533cef040d6)
 
-### datasketches 0.2.0
-- Repository source [https://raw.githubusercontent.com/apache/datasketches-rust/fdb38b85d22e6549ab283bf3b9b133659267d19f/LICENSE](https://raw.githubusercontent.com/apache/datasketches-rust/fdb38b85d22e6549ab283bf3b9b133659267d19f/LICENSE): [source text 2a93522cc3e0d15510a70e0e7aaf33dc6a1588c39ca4a5c60c4b0121ed25eaf4](#text-2a93522cc3e0d15510a70e0e7aaf33dc6a1588c39ca4a5c60c4b0121ed25eaf4)
-- Repository source [https://raw.githubusercontent.com/apache/datasketches-rust/fdb38b85d22e6549ab283bf3b9b133659267d19f/NOTICE](https://raw.githubusercontent.com/apache/datasketches-rust/fdb38b85d22e6549ab283bf3b9b133659267d19f/NOTICE): [source text 624b424b930d7ce49f8856323c6aa5ffbcaa71a474d60bf8f60852f8aa20bcfa](#text-624b424b930d7ce49f8856323c6aa5ffbcaa71a474d60bf8f60852f8aa20bcfa)
+### datasketches 0.5.0
+- `LICENSE`: [source text d97b0fec0d2d03920b94290c60fd29dedc0b48b1da03dd789d571de328321534](#text-d97b0fec0d2d03920b94290c60fd29dedc0b48b1da03dd789d571de328321534)
+- `NOTICE`: [source text 993058a7037a68deba9d4351a396c4a4295f7c912488296049156eb0f2dc98c0](#text-993058a7037a68deba9d4351a396c4a4295f7c912488296049156eb0f2dc98c0)
 
 ### deranged 0.5.8
 - `LICENSE-Apache`: [source text edd65bdd88957a205c47d53fa499eed8865a70320f0f03f6391668cb304ea376](#text-edd65bdd88957a205c47d53fa499eed8865a70320f0f03f6391668cb304ea376)
@@ -245,20 +245,8 @@ Target: `x86_64-unknown-linux-gnu`. Cargo.lock SHA-256: `de51c5e96d6bd41bcc266ff
 - `LICENSE-APACHE`: [source text 7cde763ba32b3ec2a84eddd8beb0dcb895fd6436aeb18491ab9572a7eb8de996](#text-7cde763ba32b3ec2a84eddd8beb0dcb895fd6436aeb18491ab9572a7eb8de996)
 - `LICENSE-MIT`: [source text 7c86aec715e38bf01c316a69de917c1245bf9945a5dc0329eecc774cdb4f26c2](#text-7c86aec715e38bf01c316a69de917c1245bf9945a5dc0329eecc774cdb4f26c2)
 
-### romedb-c 0.2.9
-- Workspace `LICENSE.md`: [source text b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5](#text-b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5)
-
-### romedb-protocol 0.2.9
-- Workspace `LICENSE.md`: [source text b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5](#text-b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5)
-
-### romedb 0.2.9
-- Workspace `LICENSE.md`: [source text b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5](#text-b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5)
-
 ### fastdivide 0.4.2
 - `LICENSE.txt`: [source text 97b68427822e3bca727ea8bc8748b354509b36bc2311c34b39ce86773fcb65c9](#text-97b68427822e3bca727ea8bc8748b354509b36bc2311c34b39ce86773fcb65c9)
-
-### romeql-parser 0.2.9
-- Workspace `LICENSE.md`: [source text b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5](#text-b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5)
 
 ### fastrand 2.3.0
 - `LICENSE-APACHE`: [source text a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2](#text-a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2)
@@ -278,6 +266,10 @@ Target: `x86_64-unknown-linux-gnu`. Cargo.lock SHA-256: `de51c5e96d6bd41bcc266ff
 
 ### foldhash 0.2.0
 - `LICENSE`: [source text b1181a40b2a7b25cf66fd01481713bc1005df082c53ef73e851e55071b102744](#text-b1181a40b2a7b25cf66fd01481713bc1005df082c53ef73e851e55071b102744)
+
+### frostem 1.20260821.8
+- `LICENSE`: [source text 9f1cbec491ae835de899d22d98064ca21b37ab3d7112393de1eb3a6be0aa1efc](#text-9f1cbec491ae835de899d22d98064ca21b37ab3d7112393de1eb3a6be0aa1efc)
+- `LICENSE-SNOWBALL`: [source text 880802872ce34f313df826e96131b1b147dcfa09c76fc82129f25503a922a678](#text-880802872ce34f313df826e96131b1b147dcfa09c76fc82129f25503a922a678)
 
 ### fs4 0.13.1
 - `LICENSE-APACHE`: [source text a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2](#text-a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2)
@@ -329,10 +321,6 @@ Target: `x86_64-unknown-linux-gnu`. Cargo.lock SHA-256: `de51c5e96d6bd41bcc266ff
 - `LICENSE-MIT`: [source text 508a77d2e7b51d98adeed32648ad124b7b30241a8e70b2e72c99f92d8e5874d1](#text-508a77d2e7b51d98adeed32648ad124b7b30241a8e70b2e72c99f92d8e5874d1)
 
 ### hashbrown 0.15.2
-- `LICENSE-APACHE`: [source text a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2](#text-a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2)
-- `LICENSE-MIT`: [source text ff8f68cb076caf8cefe7a6430d4ac086ce6af2ca8ce2c4e5a2004d4552ef52a2](#text-ff8f68cb076caf8cefe7a6430d4ac086ce6af2ca8ce2c4e5a2004d4552ef52a2)
-
-### hashbrown 0.16.1
 - `LICENSE-APACHE`: [source text a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2](#text-a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2)
 - `LICENSE-MIT`: [source text ff8f68cb076caf8cefe7a6430d4ac086ce6af2ca8ce2c4e5a2004d4552ef52a2](#text-ff8f68cb076caf8cefe7a6430d4ac086ce6af2ca8ce2c4e5a2004d4552ef52a2)
 
@@ -462,10 +450,10 @@ Target: `x86_64-unknown-linux-gnu`. Cargo.lock SHA-256: `de51c5e96d6bd41bcc266ff
 - `LICENSE-APACHE`: [source text a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2](#text-a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2)
 - `LICENSE-MIT`: [source text 6485b8ed310d3f0340bf1ad1f47645069ce4069dcc6bb46c7d5c6faf41de1fdb](#text-6485b8ed310d3f0340bf1ad1f47645069ce4069dcc6bb46c7d5c6faf41de1fdb)
 
-### lru 0.16.4
+### lru 0.18.5
 - `LICENSE`: [source text 061dc50af2cd9340703daf61978af3200cf681b12ea67a323c33ba109a23a45e](#text-061dc50af2cd9340703daf61978af3200cf681b12ea67a323c33ba109a23a45e)
 
-### lz4_flex 0.13.0
+### lz4_flex 0.14.0
 - `LICENSE`: [source text 0982c33390159842ecce8e9d6ce2e5e39961fe0e0ffbb2eec39c9ba46db6db10](#text-0982c33390159842ecce8e9d6ce2e5e39961fe0e0ffbb2eec39c9ba46db6db10)
 
 ### measure_time 0.9.0
@@ -493,7 +481,7 @@ Target: `x86_64-unknown-linux-gnu`. Cargo.lock SHA-256: `de51c5e96d6bd41bcc266ff
 - `LICENSE-MIT`: [source text 23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3](#text-23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3)
 - `LICENSE.md`: [source text dbe1fff0fb1314b6af94f161511406275cf01c5a32441fbf24528a57a051d599](#text-dbe1fff0fb1314b6af94f161511406275cf01c5a32441fbf24528a57a051d599)
 
-### murmurhash32 0.3.1
+### murmurhash32 0.4.0
 - `LICENSE`: [source text 80cabf1d609584449c84fa14e16d675c3650a83e9d04c6e9f0bd3db4e0df21ff](#text-80cabf1d609584449c84fa14e16d675c3650a83e9d04c6e9f0bd3db4e0df21ff)
 
 ### nom 7.1.3
@@ -654,6 +642,18 @@ Target: `x86_64-unknown-linux-gnu`. Cargo.lock SHA-256: `de51c5e96d6bd41bcc266ff
 - `LICENSE-APACHE`: [source text a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2](#text-a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2)
 - `LICENSE-MIT`: [source text 42d3bf7e7d4d49d72c0555d14ed99c3ee7ce9ce3cbffbc38bbafe8c103f50969](#text-42d3bf7e7d4d49d72c0555d14ed99c3ee7ce9ce3cbffbc38bbafe8c103f50969)
 
+### romedb-c 0.2.9
+- Workspace `LICENSE.md`: [source text b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5](#text-b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5)
+
+### romedb-protocol 0.2.9
+- Workspace `LICENSE.md`: [source text b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5](#text-b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5)
+
+### romedb 0.2.9
+- Workspace `LICENSE.md`: [source text b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5](#text-b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5)
+
+### romeql-parser 0.2.9
+- Workspace `LICENSE.md`: [source text b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5](#text-b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5)
+
 ### rquickjs-core 0.13.0
 - Repository source [https://raw.githubusercontent.com/DelSkayn/rquickjs/f3039c8d931417049ce6133b3ff4550ca38438a5/LICENSE](https://raw.githubusercontent.com/DelSkayn/rquickjs/f3039c8d931417049ce6133b3ff4550ca38438a5/LICENSE): [source text 976ad3d07927343ab99b31510625acba89eac8e0e517c712925620ddeda91b70](#text-976ad3d07927343ab99b31510625acba89eac8e0e517c712925620ddeda91b70)
 
@@ -662,11 +662,6 @@ Target: `x86_64-unknown-linux-gnu`. Cargo.lock SHA-256: `de51c5e96d6bd41bcc266ff
 
 ### rquickjs 0.13.0
 - `LICENSE`: [source text 976ad3d07927343ab99b31510625acba89eac8e0e517c712925620ddeda91b70](#text-976ad3d07927343ab99b31510625acba89eac8e0e517c712925620ddeda91b70)
-
-### rust-stemmers 1.2.0
-- `LICENSE`: [source text e46379f1aba07707c23fab8733d3441e9df981b1543046e0317b2036f8fdaef8](#text-e46379f1aba07707c23fab8733d3441e9df981b1543046e0317b2036f8fdaef8)
-- `algorithms/LICENSE`: [source text ea2879fe94b4b2e6b3c6fb18b3bf265f9ff162637e5e1ac21fabc43d8cf34961](#text-ea2879fe94b4b2e6b3c6fb18b3bf265f9ff162637e5e1ac21fabc43d8cf34961)
-- `test_data/LICENSE`: [source text 8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903](#text-8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903)
 
 ### rustc-hash 2.1.1
 - `LICENSE-APACHE`: [source text 95bd3988beee069fa2848f648dab43cc6e0b2add2ad6bcb17360caf749802bcc](#text-95bd3988beee069fa2848f648dab43cc6e0b2add2ad6bcb17360caf749802bcc)
@@ -707,6 +702,9 @@ Target: `x86_64-unknown-linux-gnu`. Cargo.lock SHA-256: `de51c5e96d6bd41bcc266ff
 ### semver 1.0.26
 - `LICENSE-APACHE`: [source text 62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a](#text-62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a)
 - `LICENSE-MIT`: [source text 23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3](#text-23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3)
+
+### serde-tuple-vec-map 1.0.1
+- `LICENSE`: [source text 0f59f4c0f1f4deb18cbb7c5986003ff584c47fb6ae5daf045f9e8386b866bedf](#text-0f59f4c0f1f4deb18cbb7c5986003ff584c47fb6ae5daf045f9e8386b866bedf)
 
 ### serde 1.0.228
 - `LICENSE-APACHE`: [source text 62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a](#text-62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a)
@@ -794,17 +792,17 @@ Target: `x86_64-unknown-linux-gnu`. Cargo.lock SHA-256: `de51c5e96d6bd41bcc266ff
 ### synstructure 0.13.1
 - `LICENSE`: [source text 219920e865eee70b7dcfc948a86b099e7f4fe2de01bcca2ca9a20c0a033f2b59](#text-219920e865eee70b7dcfc948a86b099e7f4fe2de01bcca2ca9a20c0a033f2b59)
 
-### tantivy-bitpacker 0.10.0
-- Repository source [https://raw.githubusercontent.com/quickwit-oss/tantivy/9e63fc508153ef770f9ff980c8fa2f11e8e2e6db/LICENSE](https://raw.githubusercontent.com/quickwit-oss/tantivy/9e63fc508153ef770f9ff980c8fa2f11e8e2e6db/LICENSE): [source text acacd14bebbffdb30d62443c282fb4da3e81915a9f69c63d5d745a029f44de8a](#text-acacd14bebbffdb30d62443c282fb4da3e81915a9f69c63d5d745a029f44de8a)
-- Repository source [https://raw.githubusercontent.com/quickwit-oss/tantivy/9e63fc508153ef770f9ff980c8fa2f11e8e2e6db/AUTHORS](https://raw.githubusercontent.com/quickwit-oss/tantivy/9e63fc508153ef770f9ff980c8fa2f11e8e2e6db/AUTHORS): [source text 141e25490cf9e0d3a05374171cb0a42c91a0cf0fb2041ba4c010f466e89b596d](#text-141e25490cf9e0d3a05374171cb0a42c91a0cf0fb2041ba4c010f466e89b596d)
+### tantivy-bitpacker 0.27.0
+- Repository source [https://raw.githubusercontent.com/quickwit-oss/tantivy/50ac63df66084b8f77bfd067b81b5b8076b8a905/LICENSE](https://raw.githubusercontent.com/quickwit-oss/tantivy/50ac63df66084b8f77bfd067b81b5b8076b8a905/LICENSE): [source text acacd14bebbffdb30d62443c282fb4da3e81915a9f69c63d5d745a029f44de8a](#text-acacd14bebbffdb30d62443c282fb4da3e81915a9f69c63d5d745a029f44de8a)
+- Repository source [https://raw.githubusercontent.com/quickwit-oss/tantivy/50ac63df66084b8f77bfd067b81b5b8076b8a905/AUTHORS](https://raw.githubusercontent.com/quickwit-oss/tantivy/50ac63df66084b8f77bfd067b81b5b8076b8a905/AUTHORS): [source text 141e25490cf9e0d3a05374171cb0a42c91a0cf0fb2041ba4c010f466e89b596d](#text-141e25490cf9e0d3a05374171cb0a42c91a0cf0fb2041ba4c010f466e89b596d)
 
-### tantivy-columnar 0.7.0
-- Repository source [https://raw.githubusercontent.com/quickwit-oss/tantivy/9e63fc508153ef770f9ff980c8fa2f11e8e2e6db/LICENSE](https://raw.githubusercontent.com/quickwit-oss/tantivy/9e63fc508153ef770f9ff980c8fa2f11e8e2e6db/LICENSE): [source text acacd14bebbffdb30d62443c282fb4da3e81915a9f69c63d5d745a029f44de8a](#text-acacd14bebbffdb30d62443c282fb4da3e81915a9f69c63d5d745a029f44de8a)
-- Repository source [https://raw.githubusercontent.com/quickwit-oss/tantivy/9e63fc508153ef770f9ff980c8fa2f11e8e2e6db/AUTHORS](https://raw.githubusercontent.com/quickwit-oss/tantivy/9e63fc508153ef770f9ff980c8fa2f11e8e2e6db/AUTHORS): [source text 141e25490cf9e0d3a05374171cb0a42c91a0cf0fb2041ba4c010f466e89b596d](#text-141e25490cf9e0d3a05374171cb0a42c91a0cf0fb2041ba4c010f466e89b596d)
+### tantivy-columnar 0.27.0
+- Repository source [https://raw.githubusercontent.com/quickwit-oss/tantivy/67889269cae67063c372bc236b102d632a021568/LICENSE](https://raw.githubusercontent.com/quickwit-oss/tantivy/67889269cae67063c372bc236b102d632a021568/LICENSE): [source text acacd14bebbffdb30d62443c282fb4da3e81915a9f69c63d5d745a029f44de8a](#text-acacd14bebbffdb30d62443c282fb4da3e81915a9f69c63d5d745a029f44de8a)
+- Repository source [https://raw.githubusercontent.com/quickwit-oss/tantivy/67889269cae67063c372bc236b102d632a021568/AUTHORS](https://raw.githubusercontent.com/quickwit-oss/tantivy/67889269cae67063c372bc236b102d632a021568/AUTHORS): [source text 141e25490cf9e0d3a05374171cb0a42c91a0cf0fb2041ba4c010f466e89b596d](#text-141e25490cf9e0d3a05374171cb0a42c91a0cf0fb2041ba4c010f466e89b596d)
 
-### tantivy-common 0.11.0
-- Repository source [https://raw.githubusercontent.com/quickwit-oss/tantivy/9e63fc508153ef770f9ff980c8fa2f11e8e2e6db/LICENSE](https://raw.githubusercontent.com/quickwit-oss/tantivy/9e63fc508153ef770f9ff980c8fa2f11e8e2e6db/LICENSE): [source text acacd14bebbffdb30d62443c282fb4da3e81915a9f69c63d5d745a029f44de8a](#text-acacd14bebbffdb30d62443c282fb4da3e81915a9f69c63d5d745a029f44de8a)
-- Repository source [https://raw.githubusercontent.com/quickwit-oss/tantivy/9e63fc508153ef770f9ff980c8fa2f11e8e2e6db/AUTHORS](https://raw.githubusercontent.com/quickwit-oss/tantivy/9e63fc508153ef770f9ff980c8fa2f11e8e2e6db/AUTHORS): [source text 141e25490cf9e0d3a05374171cb0a42c91a0cf0fb2041ba4c010f466e89b596d](#text-141e25490cf9e0d3a05374171cb0a42c91a0cf0fb2041ba4c010f466e89b596d)
+### tantivy-common 0.27.0
+- Repository source [https://raw.githubusercontent.com/quickwit-oss/tantivy/50ac63df66084b8f77bfd067b81b5b8076b8a905/LICENSE](https://raw.githubusercontent.com/quickwit-oss/tantivy/50ac63df66084b8f77bfd067b81b5b8076b8a905/LICENSE): [source text acacd14bebbffdb30d62443c282fb4da3e81915a9f69c63d5d745a029f44de8a](#text-acacd14bebbffdb30d62443c282fb4da3e81915a9f69c63d5d745a029f44de8a)
+- Repository source [https://raw.githubusercontent.com/quickwit-oss/tantivy/50ac63df66084b8f77bfd067b81b5b8076b8a905/AUTHORS](https://raw.githubusercontent.com/quickwit-oss/tantivy/50ac63df66084b8f77bfd067b81b5b8076b8a905/AUTHORS): [source text 141e25490cf9e0d3a05374171cb0a42c91a0cf0fb2041ba4c010f466e89b596d](#text-141e25490cf9e0d3a05374171cb0a42c91a0cf0fb2041ba4c010f466e89b596d)
 
 ### tantivy-fst 0.5.0
 - `COPYING`: [source text 01c266bced4a434da0051174d6bee16a4c82cf634e2679b6155d40d75012390f](#text-01c266bced4a434da0051174d6bee16a4c82cf634e2679b6155d40d75012390f)
@@ -814,19 +812,23 @@ Target: `x86_64-unknown-linux-gnu`. Cargo.lock SHA-256: `de51c5e96d6bd41bcc266ff
 - Repository source [https://raw.githubusercontent.com/quickwit-oss/tantivy/9e63fc508153ef770f9ff980c8fa2f11e8e2e6db/LICENSE](https://raw.githubusercontent.com/quickwit-oss/tantivy/9e63fc508153ef770f9ff980c8fa2f11e8e2e6db/LICENSE): [source text acacd14bebbffdb30d62443c282fb4da3e81915a9f69c63d5d745a029f44de8a](#text-acacd14bebbffdb30d62443c282fb4da3e81915a9f69c63d5d745a029f44de8a)
 - Repository source [https://raw.githubusercontent.com/quickwit-oss/tantivy/9e63fc508153ef770f9ff980c8fa2f11e8e2e6db/AUTHORS](https://raw.githubusercontent.com/quickwit-oss/tantivy/9e63fc508153ef770f9ff980c8fa2f11e8e2e6db/AUTHORS): [source text 141e25490cf9e0d3a05374171cb0a42c91a0cf0fb2041ba4c010f466e89b596d](#text-141e25490cf9e0d3a05374171cb0a42c91a0cf0fb2041ba4c010f466e89b596d)
 
-### tantivy-sstable 0.7.0
-- Repository source [https://raw.githubusercontent.com/quickwit-oss/tantivy/9e63fc508153ef770f9ff980c8fa2f11e8e2e6db/LICENSE](https://raw.githubusercontent.com/quickwit-oss/tantivy/9e63fc508153ef770f9ff980c8fa2f11e8e2e6db/LICENSE): [source text acacd14bebbffdb30d62443c282fb4da3e81915a9f69c63d5d745a029f44de8a](#text-acacd14bebbffdb30d62443c282fb4da3e81915a9f69c63d5d745a029f44de8a)
-- Repository source [https://raw.githubusercontent.com/quickwit-oss/tantivy/9e63fc508153ef770f9ff980c8fa2f11e8e2e6db/AUTHORS](https://raw.githubusercontent.com/quickwit-oss/tantivy/9e63fc508153ef770f9ff980c8fa2f11e8e2e6db/AUTHORS): [source text 141e25490cf9e0d3a05374171cb0a42c91a0cf0fb2041ba4c010f466e89b596d](#text-141e25490cf9e0d3a05374171cb0a42c91a0cf0fb2041ba4c010f466e89b596d)
+### tantivy-query-grammar 0.27.0
+- Repository source [https://raw.githubusercontent.com/quickwit-oss/tantivy/50ac63df66084b8f77bfd067b81b5b8076b8a905/LICENSE](https://raw.githubusercontent.com/quickwit-oss/tantivy/50ac63df66084b8f77bfd067b81b5b8076b8a905/LICENSE): [source text acacd14bebbffdb30d62443c282fb4da3e81915a9f69c63d5d745a029f44de8a](#text-acacd14bebbffdb30d62443c282fb4da3e81915a9f69c63d5d745a029f44de8a)
+- Repository source [https://raw.githubusercontent.com/quickwit-oss/tantivy/50ac63df66084b8f77bfd067b81b5b8076b8a905/AUTHORS](https://raw.githubusercontent.com/quickwit-oss/tantivy/50ac63df66084b8f77bfd067b81b5b8076b8a905/AUTHORS): [source text 141e25490cf9e0d3a05374171cb0a42c91a0cf0fb2041ba4c010f466e89b596d](#text-141e25490cf9e0d3a05374171cb0a42c91a0cf0fb2041ba4c010f466e89b596d)
 
-### tantivy-stacker 0.7.0
-- Repository source [https://raw.githubusercontent.com/quickwit-oss/tantivy/9e63fc508153ef770f9ff980c8fa2f11e8e2e6db/LICENSE](https://raw.githubusercontent.com/quickwit-oss/tantivy/9e63fc508153ef770f9ff980c8fa2f11e8e2e6db/LICENSE): [source text acacd14bebbffdb30d62443c282fb4da3e81915a9f69c63d5d745a029f44de8a](#text-acacd14bebbffdb30d62443c282fb4da3e81915a9f69c63d5d745a029f44de8a)
-- Repository source [https://raw.githubusercontent.com/quickwit-oss/tantivy/9e63fc508153ef770f9ff980c8fa2f11e8e2e6db/AUTHORS](https://raw.githubusercontent.com/quickwit-oss/tantivy/9e63fc508153ef770f9ff980c8fa2f11e8e2e6db/AUTHORS): [source text 141e25490cf9e0d3a05374171cb0a42c91a0cf0fb2041ba4c010f466e89b596d](#text-141e25490cf9e0d3a05374171cb0a42c91a0cf0fb2041ba4c010f466e89b596d)
+### tantivy-sstable 0.27.0
+- Repository source [https://raw.githubusercontent.com/quickwit-oss/tantivy/50ac63df66084b8f77bfd067b81b5b8076b8a905/LICENSE](https://raw.githubusercontent.com/quickwit-oss/tantivy/50ac63df66084b8f77bfd067b81b5b8076b8a905/LICENSE): [source text acacd14bebbffdb30d62443c282fb4da3e81915a9f69c63d5d745a029f44de8a](#text-acacd14bebbffdb30d62443c282fb4da3e81915a9f69c63d5d745a029f44de8a)
+- Repository source [https://raw.githubusercontent.com/quickwit-oss/tantivy/50ac63df66084b8f77bfd067b81b5b8076b8a905/AUTHORS](https://raw.githubusercontent.com/quickwit-oss/tantivy/50ac63df66084b8f77bfd067b81b5b8076b8a905/AUTHORS): [source text 141e25490cf9e0d3a05374171cb0a42c91a0cf0fb2041ba4c010f466e89b596d](#text-141e25490cf9e0d3a05374171cb0a42c91a0cf0fb2041ba4c010f466e89b596d)
+
+### tantivy-stacker 0.27.0
+- Repository source [https://raw.githubusercontent.com/quickwit-oss/tantivy/67889269cae67063c372bc236b102d632a021568/LICENSE](https://raw.githubusercontent.com/quickwit-oss/tantivy/67889269cae67063c372bc236b102d632a021568/LICENSE): [source text acacd14bebbffdb30d62443c282fb4da3e81915a9f69c63d5d745a029f44de8a](#text-acacd14bebbffdb30d62443c282fb4da3e81915a9f69c63d5d745a029f44de8a)
+- Repository source [https://raw.githubusercontent.com/quickwit-oss/tantivy/67889269cae67063c372bc236b102d632a021568/AUTHORS](https://raw.githubusercontent.com/quickwit-oss/tantivy/67889269cae67063c372bc236b102d632a021568/AUTHORS): [source text 141e25490cf9e0d3a05374171cb0a42c91a0cf0fb2041ba4c010f466e89b596d](#text-141e25490cf9e0d3a05374171cb0a42c91a0cf0fb2041ba4c010f466e89b596d)
 
 ### tantivy-tokenizer-api 0.7.0
 - Repository source [https://raw.githubusercontent.com/quickwit-oss/tantivy/9e63fc508153ef770f9ff980c8fa2f11e8e2e6db/LICENSE](https://raw.githubusercontent.com/quickwit-oss/tantivy/9e63fc508153ef770f9ff980c8fa2f11e8e2e6db/LICENSE): [source text acacd14bebbffdb30d62443c282fb4da3e81915a9f69c63d5d745a029f44de8a](#text-acacd14bebbffdb30d62443c282fb4da3e81915a9f69c63d5d745a029f44de8a)
 - Repository source [https://raw.githubusercontent.com/quickwit-oss/tantivy/9e63fc508153ef770f9ff980c8fa2f11e8e2e6db/AUTHORS](https://raw.githubusercontent.com/quickwit-oss/tantivy/9e63fc508153ef770f9ff980c8fa2f11e8e2e6db/AUTHORS): [source text 141e25490cf9e0d3a05374171cb0a42c91a0cf0fb2041ba4c010f466e89b596d](#text-141e25490cf9e0d3a05374171cb0a42c91a0cf0fb2041ba4c010f466e89b596d)
 
-### tantivy 0.26.2
+### tantivy 0.27.0
 - `LICENSE`: [source text acacd14bebbffdb30d62443c282fb4da3e81915a9f69c63d5d745a029f44de8a](#text-acacd14bebbffdb30d62443c282fb4da3e81915a9f69c63d5d745a029f44de8a)
 
 ### tempfile 3.20.0
@@ -941,6 +943,10 @@ Target: `x86_64-unknown-linux-gnu`. Cargo.lock SHA-256: `de51c5e96d6bd41bcc266ff
 - `LICENSE-APACHE`: [source text a9040321c3712d8fd0b09cf52b17445de04a23a10165049ae187cd39e5c86be5](#text-a9040321c3712d8fd0b09cf52b17445de04a23a10165049ae187cd39e5c86be5)
 - `LICENSE-MIT`: [source text 6b50510a0400c72172355cc5d2ba0f2c5c2eb33149b8f96539dc345fdc484920](#text-6b50510a0400c72172355cc5d2ba0f2c5c2eb33149b8f96539dc345fdc484920)
 
+### unwrap-infallible 1.0.0
+- `LICENSE-APACHE`: [source text a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2](#text-a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2)
+- `LICENSE-MIT`: [source text 76c88028846cd884418c1773ca7991b89f00a29a503fe84076182c6d37389d17](#text-76c88028846cd884418c1773ca7991b89f00a29a503fe84076182c6d37389d17)
+
 ### usearch 2.26.2
 - Repository source [https://raw.githubusercontent.com/unum-cloud/USearch/f91fe5bc000222aa1af6e91daf78c2bb20b0c90e/LICENSE](https://raw.githubusercontent.com/unum-cloud/USearch/f91fe5bc000222aa1af6e91daf78c2bb20b0c90e/LICENSE): [source text c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4](#text-c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4)
 
@@ -1000,21 +1006,17 @@ Target: `x86_64-unknown-linux-gnu`. Cargo.lock SHA-256: `de51c5e96d6bd41bcc266ff
 ### zerovec 0.11.6
 - `LICENSE`: [source text f367c1b8e1aa262435251e442901da4607b4650e0e63a026f5044473ecfb90f2](#text-f367c1b8e1aa262435251e442901da4607b4650e0e63a026f5044473ecfb90f2)
 
-### zstd-safe 7.2.4
-- `LICENSE`: [source text a77b7cfeaf911ed410ffbe76f0cb2b24ad8a4d94e7ead5727e914425c416cc63](#text-a77b7cfeaf911ed410ffbe76f0cb2b24ad8a4d94e7ead5727e914425c416cc63)
-- `LICENSE.Apache-2.0`: [source text 0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594](#text-0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594)
-- `LICENSE.Mit`: [source text 129e8edef29e9abcd2ebabe252f4ef1b1289cdca356bf0040284a2fbccfb96c8](#text-129e8edef29e9abcd2ebabe252f4ef1b1289cdca356bf0040284a2fbccfb96c8)
+### zstd-safe 8.2.0
+- `LICENSE`: [source text ce4868c8e4ebe47a7d4b3c93dbf6b802033e5ae2fa7638098173f80836daac60](#text-ce4868c8e4ebe47a7d4b3c93dbf6b802033e5ae2fa7638098173f80836daac60)
 
-### zstd-sys 2.0.16+zstd.1.5.7
-- `LICENSE`: [source text a77b7cfeaf911ed410ffbe76f0cb2b24ad8a4d94e7ead5727e914425c416cc63](#text-a77b7cfeaf911ed410ffbe76f0cb2b24ad8a4d94e7ead5727e914425c416cc63)
-- `LICENSE.Apache-2.0`: [source text 0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594](#text-0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594)
-- `LICENSE.BSD-3-Clause`: [source text 48341f685c87304089aa099b23c386f8bacc519ef555aa7a13e239908907b3fd](#text-48341f685c87304089aa099b23c386f8bacc519ef555aa7a13e239908907b3fd)
-- `LICENSE.Mit`: [source text 129e8edef29e9abcd2ebabe252f4ef1b1289cdca356bf0040284a2fbccfb96c8](#text-129e8edef29e9abcd2ebabe252f4ef1b1289cdca356bf0040284a2fbccfb96c8)
+### zstd-sys 2.1.2+zstd.1.5.7
+- `LICENSE`: [source text ce4868c8e4ebe47a7d4b3c93dbf6b802033e5ae2fa7638098173f80836daac60](#text-ce4868c8e4ebe47a7d4b3c93dbf6b802033e5ae2fa7638098173f80836daac60)
+- `LICENSE.BSD-3-Clause`: [source text bf7017a73a95ea63bf3716b13ec2bcd79c92942356e3408c6fb66332bad6d977](#text-bf7017a73a95ea63bf3716b13ec2bcd79c92942356e3408c6fb66332bad6d977)
 - `zstd/COPYING`: [source text f9c375a1be4a41f7b70301dd83c91cb89e41567478859b77eef375a52d782505](#text-f9c375a1be4a41f7b70301dd83c91cb89e41567478859b77eef375a52d782505)
 - `zstd/LICENSE`: [source text 7055266497633c9025b777c78eb7235af13922117480ed5c674677adc381c9d8](#text-7055266497633c9025b777c78eb7235af13922117480ed5c674677adc381c9d8)
 
-### zstd 0.13.3
-- `LICENSE`: [source text 129e8edef29e9abcd2ebabe252f4ef1b1289cdca356bf0040284a2fbccfb96c8](#text-129e8edef29e9abcd2ebabe252f4ef1b1289cdca356bf0040284a2fbccfb96c8)
+### zstd 0.14.3
+- `LICENSE`: [source text ce4868c8e4ebe47a7d4b3c93dbf6b802033e5ae2fa7638098173f80836daac60](#text-ce4868c8e4ebe47a7d4b3c93dbf6b802033e5ae2fa7638098173f80836daac60)
 
 <a id="text-01c266bced4a434da0051174d6bee16a4c82cf634e2679b6155d40d75012390f"></a>
 
@@ -2254,31 +2256,17 @@ DEALINGS IN THE SOFTWARE.
 
    END OF TERMS AND CONDITIONS
 
-<a id="text-0dd882e53de11566d50f8e8e2d5a651bcf3fabee4987d70f306233cf39094ba7"></a>
+<a id="text-0f59f4c0f1f4deb18cbb7c5986003ff584c47fb6ae5daf045f9e8386b866bedf"></a>
 
-## Source text 0dd882e53de11566d50f8e8e2d5a651bcf3fabee4987d70f306233cf39094ba7
+## Source text 0f59f4c0f1f4deb18cbb7c5986003ff584c47fb6ae5daf045f9e8386b866bedf
 
-The MIT License (MIT)
+Copyright (c) 2017 David Ross
 
-Copyright (c) 2015 Alice Maz
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 <a id="text-0f96a83840e146e43c0ec96a22ec1f392e0680e6c1226e6f3ba87e0740af850f"></a>
 
@@ -2516,19 +2504,6 @@ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
-
-<a id="text-129e8edef29e9abcd2ebabe252f4ef1b1289cdca356bf0040284a2fbccfb96c8"></a>
-
-## Source text 129e8edef29e9abcd2ebabe252f4ef1b1289cdca356bf0040284a2fbccfb96c8
-
-The MIT License (MIT)
-Copyright (c) 2016 Alexandre Bury
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 <a id="text-141e25490cf9e0d3a05374171cb0a42c91a0cf0fb2041ba4c010f466e89b596d"></a>
 
@@ -3943,229 +3918,6 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-<a id="text-2a93522cc3e0d15510a70e0e7aaf33dc6a1588c39ca4a5c60c4b0121ed25eaf4"></a>
-
-## Source text 2a93522cc3e0d15510a70e0e7aaf33dc6a1588c39ca4a5c60c4b0121ed25eaf4
-
-
-                                 Apache License
-                           Version 2.0, January 2004
-                        http://www.apache.org/licenses/
-
-   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
-
-   1. Definitions.
-
-      "License" shall mean the terms and conditions for use, reproduction,
-      and distribution as defined by Sections 1 through 9 of this document.
-
-      "Licensor" shall mean the copyright owner or entity authorized by
-      the copyright owner that is granting the License.
-
-      "Legal Entity" shall mean the union of the acting entity and all
-      other entities that control, are controlled by, or are under common
-      control with that entity. For the purposes of this definition,
-      "control" means (i) the power, direct or indirect, to cause the
-      direction or management of such entity, whether by contract or
-      otherwise, or (ii) ownership of fifty percent (50%) or more of the
-      outstanding shares, or (iii) beneficial ownership of such entity.
-
-      "You" (or "Your") shall mean an individual or Legal Entity
-      exercising permissions granted by this License.
-
-      "Source" form shall mean the preferred form for making modifications,
-      including but not limited to software source code, documentation
-      source, and configuration files.
-
-      "Object" form shall mean any form resulting from mechanical
-      transformation or translation of a Source form, including but
-      not limited to compiled object code, generated documentation,
-      and conversions to other media types.
-
-      "Work" shall mean the work of authorship, whether in Source or
-      Object form, made available under the License, as indicated by a
-      copyright notice that is included in or attached to the work
-      (an example is provided in the Appendix below).
-
-      "Derivative Works" shall mean any work, whether in Source or Object
-      form, that is based on (or derived from) the Work and for which the
-      editorial revisions, annotations, elaborations, or other modifications
-      represent, as a whole, an original work of authorship. For the purposes
-      of this License, Derivative Works shall not include works that remain
-      separable from, or merely link (or bind by name) to the interfaces of,
-      the Work and Derivative Works thereof.
-
-      "Contribution" shall mean any work of authorship, including
-      the original version of the Work and any modifications or additions
-      to that Work or Derivative Works thereof, that is intentionally
-      submitted to Licensor for inclusion in the Work by the copyright owner
-      or by an individual or Legal Entity authorized to submit on behalf of
-      the copyright owner. For the purposes of this definition, "submitted"
-      means any form of electronic, verbal, or written communication sent
-      to the Licensor or its representatives, including but not limited to
-      communication on electronic mailing lists, source code control systems,
-      and issue tracking systems that are managed by, or on behalf of, the
-      Licensor for the purpose of discussing and improving the Work, but
-      excluding communication that is conspicuously marked or otherwise
-      designated in writing by the copyright owner as "Not a Contribution."
-
-      "Contributor" shall mean Licensor and any individual or Legal Entity
-      on behalf of whom a Contribution has been received by Licensor and
-      subsequently incorporated within the Work.
-
-   2. Grant of Copyright License. Subject to the terms and conditions of
-      this License, each Contributor hereby grants to You a perpetual,
-      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
-      copyright license to reproduce, prepare Derivative Works of,
-      publicly display, publicly perform, sublicense, and distribute the
-      Work and such Derivative Works in Source or Object form.
-
-   3. Grant of Patent License. Subject to the terms and conditions of
-      this License, each Contributor hereby grants to You a perpetual,
-      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
-      (except as stated in this section) patent license to make, have made,
-      use, offer to sell, sell, import, and otherwise transfer the Work,
-      where such license applies only to those patent claims licensable
-      by such Contributor that are necessarily infringed by their
-      Contribution(s) alone or by combination of their Contribution(s)
-      with the Work to which such Contribution(s) was submitted. If You
-      institute patent litigation against any entity (including a
-      cross-claim or counterclaim in a lawsuit) alleging that the Work
-      or a Contribution incorporated within the Work constitutes direct
-      or contributory patent infringement, then any patent licenses
-      granted to You under this License for that Work shall terminate
-      as of the date such litigation is filed.
-
-   4. Redistribution. You may reproduce and distribute copies of the
-      Work or Derivative Works thereof in any medium, with or without
-      modifications, and in Source or Object form, provided that You
-      meet the following conditions:
-
-      (a) You must give any other recipients of the Work or
-          Derivative Works a copy of this License; and
-
-      (b) You must cause any modified files to carry prominent notices
-          stating that You changed the files; and
-
-      (c) You must retain, in the Source form of any Derivative Works
-          that You distribute, all copyright, patent, trademark, and
-          attribution notices from the Source form of the Work,
-          excluding those notices that do not pertain to any part of
-          the Derivative Works; and
-
-      (d) If the Work includes a "NOTICE" text file as part of its
-          distribution, then any Derivative Works that You distribute must
-          include a readable copy of the attribution notices contained
-          within such NOTICE file, excluding those notices that do not
-          pertain to any part of the Derivative Works, in at least one
-          of the following places: within a NOTICE text file distributed
-          as part of the Derivative Works; within the Source form or
-          documentation, if provided along with the Derivative Works; or,
-          within a display generated by the Derivative Works, if and
-          wherever such third-party notices normally appear. The contents
-          of the NOTICE file are for informational purposes only and
-          do not modify the License. You may add Your own attribution
-          notices within Derivative Works that You distribute, alongside
-          or as an addendum to the NOTICE text from the Work, provided
-          that such additional attribution notices cannot be construed
-          as modifying the License.
-
-      You may add Your own copyright statement to Your modifications and
-      may provide additional or different license terms and conditions
-      for use, reproduction, or distribution of Your modifications, or
-      for any such Derivative Works as a whole, provided Your use,
-      reproduction, and distribution of the Work otherwise complies with
-      the conditions stated in this License.
-
-   5. Submission of Contributions. Unless You explicitly state otherwise,
-      any Contribution intentionally submitted for inclusion in the Work
-      by You to the Licensor shall be under the terms and conditions of
-      this License, without any additional terms or conditions.
-      Notwithstanding the above, nothing herein shall supersede or modify
-      the terms of any separate license agreement you may have executed
-      with Licensor regarding such Contributions.
-
-   6. Trademarks. This License does not grant permission to use the trade
-      names, trademarks, service marks, or product names of the Licensor,
-      except as required for reasonable and customary use in describing the
-      origin of the Work and reproducing the content of the NOTICE file.
-
-   7. Disclaimer of Warranty. Unless required by applicable law or
-      agreed to in writing, Licensor provides the Work (and each
-      Contributor provides its Contributions) on an "AS IS" BASIS,
-      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-      implied, including, without limitation, any warranties or conditions
-      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
-      PARTICULAR PURPOSE. You are solely responsible for determining the
-      appropriateness of using or redistributing the Work and assume any
-      risks associated with Your exercise of permissions under this License.
-
-   8. Limitation of Liability. In no event and under no legal theory,
-      whether in tort (including negligence), contract, or otherwise,
-      unless required by applicable law (such as deliberate and grossly
-      negligent acts) or agreed to in writing, shall any Contributor be
-      liable to You for damages, including any direct, indirect, special,
-      incidental, or consequential damages of any character arising as a
-      result of this License or out of the use or inability to use the
-      Work (including but not limited to damages for loss of goodwill,
-      work stoppage, computer failure or malfunction, or any and all
-      other commercial damages or losses), even if such Contributor
-      has been advised of the possibility of such damages.
-
-   9. Accepting Warranty or Additional Liability. While redistributing
-      the Work or Derivative Works thereof, You may choose to offer,
-      and charge a fee for, acceptance of support, warranty, indemnity,
-      or other liability obligations and/or rights consistent with this
-      License. However, in accepting such obligations, You may act only
-      on Your own behalf and on Your sole responsibility, not on behalf
-      of any other Contributor, and only if You agree to indemnify,
-      defend, and hold each Contributor harmless for any liability
-      incurred by, or claims asserted against, such Contributor by reason
-      of your accepting any such warranty or additional liability.
-
-   END OF TERMS AND CONDITIONS
-
-
-
-APPENDIX A: How to apply the Apache License to your work.
-
-    To apply the Apache License to your work, attach the following
-    boilerplate notice, with the fields enclosed by brackets "[]"
-    replaced with your own identifying information. (Don't include
-    the brackets!)  The text should be enclosed in the appropriate
-    comment syntax for the file format. We also recommend that a
-    file or class name and description of purpose be included on the
-    same "printed page" as the copyright notice for easier
-    identification within third-party archives.
-    -------------------------------------------------------------
-    Copyright [yyyy] [name of copyright owner]
-
-    Licensed under the Apache License, Version 2.0 (the "License");
-    you may not use this file except in compliance with the License.
-    You may obtain a copy of the License at
-
-        http://www.apache.org/licenses/LICENSE-2.0
-
-    Unless required by applicable law or agreed to in writing, software
-    distributed under the License is distributed on an "AS IS" BASIS,
-    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-    See the License for the specific language governing permissions and
-    limitations under the License.
-    -------------------------------------------------------------
-
-
-
-APPENDIX B: Additional licenses relevant to this product:
-
-    This product includes a number of source files with code that has been
-    adapted from 3rd party sources including sources that may be subject
-    to different copyright notices and license terms. Your use of
-    the source code for these subcomponents is subject to the terms and
-    conditions of the following licenses.
-
-(EMPTY)
-
-
 <a id="text-304b898acad7f02e03d6d8832d682a3b43ee729ab5d3a069af5a36979083b6b4"></a>
 
 ## Source text 304b898acad7f02e03d6d8832d682a3b43ee729ab5d3a069af5a36979083b6b4
@@ -5476,43 +5228,6 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
-
-<a id="text-48341f685c87304089aa099b23c386f8bacc519ef555aa7a13e239908907b3fd"></a>
-
-## Source text 48341f685c87304089aa099b23c386f8bacc519ef555aa7a13e239908907b3fd
-
-The auto-generated bindings are under the 3-clause BSD license:
-
-BSD License
-
-For Zstandard software
-
-Copyright (c) 2016-present, Facebook, Inc. All rights reserved.
-
-Redistribution and use in source and binary forms, with or without modification,
-are permitted provided that the following conditions are met:
-
- * Redistributions of source code must retain the above copyright notice, this
-   list of conditions and the following disclaimer.
-
- * Redistributions in binary form must reproduce the above copyright notice,
-   this list of conditions and the following disclaimer in the documentation
-   and/or other materials provided with the distribution.
-
- * Neither the name Facebook nor the names of its contributors may be used to
-   endorse or promote products derived from this software without specific
-   prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
-ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
-ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 <a id="text-4cada0bd02ea3692eee6f16400d86c6508bbd3bafb2b65fed0419f36d4f83e8f"></a>
 
@@ -8365,18 +8080,6 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-<a id="text-624b424b930d7ce49f8856323c6aa5ffbcaa71a474d60bf8f60852f8aa20bcfa"></a>
-
-## Source text 624b424b930d7ce49f8856323c6aa5ffbcaa71a474d60bf8f60852f8aa20bcfa
-
-Apache DataSketches Rust
-Copyright 2025 The Apache Software Foundation
-
-This product includes software developed at
-The Apache Software Foundation (http://www.apache.org/).
-
-
-
 <a id="text-62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"></a>
 
 ## Source text 62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a
@@ -9542,6 +9245,36 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
+<a id="text-76c88028846cd884418c1773ca7991b89f00a29a503fe84076182c6d37389d17"></a>
+
+## Source text 76c88028846cd884418c1773ca7991b89f00a29a503fe84076182c6d37389d17
+
+Copyright (c) 2019 Mikhail Zabaluev
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
 <a id="text-7b63ecd5f1902af1b63729947373683c32745c16a10e8e6292e2e2dcd7e90ae0"></a>
 
 ## Source text 7b63ecd5f1902af1b63729947373683c32745c16a10e8e6292e2e2dcd7e90ae0
@@ -10113,6 +9846,40 @@ Permission is granted to anyone to use this software for any purpose, including 
 
 3. This notice may not be removed or altered from any source distribution.
 
+<a id="text-880802872ce34f313df826e96131b1b147dcfa09c76fc82129f25503a922a678"></a>
+
+## Source text 880802872ce34f313df826e96131b1b147dcfa09c76fc82129f25503a922a678
+
+Copyright (c) 2001, Dr Martin Porter
+Copyright (c) 2004,2005, Richard Boulton
+Copyright (c) 2013, Yoshiki Shibukawa
+Copyright (c) 2006-2025, Olly Betts
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+
+  1. Redistributions of source code must retain the above copyright notice,
+     this list of conditions and the following disclaimer.
+  2. Redistributions in binary form must reproduce the above copyright notice,
+     this list of conditions and the following disclaimer in the documentation
+     and/or other materials provided with the distribution.
+  3. Neither the name of the Snowball project nor the names of its contributors
+     may be used to endorse or promote products derived from this software
+     without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 <a id="text-898b1ae9821e98daf8964c8d6c7f61641f5f5aa78ad500020771c0939ee0dea1"></a>
 
 ## Source text 898b1ae9821e98daf8964c8d6c7f61641f5f5aa78ad500020771c0939ee0dea1
@@ -10228,685 +9995,6 @@ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
-
-<a id="text-8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903"></a>
-
-## Source text 8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903
-
-                    GNU GENERAL PUBLIC LICENSE
-                       Version 3, 29 June 2007
-
- Copyright (C) 2007 Free Software Foundation, Inc. <http://fsf.org/>
- Everyone is permitted to copy and distribute verbatim copies
- of this license document, but changing it is not allowed.
-
-                            Preamble
-
-  The GNU General Public License is a free, copyleft license for
-software and other kinds of works.
-
-  The licenses for most software and other practical works are designed
-to take away your freedom to share and change the works.  By contrast,
-the GNU General Public License is intended to guarantee your freedom to
-share and change all versions of a program--to make sure it remains free
-software for all its users.  We, the Free Software Foundation, use the
-GNU General Public License for most of our software; it applies also to
-any other work released this way by its authors.  You can apply it to
-your programs, too.
-
-  When we speak of free software, we are referring to freedom, not
-price.  Our General Public Licenses are designed to make sure that you
-have the freedom to distribute copies of free software (and charge for
-them if you wish), that you receive source code or can get it if you
-want it, that you can change the software or use pieces of it in new
-free programs, and that you know you can do these things.
-
-  To protect your rights, we need to prevent others from denying you
-these rights or asking you to surrender the rights.  Therefore, you have
-certain responsibilities if you distribute copies of the software, or if
-you modify it: responsibilities to respect the freedom of others.
-
-  For example, if you distribute copies of such a program, whether
-gratis or for a fee, you must pass on to the recipients the same
-freedoms that you received.  You must make sure that they, too, receive
-or can get the source code.  And you must show them these terms so they
-know their rights.
-
-  Developers that use the GNU GPL protect your rights with two steps:
-(1) assert copyright on the software, and (2) offer you this License
-giving you legal permission to copy, distribute and/or modify it.
-
-  For the developers' and authors' protection, the GPL clearly explains
-that there is no warranty for this free software.  For both users' and
-authors' sake, the GPL requires that modified versions be marked as
-changed, so that their problems will not be attributed erroneously to
-authors of previous versions.
-
-  Some devices are designed to deny users access to install or run
-modified versions of the software inside them, although the manufacturer
-can do so.  This is fundamentally incompatible with the aim of
-protecting users' freedom to change the software.  The systematic
-pattern of such abuse occurs in the area of products for individuals to
-use, which is precisely where it is most unacceptable.  Therefore, we
-have designed this version of the GPL to prohibit the practice for those
-products.  If such problems arise substantially in other domains, we
-stand ready to extend this provision to those domains in future versions
-of the GPL, as needed to protect the freedom of users.
-
-  Finally, every program is threatened constantly by software patents.
-States should not allow patents to restrict development and use of
-software on general-purpose computers, but in those that do, we wish to
-avoid the special danger that patents applied to a free program could
-make it effectively proprietary.  To prevent this, the GPL assures that
-patents cannot be used to render the program non-free.
-
-  The precise terms and conditions for copying, distribution and
-modification follow.
-
-                       TERMS AND CONDITIONS
-
-  0. Definitions.
-
-  "This License" refers to version 3 of the GNU General Public License.
-
-  "Copyright" also means copyright-like laws that apply to other kinds of
-works, such as semiconductor masks.
-
-  "The Program" refers to any copyrightable work licensed under this
-License.  Each licensee is addressed as "you".  "Licensees" and
-"recipients" may be individuals or organizations.
-
-  To "modify" a work means to copy from or adapt all or part of the work
-in a fashion requiring copyright permission, other than the making of an
-exact copy.  The resulting work is called a "modified version" of the
-earlier work or a work "based on" the earlier work.
-
-  A "covered work" means either the unmodified Program or a work based
-on the Program.
-
-  To "propagate" a work means to do anything with it that, without
-permission, would make you directly or secondarily liable for
-infringement under applicable copyright law, except executing it on a
-computer or modifying a private copy.  Propagation includes copying,
-distribution (with or without modification), making available to the
-public, and in some countries other activities as well.
-
-  To "convey" a work means any kind of propagation that enables other
-parties to make or receive copies.  Mere interaction with a user through
-a computer network, with no transfer of a copy, is not conveying.
-
-  An interactive user interface displays "Appropriate Legal Notices"
-to the extent that it includes a convenient and prominently visible
-feature that (1) displays an appropriate copyright notice, and (2)
-tells the user that there is no warranty for the work (except to the
-extent that warranties are provided), that licensees may convey the
-work under this License, and how to view a copy of this License.  If
-the interface presents a list of user commands or options, such as a
-menu, a prominent item in the list meets this criterion.
-
-  1. Source Code.
-
-  The "source code" for a work means the preferred form of the work
-for making modifications to it.  "Object code" means any non-source
-form of a work.
-
-  A "Standard Interface" means an interface that either is an official
-standard defined by a recognized standards body, or, in the case of
-interfaces specified for a particular programming language, one that
-is widely used among developers working in that language.
-
-  The "System Libraries" of an executable work include anything, other
-than the work as a whole, that (a) is included in the normal form of
-packaging a Major Component, but which is not part of that Major
-Component, and (b) serves only to enable use of the work with that
-Major Component, or to implement a Standard Interface for which an
-implementation is available to the public in source code form.  A
-"Major Component", in this context, means a major essential component
-(kernel, window system, and so on) of the specific operating system
-(if any) on which the executable work runs, or a compiler used to
-produce the work, or an object code interpreter used to run it.
-
-  The "Corresponding Source" for a work in object code form means all
-the source code needed to generate, install, and (for an executable
-work) run the object code and to modify the work, including scripts to
-control those activities.  However, it does not include the work's
-System Libraries, or general-purpose tools or generally available free
-programs which are used unmodified in performing those activities but
-which are not part of the work.  For example, Corresponding Source
-includes interface definition files associated with source files for
-the work, and the source code for shared libraries and dynamically
-linked subprograms that the work is specifically designed to require,
-such as by intimate data communication or control flow between those
-subprograms and other parts of the work.
-
-  The Corresponding Source need not include anything that users
-can regenerate automatically from other parts of the Corresponding
-Source.
-
-  The Corresponding Source for a work in source code form is that
-same work.
-
-  2. Basic Permissions.
-
-  All rights granted under this License are granted for the term of
-copyright on the Program, and are irrevocable provided the stated
-conditions are met.  This License explicitly affirms your unlimited
-permission to run the unmodified Program.  The output from running a
-covered work is covered by this License only if the output, given its
-content, constitutes a covered work.  This License acknowledges your
-rights of fair use or other equivalent, as provided by copyright law.
-
-  You may make, run and propagate covered works that you do not
-convey, without conditions so long as your license otherwise remains
-in force.  You may convey covered works to others for the sole purpose
-of having them make modifications exclusively for you, or provide you
-with facilities for running those works, provided that you comply with
-the terms of this License in conveying all material for which you do
-not control copyright.  Those thus making or running the covered works
-for you must do so exclusively on your behalf, under your direction
-and control, on terms that prohibit them from making any copies of
-your copyrighted material outside their relationship with you.
-
-  Conveying under any other circumstances is permitted solely under
-the conditions stated below.  Sublicensing is not allowed; section 10
-makes it unnecessary.
-
-  3. Protecting Users' Legal Rights From Anti-Circumvention Law.
-
-  No covered work shall be deemed part of an effective technological
-measure under any applicable law fulfilling obligations under article
-11 of the WIPO copyright treaty adopted on 20 December 1996, or
-similar laws prohibiting or restricting circumvention of such
-measures.
-
-  When you convey a covered work, you waive any legal power to forbid
-circumvention of technological measures to the extent such circumvention
-is effected by exercising rights under this License with respect to
-the covered work, and you disclaim any intention to limit operation or
-modification of the work as a means of enforcing, against the work's
-users, your or third parties' legal rights to forbid circumvention of
-technological measures.
-
-  4. Conveying Verbatim Copies.
-
-  You may convey verbatim copies of the Program's source code as you
-receive it, in any medium, provided that you conspicuously and
-appropriately publish on each copy an appropriate copyright notice;
-keep intact all notices stating that this License and any
-non-permissive terms added in accord with section 7 apply to the code;
-keep intact all notices of the absence of any warranty; and give all
-recipients a copy of this License along with the Program.
-
-  You may charge any price or no price for each copy that you convey,
-and you may offer support or warranty protection for a fee.
-
-  5. Conveying Modified Source Versions.
-
-  You may convey a work based on the Program, or the modifications to
-produce it from the Program, in the form of source code under the
-terms of section 4, provided that you also meet all of these conditions:
-
-    a) The work must carry prominent notices stating that you modified
-    it, and giving a relevant date.
-
-    b) The work must carry prominent notices stating that it is
-    released under this License and any conditions added under section
-    7.  This requirement modifies the requirement in section 4 to
-    "keep intact all notices".
-
-    c) You must license the entire work, as a whole, under this
-    License to anyone who comes into possession of a copy.  This
-    License will therefore apply, along with any applicable section 7
-    additional terms, to the whole of the work, and all its parts,
-    regardless of how they are packaged.  This License gives no
-    permission to license the work in any other way, but it does not
-    invalidate such permission if you have separately received it.
-
-    d) If the work has interactive user interfaces, each must display
-    Appropriate Legal Notices; however, if the Program has interactive
-    interfaces that do not display Appropriate Legal Notices, your
-    work need not make them do so.
-
-  A compilation of a covered work with other separate and independent
-works, which are not by their nature extensions of the covered work,
-and which are not combined with it such as to form a larger program,
-in or on a volume of a storage or distribution medium, is called an
-"aggregate" if the compilation and its resulting copyright are not
-used to limit the access or legal rights of the compilation's users
-beyond what the individual works permit.  Inclusion of a covered work
-in an aggregate does not cause this License to apply to the other
-parts of the aggregate.
-
-  6. Conveying Non-Source Forms.
-
-  You may convey a covered work in object code form under the terms
-of sections 4 and 5, provided that you also convey the
-machine-readable Corresponding Source under the terms of this License,
-in one of these ways:
-
-    a) Convey the object code in, or embodied in, a physical product
-    (including a physical distribution medium), accompanied by the
-    Corresponding Source fixed on a durable physical medium
-    customarily used for software interchange.
-
-    b) Convey the object code in, or embodied in, a physical product
-    (including a physical distribution medium), accompanied by a
-    written offer, valid for at least three years and valid for as
-    long as you offer spare parts or customer support for that product
-    model, to give anyone who possesses the object code either (1) a
-    copy of the Corresponding Source for all the software in the
-    product that is covered by this License, on a durable physical
-    medium customarily used for software interchange, for a price no
-    more than your reasonable cost of physically performing this
-    conveying of source, or (2) access to copy the
-    Corresponding Source from a network server at no charge.
-
-    c) Convey individual copies of the object code with a copy of the
-    written offer to provide the Corresponding Source.  This
-    alternative is allowed only occasionally and noncommercially, and
-    only if you received the object code with such an offer, in accord
-    with subsection 6b.
-
-    d) Convey the object code by offering access from a designated
-    place (gratis or for a charge), and offer equivalent access to the
-    Corresponding Source in the same way through the same place at no
-    further charge.  You need not require recipients to copy the
-    Corresponding Source along with the object code.  If the place to
-    copy the object code is a network server, the Corresponding Source
-    may be on a different server (operated by you or a third party)
-    that supports equivalent copying facilities, provided you maintain
-    clear directions next to the object code saying where to find the
-    Corresponding Source.  Regardless of what server hosts the
-    Corresponding Source, you remain obligated to ensure that it is
-    available for as long as needed to satisfy these requirements.
-
-    e) Convey the object code using peer-to-peer transmission, provided
-    you inform other peers where the object code and Corresponding
-    Source of the work are being offered to the general public at no
-    charge under subsection 6d.
-
-  A separable portion of the object code, whose source code is excluded
-from the Corresponding Source as a System Library, need not be
-included in conveying the object code work.
-
-  A "User Product" is either (1) a "consumer product", which means any
-tangible personal property which is normally used for personal, family,
-or household purposes, or (2) anything designed or sold for incorporation
-into a dwelling.  In determining whether a product is a consumer product,
-doubtful cases shall be resolved in favor of coverage.  For a particular
-product received by a particular user, "normally used" refers to a
-typical or common use of that class of product, regardless of the status
-of the particular user or of the way in which the particular user
-actually uses, or expects or is expected to use, the product.  A product
-is a consumer product regardless of whether the product has substantial
-commercial, industrial or non-consumer uses, unless such uses represent
-the only significant mode of use of the product.
-
-  "Installation Information" for a User Product means any methods,
-procedures, authorization keys, or other information required to install
-and execute modified versions of a covered work in that User Product from
-a modified version of its Corresponding Source.  The information must
-suffice to ensure that the continued functioning of the modified object
-code is in no case prevented or interfered with solely because
-modification has been made.
-
-  If you convey an object code work under this section in, or with, or
-specifically for use in, a User Product, and the conveying occurs as
-part of a transaction in which the right of possession and use of the
-User Product is transferred to the recipient in perpetuity or for a
-fixed term (regardless of how the transaction is characterized), the
-Corresponding Source conveyed under this section must be accompanied
-by the Installation Information.  But this requirement does not apply
-if neither you nor any third party retains the ability to install
-modified object code on the User Product (for example, the work has
-been installed in ROM).
-
-  The requirement to provide Installation Information does not include a
-requirement to continue to provide support service, warranty, or updates
-for a work that has been modified or installed by the recipient, or for
-the User Product in which it has been modified or installed.  Access to a
-network may be denied when the modification itself materially and
-adversely affects the operation of the network or violates the rules and
-protocols for communication across the network.
-
-  Corresponding Source conveyed, and Installation Information provided,
-in accord with this section must be in a format that is publicly
-documented (and with an implementation available to the public in
-source code form), and must require no special password or key for
-unpacking, reading or copying.
-
-  7. Additional Terms.
-
-  "Additional permissions" are terms that supplement the terms of this
-License by making exceptions from one or more of its conditions.
-Additional permissions that are applicable to the entire Program shall
-be treated as though they were included in this License, to the extent
-that they are valid under applicable law.  If additional permissions
-apply only to part of the Program, that part may be used separately
-under those permissions, but the entire Program remains governed by
-this License without regard to the additional permissions.
-
-  When you convey a copy of a covered work, you may at your option
-remove any additional permissions from that copy, or from any part of
-it.  (Additional permissions may be written to require their own
-removal in certain cases when you modify the work.)  You may place
-additional permissions on material, added by you to a covered work,
-for which you have or can give appropriate copyright permission.
-
-  Notwithstanding any other provision of this License, for material you
-add to a covered work, you may (if authorized by the copyright holders of
-that material) supplement the terms of this License with terms:
-
-    a) Disclaiming warranty or limiting liability differently from the
-    terms of sections 15 and 16 of this License; or
-
-    b) Requiring preservation of specified reasonable legal notices or
-    author attributions in that material or in the Appropriate Legal
-    Notices displayed by works containing it; or
-
-    c) Prohibiting misrepresentation of the origin of that material, or
-    requiring that modified versions of such material be marked in
-    reasonable ways as different from the original version; or
-
-    d) Limiting the use for publicity purposes of names of licensors or
-    authors of the material; or
-
-    e) Declining to grant rights under trademark law for use of some
-    trade names, trademarks, or service marks; or
-
-    f) Requiring indemnification of licensors and authors of that
-    material by anyone who conveys the material (or modified versions of
-    it) with contractual assumptions of liability to the recipient, for
-    any liability that these contractual assumptions directly impose on
-    those licensors and authors.
-
-  All other non-permissive additional terms are considered "further
-restrictions" within the meaning of section 10.  If the Program as you
-received it, or any part of it, contains a notice stating that it is
-governed by this License along with a term that is a further
-restriction, you may remove that term.  If a license document contains
-a further restriction but permits relicensing or conveying under this
-License, you may add to a covered work material governed by the terms
-of that license document, provided that the further restriction does
-not survive such relicensing or conveying.
-
-  If you add terms to a covered work in accord with this section, you
-must place, in the relevant source files, a statement of the
-additional terms that apply to those files, or a notice indicating
-where to find the applicable terms.
-
-  Additional terms, permissive or non-permissive, may be stated in the
-form of a separately written license, or stated as exceptions;
-the above requirements apply either way.
-
-  8. Termination.
-
-  You may not propagate or modify a covered work except as expressly
-provided under this License.  Any attempt otherwise to propagate or
-modify it is void, and will automatically terminate your rights under
-this License (including any patent licenses granted under the third
-paragraph of section 11).
-
-  However, if you cease all violation of this License, then your
-license from a particular copyright holder is reinstated (a)
-provisionally, unless and until the copyright holder explicitly and
-finally terminates your license, and (b) permanently, if the copyright
-holder fails to notify you of the violation by some reasonable means
-prior to 60 days after the cessation.
-
-  Moreover, your license from a particular copyright holder is
-reinstated permanently if the copyright holder notifies you of the
-violation by some reasonable means, this is the first time you have
-received notice of violation of this License (for any work) from that
-copyright holder, and you cure the violation prior to 30 days after
-your receipt of the notice.
-
-  Termination of your rights under this section does not terminate the
-licenses of parties who have received copies or rights from you under
-this License.  If your rights have been terminated and not permanently
-reinstated, you do not qualify to receive new licenses for the same
-material under section 10.
-
-  9. Acceptance Not Required for Having Copies.
-
-  You are not required to accept this License in order to receive or
-run a copy of the Program.  Ancillary propagation of a covered work
-occurring solely as a consequence of using peer-to-peer transmission
-to receive a copy likewise does not require acceptance.  However,
-nothing other than this License grants you permission to propagate or
-modify any covered work.  These actions infringe copyright if you do
-not accept this License.  Therefore, by modifying or propagating a
-covered work, you indicate your acceptance of this License to do so.
-
-  10. Automatic Licensing of Downstream Recipients.
-
-  Each time you convey a covered work, the recipient automatically
-receives a license from the original licensors, to run, modify and
-propagate that work, subject to this License.  You are not responsible
-for enforcing compliance by third parties with this License.
-
-  An "entity transaction" is a transaction transferring control of an
-organization, or substantially all assets of one, or subdividing an
-organization, or merging organizations.  If propagation of a covered
-work results from an entity transaction, each party to that
-transaction who receives a copy of the work also receives whatever
-licenses to the work the party's predecessor in interest had or could
-give under the previous paragraph, plus a right to possession of the
-Corresponding Source of the work from the predecessor in interest, if
-the predecessor has it or can get it with reasonable efforts.
-
-  You may not impose any further restrictions on the exercise of the
-rights granted or affirmed under this License.  For example, you may
-not impose a license fee, royalty, or other charge for exercise of
-rights granted under this License, and you may not initiate litigation
-(including a cross-claim or counterclaim in a lawsuit) alleging that
-any patent claim is infringed by making, using, selling, offering for
-sale, or importing the Program or any portion of it.
-
-  11. Patents.
-
-  A "contributor" is a copyright holder who authorizes use under this
-License of the Program or a work on which the Program is based.  The
-work thus licensed is called the contributor's "contributor version".
-
-  A contributor's "essential patent claims" are all patent claims
-owned or controlled by the contributor, whether already acquired or
-hereafter acquired, that would be infringed by some manner, permitted
-by this License, of making, using, or selling its contributor version,
-but do not include claims that would be infringed only as a
-consequence of further modification of the contributor version.  For
-purposes of this definition, "control" includes the right to grant
-patent sublicenses in a manner consistent with the requirements of
-this License.
-
-  Each contributor grants you a non-exclusive, worldwide, royalty-free
-patent license under the contributor's essential patent claims, to
-make, use, sell, offer for sale, import and otherwise run, modify and
-propagate the contents of its contributor version.
-
-  In the following three paragraphs, a "patent license" is any express
-agreement or commitment, however denominated, not to enforce a patent
-(such as an express permission to practice a patent or covenant not to
-sue for patent infringement).  To "grant" such a patent license to a
-party means to make such an agreement or commitment not to enforce a
-patent against the party.
-
-  If you convey a covered work, knowingly relying on a patent license,
-and the Corresponding Source of the work is not available for anyone
-to copy, free of charge and under the terms of this License, through a
-publicly available network server or other readily accessible means,
-then you must either (1) cause the Corresponding Source to be so
-available, or (2) arrange to deprive yourself of the benefit of the
-patent license for this particular work, or (3) arrange, in a manner
-consistent with the requirements of this License, to extend the patent
-license to downstream recipients.  "Knowingly relying" means you have
-actual knowledge that, but for the patent license, your conveying the
-covered work in a country, or your recipient's use of the covered work
-in a country, would infringe one or more identifiable patents in that
-country that you have reason to believe are valid.
-
-  If, pursuant to or in connection with a single transaction or
-arrangement, you convey, or propagate by procuring conveyance of, a
-covered work, and grant a patent license to some of the parties
-receiving the covered work authorizing them to use, propagate, modify
-or convey a specific copy of the covered work, then the patent license
-you grant is automatically extended to all recipients of the covered
-work and works based on it.
-
-  A patent license is "discriminatory" if it does not include within
-the scope of its coverage, prohibits the exercise of, or is
-conditioned on the non-exercise of one or more of the rights that are
-specifically granted under this License.  You may not convey a covered
-work if you are a party to an arrangement with a third party that is
-in the business of distributing software, under which you make payment
-to the third party based on the extent of your activity of conveying
-the work, and under which the third party grants, to any of the
-parties who would receive the covered work from you, a discriminatory
-patent license (a) in connection with copies of the covered work
-conveyed by you (or copies made from those copies), or (b) primarily
-for and in connection with specific products or compilations that
-contain the covered work, unless you entered into that arrangement,
-or that patent license was granted, prior to 28 March 2007.
-
-  Nothing in this License shall be construed as excluding or limiting
-any implied license or other defenses to infringement that may
-otherwise be available to you under applicable patent law.
-
-  12. No Surrender of Others' Freedom.
-
-  If conditions are imposed on you (whether by court order, agreement or
-otherwise) that contradict the conditions of this License, they do not
-excuse you from the conditions of this License.  If you cannot convey a
-covered work so as to satisfy simultaneously your obligations under this
-License and any other pertinent obligations, then as a consequence you may
-not convey it at all.  For example, if you agree to terms that obligate you
-to collect a royalty for further conveying from those to whom you convey
-the Program, the only way you could satisfy both those terms and this
-License would be to refrain entirely from conveying the Program.
-
-  13. Use with the GNU Affero General Public License.
-
-  Notwithstanding any other provision of this License, you have
-permission to link or combine any covered work with a work licensed
-under version 3 of the GNU Affero General Public License into a single
-combined work, and to convey the resulting work.  The terms of this
-License will continue to apply to the part which is the covered work,
-but the special requirements of the GNU Affero General Public License,
-section 13, concerning interaction through a network will apply to the
-combination as such.
-
-  14. Revised Versions of this License.
-
-  The Free Software Foundation may publish revised and/or new versions of
-the GNU General Public License from time to time.  Such new versions will
-be similar in spirit to the present version, but may differ in detail to
-address new problems or concerns.
-
-  Each version is given a distinguishing version number.  If the
-Program specifies that a certain numbered version of the GNU General
-Public License "or any later version" applies to it, you have the
-option of following the terms and conditions either of that numbered
-version or of any later version published by the Free Software
-Foundation.  If the Program does not specify a version number of the
-GNU General Public License, you may choose any version ever published
-by the Free Software Foundation.
-
-  If the Program specifies that a proxy can decide which future
-versions of the GNU General Public License can be used, that proxy's
-public statement of acceptance of a version permanently authorizes you
-to choose that version for the Program.
-
-  Later license versions may give you additional or different
-permissions.  However, no additional obligations are imposed on any
-author or copyright holder as a result of your choosing to follow a
-later version.
-
-  15. Disclaimer of Warranty.
-
-  THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY
-APPLICABLE LAW.  EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT
-HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM "AS IS" WITHOUT WARRANTY
-OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, BUT NOT LIMITED TO,
-THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-PURPOSE.  THE ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE PROGRAM
-IS WITH YOU.  SHOULD THE PROGRAM PROVE DEFECTIVE, YOU ASSUME THE COST OF
-ALL NECESSARY SERVICING, REPAIR OR CORRECTION.
-
-  16. Limitation of Liability.
-
-  IN NO EVENT UNLESS REQUIRED BY APPLICABLE LAW OR AGREED TO IN WRITING
-WILL ANY COPYRIGHT HOLDER, OR ANY OTHER PARTY WHO MODIFIES AND/OR CONVEYS
-THE PROGRAM AS PERMITTED ABOVE, BE LIABLE TO YOU FOR DAMAGES, INCLUDING ANY
-GENERAL, SPECIAL, INCIDENTAL OR CONSEQUENTIAL DAMAGES ARISING OUT OF THE
-USE OR INABILITY TO USE THE PROGRAM (INCLUDING BUT NOT LIMITED TO LOSS OF
-DATA OR DATA BEING RENDERED INACCURATE OR LOSSES SUSTAINED BY YOU OR THIRD
-PARTIES OR A FAILURE OF THE PROGRAM TO OPERATE WITH ANY OTHER PROGRAMS),
-EVEN IF SUCH HOLDER OR OTHER PARTY HAS BEEN ADVISED OF THE POSSIBILITY OF
-SUCH DAMAGES.
-
-  17. Interpretation of Sections 15 and 16.
-
-  If the disclaimer of warranty and limitation of liability provided
-above cannot be given local legal effect according to their terms,
-reviewing courts shall apply local law that most closely approximates
-an absolute waiver of all civil liability in connection with the
-Program, unless a warranty or assumption of liability accompanies a
-copy of the Program in return for a fee.
-
-                     END OF TERMS AND CONDITIONS
-
-            How to Apply These Terms to Your New Programs
-
-  If you develop a new program, and you want it to be of the greatest
-possible use to the public, the best way to achieve this is to make it
-free software which everyone can redistribute and change under these terms.
-
-  To do so, attach the following notices to the program.  It is safest
-to attach them to the start of each source file to most effectively
-state the exclusion of warranty; and each file should have at least
-the "copyright" line and a pointer to where the full notice is found.
-
-    <one line to give the program's name and a brief idea of what it does.>
-    Copyright (C) <year>  <name of author>
-
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-Also add information on how to contact you by electronic and paper mail.
-
-  If the program does terminal interaction, make it output a short
-notice like this when it starts in an interactive mode:
-
-    <program>  Copyright (C) <year>  <name of author>
-    This program comes with ABSOLUTELY NO WARRANTY; for details type `show w'.
-    This is free software, and you are welcome to redistribute it
-    under certain conditions; type `show c' for details.
-
-The hypothetical commands `show w' and `show c' should show the appropriate
-parts of the General Public License.  Of course, your program's commands
-might be different; for a GUI interface, you would use an "about box".
-
-  You should also get your employer (if you work as a programmer) or school,
-if any, to sign a "copyright disclaimer" for the program, if necessary.
-For more information on this, and how to apply and follow the GNU GPL, see
-<http://www.gnu.org/licenses/>.
-
-  The GNU General Public License does not permit incorporating your program
-into proprietary programs.  If your program is a subroutine library, you
-may consider it more useful to permit linking proprietary applications with
-the library.  If this is what you want to do, use the GNU Lesser General
-Public License instead of this License.  But first, please read
-<http://www.gnu.org/philosophy/why-not-lgpl.html>.
 
 <a id="text-8ea93490d74a5a1b1af3ff71d786271b3f1e5f0bea79ac16e02ec533cef040d6"></a>
 
@@ -11468,6 +10556,16 @@ Source code in this directory is available under the
 - Zlib license with acknowledgment
 
 
+<a id="text-993058a7037a68deba9d4351a396c4a4295f7c912488296049156eb0f2dc98c0"></a>
+
+## Source text 993058a7037a68deba9d4351a396c4a4295f7c912488296049156eb0f2dc98c0
+
+Apache DataSketches Rust
+Copyright 2025-2026 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (http://www.apache.org/).
+
 <a id="text-9d185ac6703c4b0453974c0d85e9eee43e6941009296bb1f5eb0b54e2329e9f3"></a>
 
 ## Source text 9d185ac6703c4b0453974c0d85e9eee43e6941009296bb1f5eb0b54e2329e9f3
@@ -11718,6 +10816,41 @@ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
+
+<a id="text-9f1cbec491ae835de899d22d98064ca21b37ab3d7112393de1eb3a6be0aa1efc"></a>
+
+## Source text 9f1cbec491ae835de899d22d98064ca21b37ab3d7112393de1eb3a6be0aa1efc
+
+Copyright (c) 2026, frostem contributors
+Copyright (c) 2001, Dr Martin Porter
+Copyright (c) 2004,2005, Richard Boulton
+Copyright (c) 2013, Yoshiki Shibukawa
+Copyright (c) 2006-2025, Olly Betts
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+
+  1. Redistributions of source code must retain the above copyright notice,
+     this list of conditions and the following disclaimer.
+  2. Redistributions in binary form must reproduce the above copyright notice,
+     this list of conditions and the following disclaimer in the documentation
+     and/or other materials provided with the distribution.
+  3. Neither the name of the Snowball project nor the names of its contributors
+     may be used to endorse or promote products derived from this software
+     without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 <a id="text-a291b6910744d262a9e953c3b5868d74510e20161359f649a11e1791fde84fcd"></a>
 
@@ -12587,12 +11720,6 @@ limitations under the License.
 
    END OF TERMS AND CONDITIONS
 
-<a id="text-a77b7cfeaf911ed410ffbe76f0cb2b24ad8a4d94e7ead5727e914425c416cc63"></a>
-
-## Source text a77b7cfeaf911ed410ffbe76f0cb2b24ad8a4d94e7ead5727e914425c416cc63
-
-MIT or Apache-2.0
-
 <a id="text-a825bd853ab71619a4923d7b4311221427848070ff44d990da39b0b274c1683f"></a>
 
 ## Source text a825bd853ab71619a4923d7b4311221427848070ff44d990da39b0b274c1683f
@@ -13030,6 +12157,32 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
+
+<a id="text-ab499c75a0f0da8e0fe83bf9ba3a27e5c39705310f07107c6c66b69958d2401c"></a>
+
+## Source text ab499c75a0f0da8e0fe83bf9ba3a27e5c39705310f07107c6c66b69958d2401c
+
+The MIT License (MIT)
+
+Copyright (c) 2025 Alice Maz, Marshall Pierce
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
 
 <a id="text-ab813c3bd0d06b60e8430b9abe86566ecc33009b9686adb0f64b7affead4720b"></a>
 
@@ -14111,6 +13264,43 @@ licensed under the Apache License, Version 2.0 <LICENSE-APACHE> or
 <http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
 <LICENSE-MIT> or <http://opensource.org/licenses/MIT>, at your option.
 
+<a id="text-bf7017a73a95ea63bf3716b13ec2bcd79c92942356e3408c6fb66332bad6d977"></a>
+
+## Source text bf7017a73a95ea63bf3716b13ec2bcd79c92942356e3408c6fb66332bad6d977
+
+The auto-generated bindings are under the 3-clause BSD license:
+
+BSD License
+
+For Zstandard software
+
+Copyright (c) Meta Platforms, Inc. and affiliates. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
+
+ * Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+ * Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+ * Neither the name Facebook, nor Meta, nor the names of its contributors may
+   be used to endorse or promote products derived from this software without
+   specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 <a id="text-c09aae9d3c77b531f56351a9947bc7446511d6b025b3255312d3e3442a9a7583"></a>
 
 ## Source text c09aae9d3c77b531f56351a9947bc7446511d6b025b3255312d3e3442a9a7583
@@ -14971,6 +14161,39 @@ fn main() {
 You may use this code under either the [Apache 2.0 license](https://www.apache.org/licenses/LICENSE-2.0)
 or the [MIT license](https://opensource.org/licenses/MIT), at your option.
 
+<a id="text-ce4868c8e4ebe47a7d4b3c93dbf6b802033e5ae2fa7638098173f80836daac60"></a>
+
+## Source text ce4868c8e4ebe47a7d4b3c93dbf6b802033e5ae2fa7638098173f80836daac60
+
+BSD 3-Clause License
+
+Copyright (c) 2026, Alexandre Bury
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its
+   contributors may be used to endorse or promote products derived from
+   this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 <a id="text-cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"></a>
 
 ## Source text cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30
@@ -15551,6 +14774,228 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
+<a id="text-d97b0fec0d2d03920b94290c60fd29dedc0b48b1da03dd789d571de328321534"></a>
+
+## Source text d97b0fec0d2d03920b94290c60fd29dedc0b48b1da03dd789d571de328321534
+
+
+                                 Apache License
+                           Version 2.0, January 2004
+                        http://www.apache.org/licenses/
+
+   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+
+   1. Definitions.
+
+      "License" shall mean the terms and conditions for use, reproduction,
+      and distribution as defined by Sections 1 through 9 of this document.
+
+      "Licensor" shall mean the copyright owner or entity authorized by
+      the copyright owner that is granting the License.
+
+      "Legal Entity" shall mean the union of the acting entity and all
+      other entities that control, are controlled by, or are under common
+      control with that entity. For the purposes of this definition,
+      "control" means (i) the power, direct or indirect, to cause the
+      direction or management of such entity, whether by contract or
+      otherwise, or (ii) ownership of fifty percent (50%) or more of the
+      outstanding shares, or (iii) beneficial ownership of such entity.
+
+      "You" (or "Your") shall mean an individual or Legal Entity
+      exercising permissions granted by this License.
+
+      "Source" form shall mean the preferred form for making modifications,
+      including but not limited to software source code, documentation
+      source, and configuration files.
+
+      "Object" form shall mean any form resulting from mechanical
+      transformation or translation of a Source form, including but
+      not limited to compiled object code, generated documentation,
+      and conversions to other media types.
+
+      "Work" shall mean the work of authorship, whether in Source or
+      Object form, made available under the License, as indicated by a
+      copyright notice that is included in or attached to the work
+      (an example is provided in the Appendix below).
+
+      "Derivative Works" shall mean any work, whether in Source or Object
+      form, that is based on (or derived from) the Work and for which the
+      editorial revisions, annotations, elaborations, or other modifications
+      represent, as a whole, an original work of authorship. For the purposes
+      of this License, Derivative Works shall not include works that remain
+      separable from, or merely link (or bind by name) to the interfaces of,
+      the Work and Derivative Works thereof.
+
+      "Contribution" shall mean any work of authorship, including
+      the original version of the Work and any modifications or additions
+      to that Work or Derivative Works thereof, that is intentionally
+      submitted to Licensor for inclusion in the Work by the copyright owner
+      or by an individual or Legal Entity authorized to submit on behalf of
+      the copyright owner. For the purposes of this definition, "submitted"
+      means any form of electronic, verbal, or written communication sent
+      to the Licensor or its representatives, including but not limited to
+      communication on electronic mailing lists, source code control systems,
+      and issue tracking systems that are managed by, or on behalf of, the
+      Licensor for the purpose of discussing and improving the Work, but
+      excluding communication that is conspicuously marked or otherwise
+      designated in writing by the copyright owner as "Not a Contribution."
+
+      "Contributor" shall mean Licensor and any individual or Legal Entity
+      on behalf of whom a Contribution has been received by Licensor and
+      subsequently incorporated within the Work.
+
+   2. Grant of Copyright License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      copyright license to reproduce, prepare Derivative Works of,
+      publicly display, publicly perform, sublicense, and distribute the
+      Work and such Derivative Works in Source or Object form.
+
+   3. Grant of Patent License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      (except as stated in this section) patent license to make, have made,
+      use, offer to sell, sell, import, and otherwise transfer the Work,
+      where such license applies only to those patent claims licensable
+      by such Contributor that are necessarily infringed by their
+      Contribution(s) alone or by combination of their Contribution(s)
+      with the Work to which such Contribution(s) was submitted. If You
+      institute patent litigation against any entity (including a
+      cross-claim or counterclaim in a lawsuit) alleging that the Work
+      or a Contribution incorporated within the Work constitutes direct
+      or contributory patent infringement, then any patent licenses
+      granted to You under this License for that Work shall terminate
+      as of the date such litigation is filed.
+
+   4. Redistribution. You may reproduce and distribute copies of the
+      Work or Derivative Works thereof in any medium, with or without
+      modifications, and in Source or Object form, provided that You
+      meet the following conditions:
+
+      (a) You must give any other recipients of the Work or
+          Derivative Works a copy of this License; and
+
+      (b) You must cause any modified files to carry prominent notices
+          stating that You changed the files; and
+
+      (c) You must retain, in the Source form of any Derivative Works
+          that You distribute, all copyright, patent, trademark, and
+          attribution notices from the Source form of the Work,
+          excluding those notices that do not pertain to any part of
+          the Derivative Works; and
+
+      (d) If the Work includes a "NOTICE" text file as part of its
+          distribution, then any Derivative Works that You distribute must
+          include a readable copy of the attribution notices contained
+          within such NOTICE file, excluding those notices that do not
+          pertain to any part of the Derivative Works, in at least one
+          of the following places: within a NOTICE text file distributed
+          as part of the Derivative Works; within the Source form or
+          documentation, if provided along with the Derivative Works; or,
+          within a display generated by the Derivative Works, if and
+          wherever such third-party notices normally appear. The contents
+          of the NOTICE file are for informational purposes only and
+          do not modify the License. You may add Your own attribution
+          notices within Derivative Works that You distribute, alongside
+          or as an addendum to the NOTICE text from the Work, provided
+          that such additional attribution notices cannot be construed
+          as modifying the License.
+
+      You may add Your own copyright statement to Your modifications and
+      may provide additional or different license terms and conditions
+      for use, reproduction, or distribution of Your modifications, or
+      for any such Derivative Works as a whole, provided Your use,
+      reproduction, and distribution of the Work otherwise complies with
+      the conditions stated in this License.
+
+   5. Submission of Contributions. Unless You explicitly state otherwise,
+      any Contribution intentionally submitted for inclusion in the Work
+      by You to the Licensor shall be under the terms and conditions of
+      this License, without any additional terms or conditions.
+      Notwithstanding the above, nothing herein shall supersede or modify
+      the terms of any separate license agreement you may have executed
+      with Licensor regarding such Contributions.
+
+   6. Trademarks. This License does not grant permission to use the trade
+      names, trademarks, service marks, or product names of the Licensor,
+      except as required for reasonable and customary use in describing the
+      origin of the Work and reproducing the content of the NOTICE file.
+
+   7. Disclaimer of Warranty. Unless required by applicable law or
+      agreed to in writing, Licensor provides the Work (and each
+      Contributor provides its Contributions) on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+      implied, including, without limitation, any warranties or conditions
+      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+      PARTICULAR PURPOSE. You are solely responsible for determining the
+      appropriateness of using or redistributing the Work and assume any
+      risks associated with Your exercise of permissions under this License.
+
+   8. Limitation of Liability. In no event and under no legal theory,
+      whether in tort (including negligence), contract, or otherwise,
+      unless required by applicable law (such as deliberate and grossly
+      negligent acts) or agreed to in writing, shall any Contributor be
+      liable to You for damages, including any direct, indirect, special,
+      incidental, or consequential damages of any character arising as a
+      result of this License or out of the use or inability to use the
+      Work (including but not limited to damages for loss of goodwill,
+      work stoppage, computer failure or malfunction, or any and all
+      other commercial damages or losses), even if such Contributor
+      has been advised of the possibility of such damages.
+
+   9. Accepting Warranty or Additional Liability. While redistributing
+      the Work or Derivative Works thereof, You may choose to offer,
+      and charge a fee for, acceptance of support, warranty, indemnity,
+      or other liability obligations and/or rights consistent with this
+      License. However, in accepting such obligations, You may act only
+      on Your own behalf and on Your sole responsibility, not on behalf
+      of any other Contributor, and only if You agree to indemnify,
+      defend, and hold each Contributor harmless for any liability
+      incurred by, or claims asserted against, such Contributor by reason
+      of your accepting any such warranty or additional liability.
+
+   END OF TERMS AND CONDITIONS
+
+
+
+APPENDIX A: How to apply the Apache License to your work.
+
+    To apply the Apache License to your work, attach the following
+    boilerplate notice, with the fields enclosed by brackets "[]"
+    replaced with your own identifying information. (Don't include
+    the brackets!)  The text should be enclosed in the appropriate
+    comment syntax for the file format. We also recommend that a
+    file or class name and description of purpose be included on the
+    same "printed page" as the copyright notice for easier
+    identification within third-party archives.
+    -------------------------------------------------------------
+    Copyright [yyyy] [name of copyright owner]
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+    -------------------------------------------------------------
+
+
+
+APPENDIX B: Additional licenses relevant to this product:
+
+    This product includes a number of source files with code that has been
+    adapted from 3rd party sources including sources that may be subject
+    to different copyright notices and license terms. Your use of
+    the source code for these subcomponents is subject to the terms and
+    conditions of the following licenses.
+
+(EMPTY)
+
 <a id="text-da28ccc6b158fc2d8cccc74e99794b1cff1d29bd7bbeb019442fcf0c04c6cad9"></a>
 
 ## Source text da28ccc6b158fc2d8cccc74e99794b1cff1d29bd7bbeb019442fcf0c04c6cad9
@@ -15739,32 +15184,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
-<a id="text-e46379f1aba07707c23fab8733d3441e9df981b1543046e0317b2036f8fdaef8"></a>
-
-## Source text e46379f1aba07707c23fab8733d3441e9df981b1543046e0317b2036f8fdaef8
-
-MIT License
-
-Copyright (c) 2017 Jakob Demler
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
 <a id="text-e581d9bf9d912c35c1c4c975edd5bb696ef232e0e193fdcd518257b9dff41e55"></a>
 
 ## Source text e581d9bf9d912c35c1c4c975edd5bb696ef232e0e193fdcd518257b9dff41e55
@@ -15790,38 +15209,6 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
-<a id="text-ea2879fe94b4b2e6b3c6fb18b3bf265f9ff162637e5e1ac21fabc43d8cf34961"></a>
-
-## Source text ea2879fe94b4b2e6b3c6fb18b3bf265f9ff162637e5e1ac21fabc43d8cf34961
-
-Copyright (c) 2001, Dr Martin Porter
-Copyright (c) 2004,2005, Richard Boulton
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions
-are met:
-
-  1. Redistributions of source code must retain the above copyright notice,
-     this list of conditions and the following disclaimer.
-  2. Redistributions in binary form must reproduce the above copyright notice,
-     this list of conditions and the following disclaimer in the documentation
-     and/or other materials provided with the distribution.
-  3. Neither the name of the Snowball project nor the names of its contributors
-     may be used to endorse or promote products derived from this software
-     without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
-ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
-ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 <a id="text-eafbfa606bc005ed7fd2f623d65af17ffe4ef7c017221ac14405bf4140771ea9"></a>
 

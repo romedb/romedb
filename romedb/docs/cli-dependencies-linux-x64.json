@@ -7,7 +7,7 @@
     "build"
   ],
   "scope": "Cargo dependency declarations; includes build tools, excludes dev dependencies; not proof of linked code or complete notices",
-  "lockfileSha256": "de51c5e96d6bd41bcc266ff0e3ff88ab2e20906ec8669192c4d8278ae6bd76fd",
+  "lockfileSha256": "fd14778135a39262701acbb28b5c02fa7f7ea170433d31427cd4c35efd2bf4c0",
   "packages": [
     {
       "name": "aead",
@@ -92,6 +92,11 @@
     {
       "name": "base64",
       "version": "0.22.1",
+      "licenseExpression": "MIT OR Apache-2.0"
+    },
+    {
+      "name": "base64",
+      "version": "0.23.1",
       "licenseExpression": "MIT OR Apache-2.0"
     },
     {
@@ -286,7 +291,7 @@
     },
     {
       "name": "datasketches",
-      "version": "0.2.0",
+      "version": "0.5.0",
       "licenseExpression": "Apache-2.0"
     },
     {
@@ -345,29 +350,9 @@
       "licenseExpression": "MIT OR Apache-2.0"
     },
     {
-      "name": "romedb-cli",
-      "version": "0.2.9",
-      "licenseExpression": "MIT"
-    },
-    {
-      "name": "romedb-service",
-      "version": "0.2.9",
-      "licenseExpression": "MIT"
-    },
-    {
-      "name": "romedb",
-      "version": "0.2.9",
-      "licenseExpression": "MIT"
-    },
-    {
       "name": "fastdivide",
       "version": "0.4.2",
       "licenseExpression": "zlib-acknowledgement OR MIT"
-    },
-    {
-      "name": "romeql-parser",
-      "version": "0.2.9",
-      "licenseExpression": "MIT"
     },
     {
       "name": "fastrand",
@@ -403,6 +388,11 @@
       "name": "form_urlencoded",
       "version": "1.2.1",
       "licenseExpression": "MIT OR Apache-2.0"
+    },
+    {
+      "name": "frostem",
+      "version": "1.20260821.8",
+      "licenseExpression": "BSD-3-Clause"
     },
     {
       "name": "fs4",
@@ -492,11 +482,6 @@
     {
       "name": "hashbrown",
       "version": "0.15.2",
-      "licenseExpression": "MIT OR Apache-2.0"
-    },
-    {
-      "name": "hashbrown",
-      "version": "0.16.1",
       "licenseExpression": "MIT OR Apache-2.0"
     },
     {
@@ -796,12 +781,12 @@
     },
     {
       "name": "lru",
-      "version": "0.16.4",
+      "version": "0.18.5",
       "licenseExpression": "MIT"
     },
     {
       "name": "lz4_flex",
-      "version": "0.13.0",
+      "version": "0.14.0",
       "licenseExpression": "MIT"
     },
     {
@@ -841,12 +826,12 @@
     },
     {
       "name": "mio",
-      "version": "1.0.3",
+      "version": "1.2.4",
       "licenseExpression": "MIT"
     },
     {
       "name": "murmurhash32",
-      "version": "0.3.1",
+      "version": "0.4.0",
       "licenseExpression": "MIT"
     },
     {
@@ -1065,6 +1050,26 @@
       "licenseExpression": "MIT OR Apache-2.0"
     },
     {
+      "name": "romedb-cli",
+      "version": "0.2.9",
+      "licenseExpression": "MIT"
+    },
+    {
+      "name": "romedb-service",
+      "version": "0.2.9",
+      "licenseExpression": "MIT"
+    },
+    {
+      "name": "romedb",
+      "version": "0.2.9",
+      "licenseExpression": "MIT"
+    },
+    {
+      "name": "romeql-parser",
+      "version": "0.2.9",
+      "licenseExpression": "MIT"
+    },
+    {
       "name": "rquickjs-core",
       "version": "0.13.0",
       "licenseExpression": "MIT"
@@ -1083,11 +1088,6 @@
       "name": "rusqlite",
       "version": "0.40.2",
       "licenseExpression": "MIT"
-    },
-    {
-      "name": "rust-stemmers",
-      "version": "1.2.0",
-      "licenseExpression": "MIT/BSD-3-Clause"
     },
     {
       "name": "rustc-hash",
@@ -1163,6 +1163,11 @@
       "name": "semver",
       "version": "1.0.26",
       "licenseExpression": "MIT OR Apache-2.0"
+    },
+    {
+      "name": "serde-tuple-vec-map",
+      "version": "1.0.1",
+      "licenseExpression": "MIT"
     },
     {
       "name": "serde",
@@ -1246,7 +1251,7 @@
     },
     {
       "name": "socket2",
-      "version": "0.6.0",
+      "version": "0.6.5",
       "licenseExpression": "MIT OR Apache-2.0"
     },
     {
@@ -1306,17 +1311,17 @@
     },
     {
       "name": "tantivy-bitpacker",
-      "version": "0.10.0",
+      "version": "0.27.0",
       "licenseExpression": "MIT"
     },
     {
       "name": "tantivy-columnar",
-      "version": "0.7.0",
+      "version": "0.27.0",
       "licenseExpression": "MIT"
     },
     {
       "name": "tantivy-common",
-      "version": "0.11.0",
+      "version": "0.27.0",
       "licenseExpression": "MIT"
     },
     {
@@ -1330,13 +1335,18 @@
       "licenseExpression": "MIT"
     },
     {
+      "name": "tantivy-query-grammar",
+      "version": "0.27.0",
+      "licenseExpression": "MIT"
+    },
+    {
       "name": "tantivy-sstable",
-      "version": "0.7.0",
+      "version": "0.27.0",
       "licenseExpression": "MIT"
     },
     {
       "name": "tantivy-stacker",
-      "version": "0.7.0",
+      "version": "0.27.0",
       "licenseExpression": "MIT"
     },
     {
@@ -1346,7 +1356,7 @@
     },
     {
       "name": "tantivy",
-      "version": "0.26.2",
+      "version": "0.27.0",
       "licenseExpression": "MIT"
     },
     {
@@ -1396,7 +1406,7 @@
     },
     {
       "name": "tokio-macros",
-      "version": "2.5.0",
+      "version": "2.7.2",
       "licenseExpression": "MIT"
     },
     {
@@ -1406,7 +1416,7 @@
     },
     {
       "name": "tokio",
-      "version": "1.47.0",
+      "version": "1.53.3",
       "licenseExpression": "MIT"
     },
     {
@@ -1540,6 +1550,11 @@
       "licenseExpression": "ISC"
     },
     {
+      "name": "unwrap-infallible",
+      "version": "1.0.0",
+      "licenseExpression": "MIT OR Apache-2.0"
+    },
+    {
       "name": "url",
       "version": "2.5.4",
       "licenseExpression": "MIT OR Apache-2.0"
@@ -1671,18 +1686,18 @@
     },
     {
       "name": "zstd-safe",
-      "version": "7.2.4",
-      "licenseExpression": "MIT OR Apache-2.0"
+      "version": "8.2.0",
+      "licenseExpression": "BSD-3-Clause"
     },
     {
       "name": "zstd-sys",
-      "version": "2.0.16+zstd.1.5.7",
-      "licenseExpression": "MIT/Apache-2.0"
+      "version": "2.1.2+zstd.1.5.7",
+      "licenseExpression": "BSD-3-Clause"
     },
     {
       "name": "zstd",
-      "version": "0.13.3",
-      "licenseExpression": "MIT"
+      "version": "0.14.3",
+      "licenseExpression": "BSD-3-Clause"
     }
   ]
 }

@@ -542,6 +542,7 @@ pub(super) fn synthesize_meta_json(
         schema: schema.clone(),
         opstamp: 0,
         payload: None,
+        persisted_custom_extensions: Vec::new(),
     };
     serde_json::to_vec(&meta)
         .map_err(|e| LimboError::InternalError(format!("FTS meta synthesis failed: {e}")))

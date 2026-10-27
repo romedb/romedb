@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "target": "x86_64-unknown-linux-gnu",
-  "inventorySha256": "ec4716f6b410d004d0c3e4cab9216535456d1ae4316ab3eaf35e998d93d126e3",
+  "inventorySha256": "c3aaabe60a8844a7d7b55ffc29df6dc530b10d2e293ed21fbb29871836f4bded",
   "scope": "Checksummed crate archive notice candidates; not complete notices or linked-binary evidence",
   "packages": [
     {
@@ -306,6 +306,25 @@
           "path": "LICENSE-MIT",
           "bytes": 1076,
           "sha256": "0dd882e53de11566d50f8e8e2d5a651bcf3fabee4987d70f306233cf39094ba7"
+        }
+      ]
+    },
+    {
+      "name": "base64",
+      "version": "0.23.1",
+      "status": "archive_verified",
+      "archiveSha256": "ac07cdecf99051d9a5238b80f35af32cdeba5b336e55d957b318b50137e18da5",
+      "declaredLicenseFile": null,
+      "noticeCandidates": [
+        {
+          "path": "LICENSE-APACHE",
+          "bytes": 10847,
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "LICENSE-MIT",
+          "bytes": 1093,
+          "sha256": "ab499c75a0f0da8e0fe83bf9ba3a27e5c39705310f07107c6c66b69958d2401c"
         }
       ]
     },
@@ -987,562 +1006,20 @@
     },
     {
       "name": "datasketches",
-      "version": "0.2.0",
+      "version": "0.5.0",
       "status": "archive_verified",
-      "archiveSha256": "c286de4e81ea2590afc24d754e0f83810c566f50a1388fa75ebd57928c0d9745",
+      "archiveSha256": "11c0bd7d22989969a619bae09147b992a6aa7f31dd4f9d9af6345f533744781f",
       "declaredLicenseFile": null,
-      "noticeCandidates": [],
-      "inlineSearchScope": "Code/text files at most 200000 bytes; selected suffixes and marker phrases; not exhaustive",
-      "inlineNoticeCandidates": [
+      "noticeCandidates": [
         {
-          "path": "README.md",
-          "sha256": "423f9564ff99e1593381d11dc8753a680a97da1e6b0a277b1a99912a838972d6",
-          "markers": [
-            {
-              "line": 5,
-              "text": "    regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
+          "path": "LICENSE",
+          "bytes": 11883,
+          "sha256": "d97b0fec0d2d03920b94290c60fd29dedc0b48b1da03dd789d571de328321534"
         },
         {
-          "path": "src/bloom/builder.rs",
-          "sha256": "d41d2da702b5a14d053b39454863fdad16cf5a44deddfffa31072dd5b7626732",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "src/bloom/mod.rs",
-          "sha256": "77fffe301d5c6d2b77dddb1941f6b09deb7759bd6195601dc0bf5f700ec029ff",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "src/bloom/sketch.rs",
-          "sha256": "e9baa619768c139860b1719715037be247c1b867dd871f51a7b9af15e1ce6b2e",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "src/codec.rs",
-          "sha256": "3fb6eacb217879a9b51ef1b2336d012eb8991cf125115e1dbc3fecedc7d1eacf",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "src/common/binomial_bounds.rs",
-          "sha256": "82eb3a8954b2a91c78e16b70ad69d08f81b0812dc6efa6341fddebf21db0dc16",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "src/common/mod.rs",
-          "sha256": "c4f4d891f2b620235d84d85ea1d619e5aaedd106bf133b97e3694a9b66095e67",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "src/common/num_std_dev.rs",
-          "sha256": "5368ce513aebda88d46543ca83190084eb3f99b04d6e68604c6a8c1c7d5b6ccc",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "src/common/resize.rs",
-          "sha256": "f212520b5ea6d4d42ad2fcb3e9577d88a8ca56d5a7cede411e6f7a630fcc134a",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "src/countmin/mod.rs",
-          "sha256": "b84d8e029438aa1ee06bb46938b454643d6cc5dc0450560f2c26e7f5f5eea51b",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "src/countmin/serialization.rs",
-          "sha256": "6d0079fdea847cdf15e6c492d3fe385fec70942c41d0bcc7b2c28a99225da053",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "src/countmin/sketch.rs",
-          "sha256": "700a1404cf91c739652df8fc9166bc1ce079e6b69de3cb2703f292cad1db6b20",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "src/error.rs",
-          "sha256": "dc4d1a01c46553d64f87b211ff8c2bf66aa98c3d28377c1afc9cef87ab52369d",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "src/frequencies/mod.rs",
-          "sha256": "a1ef2c843ae08e8e317c94e7def0fc3f8370667e4e4d07be7059fcd8fd1da0bc",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "src/frequencies/reverse_purge_item_hash_map.rs",
-          "sha256": "00c25bb9498b6ec3a0cfc254785dce83f83fa0896269cbf3efd1b3a7c12818d9",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "src/frequencies/serialization.rs",
-          "sha256": "369135adf733b0a939d31f236a29092da2c5b27c124543b93091f3a09ca0907b",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "src/frequencies/sketch.rs",
-          "sha256": "a8610cf6b05a3900d1e2dd2c916064947cf5576b505e9c8a1ec370b95b5f44ca",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "src/hash/mod.rs",
-          "sha256": "8fbdf66e33bc2ac623cabffc7003d138e6ebecae3d3f1a9e9a107b4894141414",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "src/hash/murmurhash.rs",
-          "sha256": "dd3524d7bfb89dea70372c35bf249316903896509244177bd011052e105f7473",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "src/hash/xxhash.rs",
-          "sha256": "5a974e3a3ef8ad08a57f17d77694c043b5880c7ec761f64cd0ab7905c03a8ca1",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "src/hll/array4.rs",
-          "sha256": "edd0005c63ed3f5c848c6a5657b34821aa25698690da772df5ea399ed1abb2f1",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "src/hll/array6.rs",
-          "sha256": "a62a5f907b0df0433a705d958c39d4b24690f193f6e7dea2c43f714d9a3f4c3f",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "src/hll/array8.rs",
-          "sha256": "af115540501d3fc3ba226b13de493eefc013ff8413cc44834148294a14b9afcf",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "src/hll/aux_map.rs",
-          "sha256": "44203a747ae102c84046bafe77d6e2b38ec74962f47de87e1549227efca26486",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "src/hll/composite_interpolation.rs",
-          "sha256": "973a9da65df01cad92bb70b2329b51a0dabd78ca0bf6d53eaa178ffb2e053353",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "src/hll/container.rs",
-          "sha256": "d20a7435673a11a536fc91f3e878b588ef34f0a85c544ece12dc88d343bbdcb7",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "src/hll/coupon_mapping.rs",
-          "sha256": "f9356053c99c2771179f8575bc3e48a5c749e64874e121a88133c04f61b0e4a6",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "src/hll/cubic_interpolation.rs",
-          "sha256": "a7787b588d038987596c30d0d7fd727eb2282f8cfb0aa1ac24532af6a6aa39e6",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "src/hll/estimator.rs",
-          "sha256": "bcd8ce28500d78caf09d2cc95c7250303d1e02db87b4ba799574b576eb62501f",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "src/hll/harmonic_numbers.rs",
-          "sha256": "1e24d44489a39ee3497b60a341c728e8a32465de7893ff4a234047c2c2b99b06",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "src/hll/hash_set.rs",
-          "sha256": "f702bfca284c4b6f96a7e4ddc9e7db3873394762d31c29f7f91e0b3a50107699",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "src/hll/list.rs",
-          "sha256": "5549e46a7fe3b6aa24e371a0ff3352dcc5ddffd58b094f1403d650ed7e4e9310",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "src/hll/mod.rs",
-          "sha256": "e4cf6d5bc688f263da932cb00b12fbca9bb7ac0ead1da5554c932f71574a5b51",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "src/hll/mode.rs",
-          "sha256": "abb87f56612a4bb26de9c5a1a8f37948906cc29d584d455984c8f8163e62759c",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "src/hll/serialization.rs",
-          "sha256": "35d46e7e52a91e981f5d6028465a36ad5419a80f55caf1872d4da170cbf6c671",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "src/hll/sketch.rs",
-          "sha256": "1c9f3a3f2b4fb2c04c4a429b047bbd30a0216db2635f9a444f3407e55f826c49",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "src/hll/union.rs",
-          "sha256": "94c38407db6bbd18b28bf4dafa3953335973cde3017d25c12d1567a29a3804ec",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "src/lib.rs",
-          "sha256": "70918e9b448f776300009f89f951505bf45379cf9df2f4eae9907991f3948fd6",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "src/tdigest/mod.rs",
-          "sha256": "ef8e0db23c4e1ebb890fd1df815b19441e1f6b616b17bf030f466366a36b691e",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "src/tdigest/serialization.rs",
-          "sha256": "171aef4495cd921378cff1edd369c4672fc5d03c1e46419f21c86596ff7161bc",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "src/tdigest/sketch.rs",
-          "sha256": "c439f99397ddc37a9dbb54a3849bbba64e64763a1c22d4d793c7b3775d6a5021",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "src/theta/hash_table.rs",
-          "sha256": "f841290fc62175e8bdafb2a469867d228dfb9b01d69046172bd6eed64b4e403b",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "src/theta/mod.rs",
-          "sha256": "971307b60465675af38b528e8903596d706caadb5f90ecdcf0877c4ec350dbc0",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "src/theta/sketch.rs",
-          "sha256": "6cf67093d88f4e5e7f1e54596dc21c85dd9cbac4ca5ab12560cbb9605678eb5e",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "tests/bloom_serialization_test.rs",
-          "sha256": "e261f4b42d46e35df594ca66a72a96ae3a2b3e83cb7fcdb219dbca1eddd2749c",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "tests/common.rs",
-          "sha256": "29a33e053e984225664770169045781ddc0d85bf08f4e5cc4141ea93db1d13c7",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "tests/countmin_test.rs",
-          "sha256": "6367f6dcf424ebba9478048eedd4e5a47fa77f1f2956121f6dc9967935d3b56b",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "tests/frequencies_serialization_test.rs",
-          "sha256": "3f059c53327f220cfc79f81d84bdf3a61272c3b1ad95a6587034de8dddf9d5f3",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "tests/frequencies_update_test.rs",
-          "sha256": "ba7b50d957e5201deb8f4375ffea50eacae17de7efdf38e7d7345e4f5a467546",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "tests/hll_serialization_test.rs",
-          "sha256": "7c9405065971c3e3f6af5ca3056ca58ba134d822fc00de1f633ac8bc82f77408",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "tests/hll_union_test.rs",
-          "sha256": "476404d513de997a9afb7848f85c774b2a3c16dfda694231477f8dc7bc369081",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "tests/hll_update_test.rs",
-          "sha256": "fcf827354dda73091ec180d0c871b4fcdf136b5fe49e42935a9b44275e66b92d",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "tests/tdigest_serialization_test.rs",
-          "sha256": "ea0e36e663c20242cda8cc6ac46046d1b754e25ae90bf423a8f0caae3aa80798",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "tests/tdigest_test.rs",
-          "sha256": "627e8ac7a495736ce18eb1b6af9292d53afdf7295fe93c93e82ee3eb0e10b918",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
-        },
-        {
-          "path": "tests/theta_sketch_test.rs",
-          "sha256": "ff6891ccc98f33029fbc70f2b7b38082f6dab1d27dbe8ad5eab01d56ad9a3ac8",
-          "markers": [
-            {
-              "line": 4,
-              "text": "// regarding copyright ownership.  The ASF licenses this file"
-            }
-          ]
+          "path": "NOTICE",
+          "bytes": 178,
+          "sha256": "993058a7037a68deba9d4351a396c4a4295f7c912488296049156eb0f2dc98c0"
         }
       ]
     },
@@ -1751,21 +1228,6 @@
       ]
     },
     {
-      "name": "romedb-cli",
-      "version": "0.2.9",
-      "status": "workspace_source_requires_separate_review"
-    },
-    {
-      "name": "romedb-service",
-      "version": "0.2.9",
-      "status": "workspace_source_requires_separate_review"
-    },
-    {
-      "name": "romedb",
-      "version": "0.2.9",
-      "status": "workspace_source_requires_separate_review"
-    },
-    {
       "name": "fastdivide",
       "version": "0.4.2",
       "status": "archive_verified",
@@ -1778,11 +1240,6 @@
           "sha256": "97b68427822e3bca727ea8bc8748b354509b36bc2311c34b39ce86773fcb65c9"
         }
       ]
-    },
-    {
-      "name": "romeql-parser",
-      "version": "0.2.9",
-      "status": "workspace_source_requires_separate_review"
     },
     {
       "name": "fastrand",
@@ -1909,6 +1366,25 @@
           "path": "LICENSE-MIT",
           "bytes": 1072,
           "sha256": "20c7855c364d57ea4c97889a5e8d98470a9952dade37bd9248b9a54431670e5e"
+        }
+      ]
+    },
+    {
+      "name": "frostem",
+      "version": "1.20260821.8",
+      "status": "archive_verified",
+      "archiveSha256": "9e2488a10218a17366ce6bd38b6d081b4387a9548d350029db9feddc9bb44d6d",
+      "declaredLicenseFile": null,
+      "noticeCandidates": [
+        {
+          "path": "LICENSE",
+          "bytes": 1671,
+          "sha256": "9f1cbec491ae835de899d22d98064ca21b37ab3d7112393de1eb3a6be0aa1efc"
+        },
+        {
+          "path": "LICENSE-SNOWBALL",
+          "bytes": 1630,
+          "sha256": "880802872ce34f313df826e96131b1b147dcfa09c76fc82129f25503a922a678"
         }
       ]
     },
@@ -2220,25 +1696,6 @@
       "version": "0.15.2",
       "status": "archive_verified",
       "archiveSha256": "bf151400ff0baff5465007dd2f3e717f3fe502074ca563069ce3a6629d07b289",
-      "declaredLicenseFile": null,
-      "noticeCandidates": [
-        {
-          "path": "LICENSE-APACHE",
-          "bytes": 10847,
-          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
-        },
-        {
-          "path": "LICENSE-MIT",
-          "bytes": 1060,
-          "sha256": "ff8f68cb076caf8cefe7a6430d4ac086ce6af2ca8ce2c4e5a2004d4552ef52a2"
-        }
-      ]
-    },
-    {
-      "name": "hashbrown",
-      "version": "0.16.1",
-      "status": "archive_verified",
-      "archiveSha256": "841d1cc9bed7f9236f321df977030373f4a4163ae1a7dbfe1a51a2c1a51d9100",
       "declaredLicenseFile": null,
       "noticeCandidates": [
         {
@@ -3242,9 +2699,9 @@
     },
     {
       "name": "lru",
-      "version": "0.16.4",
+      "version": "0.18.5",
       "status": "archive_verified",
-      "archiveSha256": "7f66e8d5d03f609abc3a39e6f08e4164ebf1447a732906d39eb9b99b7919ef39",
+      "archiveSha256": "ef9ac18847474e638e3702b76c65d4eb93428471a74778ef0f1be711717f89b5",
       "declaredLicenseFile": null,
       "noticeCandidates": [
         {
@@ -3256,9 +2713,9 @@
     },
     {
       "name": "lz4_flex",
-      "version": "0.13.0",
+      "version": "0.14.0",
       "status": "archive_verified",
-      "archiveSha256": "db9a0d582c2874f68138a16ce1867e0ffde6c0bb0a0df85e1f36d04146db488a",
+      "archiveSha256": "ecbdfe44b1bd960b68170b417450a628c43f7cf56bb3c5317e61cb230ee7f226",
       "declaredLicenseFile": null,
       "noticeCandidates": [
         {
@@ -3388,9 +2845,9 @@
     },
     {
       "name": "mio",
-      "version": "1.0.3",
+      "version": "1.2.4",
       "status": "archive_verified",
-      "archiveSha256": "2886843bf800fba2e3377cff24abf6379b4c4d5c6681eaf9ea5b0d15090450bd",
+      "archiveSha256": "1788edb87fdc09c7e26304471e2f5be8cdefb1b6930d6e3985fc02ff53bf86ee",
       "declaredLicenseFile": null,
       "noticeCandidates": [
         {
@@ -3402,9 +2859,9 @@
     },
     {
       "name": "murmurhash32",
-      "version": "0.3.1",
+      "version": "0.4.0",
       "status": "archive_verified",
-      "archiveSha256": "2195bf6aa996a481483b29d62a7663eed3fe39600c460e323f8ff41e90bdd89b",
+      "archiveSha256": "a8afc6df942f4c022d70c5725e18df1a705773870e5b7f96fde94ca0334ce77a",
       "declaredLicenseFile": null,
       "noticeCandidates": [
         {
@@ -4220,6 +3677,26 @@
       ]
     },
     {
+      "name": "romedb-cli",
+      "version": "0.2.9",
+      "status": "workspace_source_requires_separate_review"
+    },
+    {
+      "name": "romedb-service",
+      "version": "0.2.9",
+      "status": "workspace_source_requires_separate_review"
+    },
+    {
+      "name": "romedb",
+      "version": "0.2.9",
+      "status": "workspace_source_requires_separate_review"
+    },
+    {
+      "name": "romeql-parser",
+      "version": "0.2.9",
+      "status": "workspace_source_requires_separate_review"
+    },
+    {
       "name": "rquickjs-core",
       "version": "0.13.0",
       "status": "archive_verified",
@@ -4289,30 +3766,6 @@
           "path": "LICENSE",
           "bytes": 1067,
           "sha256": "c10c1f27337546471e5f7e4e97fdd398b35b9d4e126115dcd22de8d8e65abf6f"
-        }
-      ]
-    },
-    {
-      "name": "rust-stemmers",
-      "version": "1.2.0",
-      "status": "archive_verified",
-      "archiveSha256": "e46a2036019fdb888131db7a4c847a1063a7493f971ed94ea82c67eada63ca54",
-      "declaredLicenseFile": null,
-      "noticeCandidates": [
-        {
-          "path": "LICENSE",
-          "bytes": 1068,
-          "sha256": "e46379f1aba07707c23fab8733d3441e9df981b1543046e0317b2036f8fdaef8"
-        },
-        {
-          "path": "algorithms/LICENSE",
-          "bytes": 1555,
-          "sha256": "ea2879fe94b4b2e6b3c6fb18b3bf265f9ff162637e5e1ac21fabc43d8cf34961"
-        },
-        {
-          "path": "test_data/LICENSE",
-          "bytes": 35147,
-          "sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903"
         }
       ]
     },
@@ -4627,6 +4080,20 @@
       ]
     },
     {
+      "name": "serde-tuple-vec-map",
+      "version": "1.0.1",
+      "status": "archive_verified",
+      "archiveSha256": "a04d0ebe0de77d7d445bb729a895dcb0a288854b267ca85f030ce51cdc578c82",
+      "declaredLicenseFile": null,
+      "noticeCandidates": [
+        {
+          "path": "LICENSE",
+          "bytes": 1054,
+          "sha256": "0f59f4c0f1f4deb18cbb7c5986003ff584c47fb6ae5daf045f9e8386b866bedf"
+        }
+      ]
+    },
+    {
       "name": "serde",
       "version": "1.0.228",
       "status": "archive_verified",
@@ -4898,9 +4365,9 @@
     },
     {
       "name": "socket2",
-      "version": "0.6.0",
+      "version": "0.6.5",
       "status": "archive_verified",
-      "archiveSha256": "233504af464074f9d066d7b5416c5f9b894a5862a6506e306f7b816cdd6f1807",
+      "archiveSha256": "c3d1e2c7f27f8d4cb10542a02c49005dbd6e93095799d6f3be745fae9f8fedd4",
       "declaredLicenseFile": null,
       "noticeCandidates": [
         {
@@ -5087,9 +4554,9 @@
     },
     {
       "name": "tantivy-bitpacker",
-      "version": "0.10.0",
+      "version": "0.27.0",
       "status": "archive_verified",
-      "archiveSha256": "4fed3d674429bcd2de5d0a6d1aa5495fed8afd9c5ecce993019caf7615f53fa4",
+      "archiveSha256": "2c803ac72b3356f48fe4a399a03e058addd5c94e793e0bb7c6bcc224b238fcd7",
       "declaredLicenseFile": null,
       "noticeCandidates": [],
       "inlineSearchScope": "Code/text files at most 200000 bytes; selected suffixes and marker phrases; not exhaustive",
@@ -5097,9 +4564,9 @@
     },
     {
       "name": "tantivy-columnar",
-      "version": "0.7.0",
+      "version": "0.27.0",
       "status": "archive_verified",
-      "archiveSha256": "c57166f5bcfd478f370ab8445afb4678dce44801fa5ce5c451aaf8595583c5dc",
+      "archiveSha256": "95101fe3dd4a76156bdeff8d14ad41c547f2c1bce7ee0d23fdb6f95599f312ec",
       "declaredLicenseFile": null,
       "noticeCandidates": [],
       "inlineSearchScope": "Code/text files at most 200000 bytes; selected suffixes and marker phrases; not exhaustive",
@@ -5107,9 +4574,9 @@
     },
     {
       "name": "tantivy-common",
-      "version": "0.11.0",
+      "version": "0.27.0",
       "status": "archive_verified",
-      "archiveSha256": "bbf10915aa75da3c3b0d58b58853d2e889efbaf32d4982a4c3715dde6bba23e5",
+      "archiveSha256": "66d062ce97f2a26f2a7b2ed5d926a62241f762e4395ac110eb5c18f3b4a13b71",
       "declaredLicenseFile": null,
       "noticeCandidates": [],
       "inlineSearchScope": "Code/text files at most 200000 bytes; selected suffixes and marker phrases; not exhaustive",
@@ -5145,10 +4612,20 @@
       "inlineNoticeCandidates": []
     },
     {
-      "name": "tantivy-sstable",
-      "version": "0.7.0",
+      "name": "tantivy-query-grammar",
+      "version": "0.27.0",
       "status": "archive_verified",
-      "archiveSha256": "8a2cfc3ac5164cbadc28965ffb145a8f47582a60ae5897859ad8d4316596c606",
+      "archiveSha256": "2ef6729a14fc5c5a662ee549a176640743577ef35c70ae7e86f0ca07fa83d161",
+      "declaredLicenseFile": null,
+      "noticeCandidates": [],
+      "inlineSearchScope": "Code/text files at most 200000 bytes; selected suffixes and marker phrases; not exhaustive",
+      "inlineNoticeCandidates": []
+    },
+    {
+      "name": "tantivy-sstable",
+      "version": "0.27.0",
+      "status": "archive_verified",
+      "archiveSha256": "9d6b3567417750e8aeb6e7c9c5ae8701376c07c06d51991050825832c2f8c431",
       "declaredLicenseFile": null,
       "noticeCandidates": [],
       "inlineSearchScope": "Code/text files at most 200000 bytes; selected suffixes and marker phrases; not exhaustive",
@@ -5156,9 +4633,9 @@
     },
     {
       "name": "tantivy-stacker",
-      "version": "0.7.0",
+      "version": "0.27.0",
       "status": "archive_verified",
-      "archiveSha256": "6cbb051742da9d53ca9e8fff43a9b10e319338b24e2c0e15d0372df19ffeb951",
+      "archiveSha256": "c4213e34acf53de44ab4778aafec3c6800a781be6a7c1906579acdc23c114d94",
       "declaredLicenseFile": null,
       "noticeCandidates": [],
       "inlineSearchScope": "Code/text files at most 200000 bytes; selected suffixes and marker phrases; not exhaustive",
@@ -5176,9 +4653,9 @@
     },
     {
       "name": "tantivy",
-      "version": "0.26.2",
+      "version": "0.27.0",
       "status": "archive_verified",
-      "archiveSha256": "861facfabd71044968f364837f9a083b56464ba5a59079f88706ee5c451ca069",
+      "archiveSha256": "ad1ebacf6bc124b741ffbfb088f9835cb55e1e2ff57e182e9219e3efa1377b97",
       "declaredLicenseFile": null,
       "noticeCandidates": [
         {
@@ -5351,9 +4828,9 @@
     },
     {
       "name": "tokio-macros",
-      "version": "2.5.0",
+      "version": "2.7.2",
       "status": "archive_verified",
-      "archiveSha256": "6e06d43f1345a3bcd39f6a56dbb7dcab2ba47e68e8ac134855e7e2bdbaf8cab8",
+      "archiveSha256": "78773a2a397f451582ce068015985c33193cf6dea8b74d2a639fe457b2f07b0e",
       "declaredLicenseFile": null,
       "noticeCandidates": [
         {
@@ -5384,9 +4861,9 @@
     },
     {
       "name": "tokio",
-      "version": "1.47.0",
+      "version": "1.53.3",
       "status": "archive_verified",
-      "archiveSha256": "43864ed400b6043a4757a25c7a64a8efde741aed79a056a2fb348a406701bb35",
+      "archiveSha256": "ce3335fa71841cda333a58d7615b03901380ecf09d59b3296d21f8bbac0dde4e",
       "declaredLicenseFile": null,
       "noticeCandidates": [
         {
@@ -5801,6 +5278,25 @@
           "path": "LICENSE.txt",
           "bytes": 769,
           "sha256": "7abd9b6960dcf7d4d0a48606a5b71bfe37d472db68d70637f3a58a56785f1621"
+        }
+      ]
+    },
+    {
+      "name": "unwrap-infallible",
+      "version": "1.0.0",
+      "status": "archive_verified",
+      "archiveSha256": "e497bb1f828cc9fb236722c2eaa100dcf201563f38f4da6252357a59037adf31",
+      "declaredLicenseFile": null,
+      "noticeCandidates": [
+        {
+          "path": "LICENSE-APACHE",
+          "bytes": 10847,
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "LICENSE-MIT",
+          "bytes": 1060,
+          "sha256": "76c88028846cd884418c1773ca7991b89f00a29a503fe84076182c6d37389d17"
         }
       ]
     },
@@ -6241,54 +5737,34 @@
     },
     {
       "name": "zstd-safe",
-      "version": "7.2.4",
+      "version": "8.2.0",
       "status": "archive_verified",
-      "archiveSha256": "8f49c4d5f0abb602a93fb8736af2a4f4dd9512e36f7f570d66e65ff867ed3b9d",
+      "archiveSha256": "ded520f16b29e1a9b771c722221b2b0a0398c2316d9bb3c42b458a5414d7434b",
       "declaredLicenseFile": null,
       "noticeCandidates": [
         {
           "path": "LICENSE",
-          "bytes": 18,
-          "sha256": "a77b7cfeaf911ed410ffbe76f0cb2b24ad8a4d94e7ead5727e914425c416cc63"
-        },
-        {
-          "path": "LICENSE.Apache-2.0",
-          "bytes": 10174,
-          "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594"
-        },
-        {
-          "path": "LICENSE.Mit",
-          "bytes": 1080,
-          "sha256": "129e8edef29e9abcd2ebabe252f4ef1b1289cdca356bf0040284a2fbccfb96c8"
+          "bytes": 1501,
+          "sha256": "ce4868c8e4ebe47a7d4b3c93dbf6b802033e5ae2fa7638098173f80836daac60"
         }
       ]
     },
     {
       "name": "zstd-sys",
-      "version": "2.0.16+zstd.1.5.7",
+      "version": "2.1.2+zstd.1.5.7",
       "status": "archive_verified",
-      "archiveSha256": "91e19ebc2adc8f83e43039e79776e3fda8ca919132d68a1fed6a5faca2683748",
+      "archiveSha256": "481ada9c543b2323cbb7bbdbb5249177fbf0188ed959ed2c15e4b22421c84ed3",
       "declaredLicenseFile": null,
       "noticeCandidates": [
         {
           "path": "LICENSE",
-          "bytes": 18,
-          "sha256": "a77b7cfeaf911ed410ffbe76f0cb2b24ad8a4d94e7ead5727e914425c416cc63"
-        },
-        {
-          "path": "LICENSE.Apache-2.0",
-          "bytes": 10174,
-          "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594"
+          "bytes": 1501,
+          "sha256": "ce4868c8e4ebe47a7d4b3c93dbf6b802033e5ae2fa7638098173f80836daac60"
         },
         {
           "path": "LICENSE.BSD-3-Clause",
-          "bytes": 1595,
-          "sha256": "48341f685c87304089aa099b23c386f8bacc519ef555aa7a13e239908907b3fd"
-        },
-        {
-          "path": "LICENSE.Mit",
-          "bytes": 1080,
-          "sha256": "129e8edef29e9abcd2ebabe252f4ef1b1289cdca356bf0040284a2fbccfb96c8"
+          "bytes": 1614,
+          "sha256": "bf7017a73a95ea63bf3716b13ec2bcd79c92942356e3408c6fb66332bad6d977"
         },
         {
           "path": "zstd/COPYING",
@@ -6304,15 +5780,15 @@
     },
     {
       "name": "zstd",
-      "version": "0.13.3",
+      "version": "0.14.3",
       "status": "archive_verified",
-      "archiveSha256": "e91ee311a569c327171651566e07972200e76fcfe2242a4fa446149a3881c08a",
+      "archiveSha256": "db3ae9bf90af6e40197bef767eeefc46ad6397420fe873830bd85e5fbbfb3c70",
       "declaredLicenseFile": null,
       "noticeCandidates": [
         {
           "path": "LICENSE",
-          "bytes": 1080,
-          "sha256": "129e8edef29e9abcd2ebabe252f4ef1b1289cdca356bf0040284a2fbccfb96c8"
+          "bytes": 1501,
+          "sha256": "ce4868c8e4ebe47a7d4b3c93dbf6b802033e5ae2fa7638098173f80836daac60"
         }
       ]
     }
