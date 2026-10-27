@@ -3,15 +3,14 @@
 Current status (2026-09-30): **retired in the Turso 0.8.1 sync**. Upstream now
 includes prepared frames in the FULL-mode sync decision. Keep the first-commit
 sync regression; do not reapply the historical patch below. The separate
-checkpoint pending-completion fix remains necessary. See the
-[current exception audit](../core-exception-audit-2026-09-30.md).
+checkpoint pending-completion fix remains necessary.
 
 ## Historical approval and reproduction (0.7.2)
 
 Status: approved by the user on 2026-09-25 and integrated unchanged in isolated
 commit `fe2ccd404e005a198fac5365712cacaa54d47a2c`. The commit's two-file diff
 matches the reviewed patch SHA-256 below. The integrated native sync probe and
-installed-browser fault matrix pass; see [active-source evidence](../v2-wal-durability-evidence.md).
+installed-browser fault matrix pass.
 This bug was discovered during OPFS fault qualification.
 
 ## Reproduced failure
@@ -112,5 +111,5 @@ upstream core exception. This proposal is separate from both the scalar-error
 transaction and WASI full-text proposals. Approval of an earlier proposal does
 not authorize this patch. The user explicitly approved this patch separately;
 it was integrated unchanged in its own commit. Provenance records it. The
-[integrated qualification](../v2-wal-durability-evidence.md) distinguishes the new
+integrated qualification distinguishes the new
 active-source artifacts and results from the pre-integration candidate counts.

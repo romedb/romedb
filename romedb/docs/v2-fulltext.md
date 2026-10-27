@@ -1,6 +1,6 @@
 # V2 full-text search
 
-Current source integrates [Turso 0.8.1](turso-0.8.1.md). Its explicit FTS migration,
+Current source integrates Turso 0.8.1. Its explicit FTS migration,
 catalog version 4, concurrent transactions, and rejection of trailing DML LIMIT
 supersede the older descriptions below; published release artifacts are unchanged.
 
@@ -10,10 +10,10 @@ Implemented and qualified for the documented native contract. The approved
 bugs; the separately approved [storage fix](proposals/fts-integrity.md) is
 integrated as `12109384a`. The affected native suites and complete V1 upgrade and
 restore rehearsal now pass, closing the reopened V2-F gate. See
-[initial search verification](v2-fulltext-evidence.md) and
-[integrated storage verification](v2-upgrade-restore-evidence.md).
+initial search verification and
+integrated storage verification.
 The scalar-error correction is also integrated, and combined native acceptance
-passed for the published [2.0.0 release](release-2.0.0.md). Browser/WASM is outside
+passed for the published 2.0.0 release. Browser/WASM is outside
 the native release. The limits below remain part of the supported contract.
 
 ```sql
@@ -85,6 +85,6 @@ The native shared directory cache can retain a different connection's pager.
 The approved fix restricts reuse to the requesting pager before the existing
 rollback check. The native regression covers reader isolation, a pinned snapshot
 across commit, savepoint rollback and full rollback. Managed/client acceptance
-is recorded in [verification](v2-fulltext-evidence.md). The [V2 checklist](v2-tasks.md)
+is recorded in verification. The V2 checklist
 is complete; current operating guidance is in [deployment](deployment.md) and
 [operations](operations.md).

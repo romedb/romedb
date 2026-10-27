@@ -2,7 +2,7 @@
 
 Current performance claims use [the production envelope](production-envelope.md).
 The observations below are historical V1 exact-search evidence, not current ANN
-performance. Intermediate development runs were removed during [cleanup](documentation-cleanup-20261001.md).
+performance. Intermediate development runs were removed during cleanup.
 
 ## Running new measurements
 
@@ -48,6 +48,6 @@ VmHWM observations are 2,622,386,176 then 2,620,030,976 bytes, retaining the ear
 
 ## Million-vector release evidence
 
-The [V1 million-vector record](v1-million-vector-evidence.md) and its raw report
+The V1 million-vector record and its raw report
 remain because they support the released V1 capacity claim. They do not establish
 interactive latency or the performance of later RomeDB releases.

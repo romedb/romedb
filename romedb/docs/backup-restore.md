@@ -24,8 +24,8 @@ This is a controlled same-build restore rehearsal. Interrupted copies, machine o
 storage failures, cross-process contention, other platforms and online backup
 are outside its evidence. Selected commit/checkpoint process-exit boundaries
 have separate evidence in recovery-io-evidence.md. RomeDB V1 is released;
-[the older S4 rehearsal](v1-upgrade-restore-evidence.md) is historical evidence.
-Current [V1-to-V2 qualification](v2-upgrade-restore-evidence.md) passes the native
+the older S4 rehearsal is historical evidence.
+Current V1-to-V2 qualification passes the native
 upgrade/restore rehearsal after the approved FTS backing-storage fix, including
 V1 downgrade rejection and restoration from unchanged V1 and V2 backups.
 Installed browser checks cover their separately identified artifact without FTS. Preserve a V1 backup before introducing V2 metadata;

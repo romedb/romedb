@@ -1,8 +1,7 @@
 # V2 spatial contract
 
 Released in RomeDB 2.0.0 and unchanged in behavior through 2.5.0: point scalar
-functions, managed radius search and H3 cell aggregation. See
-[the 2.0.0 release record](release-2.0.0.md).
+functions, managed radius search and H3 cell aggregation.
 
 RomeDB 2.5.0 adds Polygon and MultiPolygon values, point-in-region predicates,
 `ST_*` aliases, more H3 functions, a two-dimensional index format and region
@@ -126,7 +125,6 @@ The center is H3's cell center, not a promise of an ellipsoidal or area centroid
 The grid is pinned to h3o 0.9.4 with its libm implementation, using H3's spherical
 icosahedral hierarchy and boundary assignment. Cells vary in area and include
 pentagons. Logical parent relationships do not imply exact geometric containment.
-See [the grid/dependency assessment](v2-cell-design.md).
 
 Use ordinary GROUP BY, aggregate functions and HAVING for aggregation. Resolution
 is explicit; there is no implicit rebucketing. Cell IDs can be stored and scalar

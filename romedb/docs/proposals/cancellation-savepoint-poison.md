@@ -6,8 +6,7 @@ qualification summary below is retained; Git history retains tracked log content
 Current status (2026-09-30): **retained and adapted to Turso 0.8.1**. The selected
 named savepoint still needs its prior transaction-poison state restored after
 successful rollback. Neither 0.8.1 nor the inspected upstream main supplies it.
-The release-gate wording below belongs to the completed 2.1.0 history; see the
-[current exception audit](../core-exception-audit-2026-09-30.md).
+The release-gate wording below belongs to the completed 2.1.0 history.
 
 ## Historical approval and reproduction (0.7.2)
 

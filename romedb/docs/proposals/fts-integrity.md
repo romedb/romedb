@@ -3,15 +3,14 @@
 Current status (2026-09-30): **partially retained on Turso 0.8.1**. The remaining
 implementation excludes backing indexes from logical row-count comparisons and
 includes their roots in DROP TABLE teardown. Upstream supplies other portions of
-the old patch. The historical three-file patch below is not the current diff;
-see the [current exception audit](../core-exception-audit-2026-09-30.md).
+the old patch. The historical three-file patch below is not the current diff.
 
 ## Historical approval and reproduction (0.7.2)
 
 Status: separately approved by the user on 2026-09-25 and integrated unchanged in
 isolated commit `12109384ad868dd673a572305d45a816baa2e545`. Its three-file diff
 matches the reviewed patch SHA-256 below. Integrated native storage and V1
-upgrade/restore checks pass; see [active evidence](../v2-upgrade-restore-evidence.md).
+upgrade/restore checks pass.
 Pre-integration candidate qualification is in
 `/tmp/romedb-fts-integrity-review`, based on approved WAL commit
 `fe2ccd404e005a198fac5365712cacaa54d47a2c` with the active V2 frontend copied in.
@@ -93,7 +92,7 @@ Its build log is `/tmp/romedb-fts-integrity-node-build-final.log`; it is a debug
 artifact from the isolated checkout, not the active addon or a release package.
 The source fixture and backup identities are recorded in
 `/tmp/romedb-v2-upgrade-restore-candidate-final/report.json` and
-[upgrade evidence](../v2-upgrade-restore-evidence.md).
+upgrade evidence.
 
 Candidate Rust formatting/diff checks and active-probe Clippy with warnings
 denied pass. The affected native build retains one existing unused-import warning

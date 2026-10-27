@@ -44,5 +44,3 @@ missing targets are charged as NULL. The single source row is decoded before fin
 payload accounting, and reference fetching retains its own bounds. These limits
 are not a total process-memory cap. A failure returns no partial result and
 preserves the caller's transaction.
-
-See [qualification evidence](v2-cell-projection-evidence.md).

@@ -5,8 +5,7 @@ statement metrics do not replace the retained work/budget APIs or their complete
 cursor-visit and mutation events. The inspected upstream main adds a whole-table
 DELETE optimization using `ClearBtree`; a future sync must extend metering or
 preserve the metered row path before adopting it. That optimization is absent
-from the pinned release. See the
-[current exception audit](../core-exception-audit-2026-09-30.md).
+from the pinned release.
 
 Approved by the user on 2026-09-26 for Cloud 0.3.0. This work does not reopen the
 completed native 2.1.0 release or change its historical acceptance record.

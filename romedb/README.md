@@ -1,45 +1,21 @@
 # RomeDB embedded database
 
-RomeDB and RomeQL [2.9.1 are released for Linux x64](docs/release-2.9.1.md),
+RomeDB and RomeQL [0.2.10 are released for Linux x64](docs/release-0.2.10.md),
 with native Rust, Node.js/TypeScript, Python, PHP, Swift, C# and Go clients.
-See the [completed checklist](docs/v2.9.1-tasks.md),
-[verified download](docs/release-2.9.1-download.json),
+See the [verified download](docs/release-0.2.10-download.json),
+[implementation status](docs/status.md),
 [language contracts](docs/v2.2-language.md) and [engine provenance](UPSTREAM.md).
 
-2.9.1 moves the engine to Turso 0.8.3: MVCC durability fixes, AUTOINCREMENT no
-longer reuses an explicit id 1, and MVCC journal-mode switches inside a transaction
-are refused. Stored data is unchanged.
-2.9.0 lets the Node SDK and CLI use Cloud query version 3: Binary and Vector values
-travel as base64 and requests may be up to 1 MiB. It also keeps keyword column names
-unquoted when a subquery reads a document table.
-2.8.0 joins collections with relational tables that store record IDs as text
-(`ON u.id = p.user_id` with `posts.user_id = 'users:tan'`) and resolves
-unqualified names in collection joins; see the
-[contract](docs/contracts.md#joining-collections-with-relational-tables).
-2.7.0 reports the engine release: `SELECT romedb_version()`, `romedb --version`
-and `engineVersion` in the database details. 2.6.0 made Cloud connections start
-faster: `connect()` skips the details
-request and warms the database in the background. 2.5.4 added `romedb://`
-connection URLs. 2.5.3 made
-collection scans and grouping cheaper per document. 2.5.2 made
-spatial `EXPLAIN` read no data. 2.5.1 made field reads and filtered
-nearest search faster and metered nearest planning work. 2.5.0 added a bounded spatial model: Polygon and MultiPolygon values, exact
-point-in-region predicates, `ST_*` aliases, more H3 functions, a two-dimensional
-spatial index and region indexes for stored zones. See the
-[spatial contract](docs/spatial-upgrade.md). Spatial indexes created or rebuilt
-by 2.5.0 move their collection to catalog version 7, which 2.4.0 and older refuse
-to open; existing latitude-format indexes keep working and `REINDEX` upgrades them.
-2.4.0 added a property graph: edge tables, `RELATE` and bounded `GRAPH(...)`
-traversal ([graph contract](docs/graph.md)). Preserve a pre-upgrade backup; legacy
-full-text indexes require explicit REINDEX. See the
+Feature contracts: [joins with relational tables](docs/contracts.md#joining-collections-with-relational-tables),
+[record sources](docs/record-sources.md), [graphs](docs/graph.md) and
+[spatial](docs/spatial-upgrade.md). `SELECT romedb_version()` and
+`romedb --version` report the engine release. Preserve a pre-upgrade backup;
+legacy full-text indexes require explicit REINDEX. See the
 [quickstart](docs/v2-release-quickstart.md), [deployment contract](docs/deployment.md),
 [operations guide](docs/operations.md) and [SQLite adoption](docs/sqlite-adoption.md).
-The [operating envelope](docs/production-envelope.md) retains dated 2.1.0
-measurements. Cloud hosting uses a separate private deployment; browser/WASM,
+The [operating envelope](docs/production-envelope.md) keeps dated measurements.
+Cloud hosting uses a separate private deployment; browser/WASM,
 graph algorithms and general GIS are excluded.
-The 2.2.0 language contracts, [2.3.0 record sources](docs/record-sources.md),
-[2.4.0 graphs](docs/graph.md) and [2.5.0 spatial](docs/spatial-upgrade.md)
-supersede older subset descriptions below.
 
 From the repository root:
 
@@ -52,7 +28,7 @@ Use a fresh database for the example. `romedb/examples/sql-writes.romeql` additi
 
 On Unix terminals, the CLI supports cursor editing and up/down history recall, including multiline statements. Ctrl-C at the prompt clears pending input and leaves any transaction active; `.quit` exits and connection close rolls back uncommitted work. History stays in memory by default. Use `--history /path/to/romedb-history` to load and save it across sessions; start a statement with a space to omit it. History retains up to 100 entries and skips new entries over 64 KiB. The submission byte limit is checked after terminal line editing and does not bound the editor's live buffer. Ctrl-C during engine execution requests cancellation and returns an error report before the next prompt. Inspect the report's transaction state; interrupted work can end an outer transaction. See the release record for supported platforms and documented limits.
 
-The Rust client entry point is `romedb::Database::open(path)?.connect()?`. `execute(sql, &Parameters)` handles the implemented RomeQL subset and ordinary SQL. Typed `insert`, `get`, `patch`, `delete`, `define_field`, `create_index`, and `lookup_index` APIs exercise document storage without exposing raw engine access. Collection SELECT supports the initial AST-lowered subset in status.md. SQL-shaped VALUES inserts, SET/UNSET/DELETE, and ID-based UPSERT use the document validation path. Collection/index drops and field removal are transactional; INFO reports logical schema metadata. Field CHECK expressions validate final candidates and existing data when definitions change. V1 catalog version 2 remains readable; spatial indexes and [inverse relationship declarations](docs/v2-relations.md) require version 3; new/rebuilt full-text indexes require version 4. See the [spatial contract](docs/v2-spatial.md) for upgrade behavior. SQL SELECT/SET/VALUES now support typed document/array/record helpers and lazy null helpers; see status.md for the supported subset. See the V2 checklist for future language and engine work.
+The Rust client entry point is `romedb::Database::open(path)?.connect()?`. `execute(sql, &Parameters)` handles the implemented RomeQL subset and ordinary SQL. Typed `insert`, `get`, `patch`, `delete`, `define_field`, `create_index`, and `lookup_index` APIs exercise document storage without exposing raw engine access. Collection SELECT supports the initial AST-lowered subset in status.md. SQL-shaped VALUES inserts, SET/UNSET/DELETE, and ID-based UPSERT use the document validation path. Collection/index drops and field removal are transactional; INFO reports logical schema metadata. Field CHECK expressions validate final candidates and existing data when definitions change. V1 catalog version 2 remains readable; spatial indexes and [inverse relationship declarations](docs/v2-relations.md) require version 3; new/rebuilt full-text indexes require version 4. See the [spatial contract](docs/v2-spatial.md) for upgrade behavior. SQL SELECT/SET/VALUES now support typed document/array/record helpers and lazy null helpers; see status.md for the supported subset.
 
 V2 [full-text search](docs/v2-fulltext.md) provides managed multi-field text indexes
 and `search::text(index,query,limit)` with typed IDs and BM25 scores. Read its
@@ -105,14 +81,11 @@ Existing `.profile`, ordinary scripts, input byte limits and exit-status behavio
 retain their contracts; line and interactive modes continue after a failed command
 and exit nonzero if any command failed.
 
-V2 development also includes [dense ANN search](docs/v2-ann.md), qualified under
-its documented native contract. Release `2.6.0` uses optimized
-`romedb-production`; the [release checklist](docs/v2.6.0-tasks.md) is complete.
-See the [verified public download](docs/release-2.6.0-download.json).
+[Dense ANN search](docs/v2-ann.md) is qualified under its documented native
+contract.
 
-The [Python binding](bindings/python/README.md) embeds the same frontend at
-version `2.6.0`. V2 release clients are Rust, Node.js/TypeScript, Python, PHP, Swift, C# and Go; browser/WASM is
-removed from active development and excluded from this release. Current Linux
-installed-wheel checks are recorded in the [2.6.0 evidence](docs/release-2.6.0.md).
+The [Python binding](bindings/python/README.md) embeds the same frontend.
+Release clients are Rust, Node.js/TypeScript, Python, PHP, Swift, C# and Go;
+browser/WASM is excluded.
 
 [PHP, Swift, C# and Go native clients](docs/native-language-clients.md) share a RomeDB C ABI. Local builds and the common contract test are documented there.

@@ -16,7 +16,7 @@ glibc 2.38 (CLI), glibc 2.35 (Node/shared library) and GLIBCXX_3.4.29; these sym
 versions are compatibility floors, not evidence for other distributions.
 Alpine/musl, ARM, Windows and macOS are not qualified binary targets.
 
-The [2.0.0 release record](release-2.0.0.md) identifies exact supported runtime
+The 2.0.0 release record identifies exact supported runtime
 versions and package tests. That evidence was collected on Ubuntu 24.04 under
 WSL2. Follow the candidate release's installed-artifact and workload evidence
 before upgrading; WSL2 evidence does not establish every host's storage behavior.

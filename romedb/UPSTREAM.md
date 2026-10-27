@@ -3,11 +3,8 @@
 - Repository: https://github.com/tursodatabase/turso (remote `upstream`).
 - Baseline: release `v0.8.3`, full commit `607bff9fd0e547a25a97b3bf06e83bcc5d99d53c`.
 - Previous base: `v0.8.1`, commit `8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a`; before that `v0.7.2`, commit `046e9cbf67d22491e8ecc941ec2891b02a9f3cad`.
-- Upgrade behavior and validation: [0.8.3 notes](docs/turso-0.8.3.md) and
-  [checklist](docs/turso-0.8.3-tasks.md); the 0.8.1 [integration notes](docs/turso-0.8.1.md)
-  and [task checklist](docs/turso-0.8.1-tasks.md) remain the record of the larger
-  0.7.2 upgrade; [core exception review](docs/core-exceptions.md).
-- Follow-up override audit: [release and current-main comparison](docs/core-exception-audit-2026-09-30.md).
+- Upgrade behavior and validation: [0.8.3 notes](docs/turso-0.8.3.md);
+  [core exception review](docs/core-exceptions.md).
 - RomeDB fork: `git@github.com:romedb/romedb.git` (remote `origin`). Upstream ancestry is preserved; inspect current refs rather than relying on historical branch names.
 - Toolchain: upstream Rust 1.88; locally tested with 1.88.0 on Linux x86_64.
 - Engine dependency: in-workspace `turso_core` with default features plus `conn_raw_api` for engine WAL hooks and `fts` for V2 full-text search. V2 opens opt into index methods; managed search owns the public surface.
@@ -55,7 +52,7 @@ No storage format or public API changes are introduced.
 
 The previously ignored after-write trigger-cancellation regression is enabled.
 The isolated candidate passed 98 pinned upstream trigger tests and its full
-RomeDB scoped suite; see [review evidence](docs/trigger-interrupt-review.md).
+RomeDB scoped suite.
 Combined-current-source verification is recorded separately after integration.
 On upstream upgrades, check whether the fix is present before removing this
 exception; preserve the regression and revalidate affected trigger behavior.
@@ -131,13 +128,13 @@ savepoint for ordinary INSERT/UPDATE/DELETE in existing caller scopes, rolling
 back on cancellation and preserving native conflict-error dispositions. Native
 oracle checks include rows, transaction state, changes() and last_insert_rowid().
 This change uses public engine APIs and does not modify upstream sources. The scalar-error transaction and WASI FTS exceptions were subsequently approved
-and integrated; see the maintenance register below. See [browser client evidence](docs/browser-removal.md).
+and integrated; see the maintenance register below.
 
 The historical browser OPFS adapter implemented the existing public engine `IO`
 and `File` traits and used `Database::open_with_io`. Dedicated browser workers owned
 exclusive database/WAL handles, mapped sync to flush, and returned synchronous I/O
 completions to Rust. That adapter added no core/storage-format change or dependency.
-See [OPFS qualification](docs/browser-removal.md) for the fault/platform gates at
+See OPFS qualification for the fault/platform gates at
 that stage. Neither that browser qualification nor WASI FTS is a current release gate.
 
 ## Approved core exception: first-commit FULL-mode WAL sync
@@ -152,8 +149,7 @@ No public API or storage format changes. NORMAL/OFF behavior remains unchanged.
 Keep the regression and check for an equivalent fix during upstream upgrades.
 Candidate evidence: 86 native passes, one existing ignored test, and 11 OPFS
 fault cases in each browser. The integrated native sync probe and installed
-browser package also pass, including all 11 fault cases in each browser; see
-[active-source evidence](docs/v2-wal-durability-evidence.md). The scalar-error
+browser package also pass, including all 11 fault cases in each browser. The scalar-error
 and WASI FTS exceptions are now integrated as recorded below.
 
 ## Approved core exception: FTS backing-storage integrity and cleanup
@@ -168,8 +164,7 @@ The user separately approved it on 2026-09-25. Isolated commit
 `12109384ad868dd673a572305d45a816baa2e545` applies the exact reviewed patch; its
 three-file diff has the same SHA-256. The integrated integrity, index-method and
 drop-table suites pass (64 distinct tests), as does the complete native V1
-upgrade/restore rehearsal. Core Clippy with warnings denied also passes. See
-[active evidence](docs/v2-upgrade-restore-evidence.md).
+upgrade/restore rehearsal. Core Clippy with warnings denied also passes.
 This approval was separate from the later scalar-error and WASI FTS approvals. Existing orphaned pages from older development builds are not repaired
 automatically; preserve the physical-corruption and drop/rollback regressions
 when reviewing future upstream replacements.
@@ -235,8 +230,7 @@ release gates are removed. `romedb-protocol` stays because Python depends on it.
 Five active core exceptions remained after removal. The approved 2.1 checkpoint
 barrier/retry correction brought the active count to six. The separately approved named-savepoint
 cancellation correction below brings the current count to seven. Earlier browser
-sections above are historical, not current build instructions; see
-[removal evidence](docs/browser-removal.md).
+sections above are historical, not current build instructions.
 
 Historical browser-removal Cargo.lock SHA-256: `eccecb92bd14841e0f0980680eb051f365db9454cbade2212a8ffdd80d3c6443`.
 The removal drops `romedb-browser` and bindgen 0.72.1, without adding/upgrading any

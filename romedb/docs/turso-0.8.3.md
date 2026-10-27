@@ -3,7 +3,7 @@
 Engine base: `v0.8.3`, commit `607bff9fd0e547a25a97b3bf06e83bcc5d99d53c` (tagged
 2026-10-12). Previous base: `v0.8.1`, commit `8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a`.
 Merged into branch `sync/turso-0.8.3` with an ancestry-preserving merge commit.
-Checks and their results are in [the checklist](turso-0.8.3-tasks.md). Exception
+Exception
 decisions are in [the register](core-exceptions.md).
 
 ## What changed upstream
@@ -62,5 +62,4 @@ in the checklist.
 Upstream `v0.9.0-pre.1` and later `main` contain the whole-table DELETE fast path
 (`58f350a90`, `ClearBtreeCount`). It skips the Delete opcode that the execution
 meter counts. A later sync must count that path or disable it for metered
-requests before taking it. See the
-[2026-09-30 audit](core-exception-audit-2026-09-30.md).
+requests before taking it.

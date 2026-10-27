@@ -1,7 +1,7 @@
 # Sandboxed JavaScript scalar functions
 
 This contract is implemented and qualified in the published native Linux x64
-[RomeDB 2.0.0 release](release-2.0.0.md). Browser/WASM is outside this release.
+RomeDB 2.0.0 release. Browser/WASM is outside this release.
 
 ```sql
 CREATE FUNCTION app::normalize_name(value string)

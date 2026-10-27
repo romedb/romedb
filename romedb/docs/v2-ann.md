@@ -2,8 +2,8 @@
 
 The frontend integrates USearch 2.26.2 without default SIMD/OpenMP features.
 No new core exception is involved. The native contract below is included in
-the published [2.0.0 release](release-2.0.0.md). Initial feature qualification is
-retained in [evidence](v2-ann-evidence.md); the release record contains combined
+the published 2.0.0 release. Initial feature qualification is
+retained in evidence; the release record contains combined
 acceptance and exact-artifact results.
 
 ```sql

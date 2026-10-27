@@ -60,8 +60,7 @@ with `busy=1`, `log=NULL`, `checkpointed=NULL`. An asynchronous completion error
 at the WAL barrier before database backfill can instead propagate through the
 query API. Handle thrown errors and inspect any returned row: neither successful
 query completion nor absence of a row proves checkpoint success. A maintenance
-TRUNCATE checkpoint must return `[0,0,0]` before a backup can proceed. See
-[returned I/O error evidence](native-io-errors-evidence.md).
+TRUNCATE checkpoint must return `[0,0,0]` before a backup can proceed.
 
 Result/queue limits bound their documented payloads, not all process memory.
 FTS search can allocate scratch proportional to indexed documents and materialize
@@ -75,7 +74,7 @@ and sidecars together. Restore storage capacity or resolve the underlying I/O
 fault. Reopen with the matching build after all handles close; verify native and
 collection integrity before restarting writes. Recover from a verified backup
 if checks fail. Preserve a separate incident copy before attempting repairs.
-See [native recovery evidence](recovery-io-evidence.md) for exactly which failure
+See native recovery evidence for exactly which failure
 paths have been exercised; process-kill tests do not establish power-loss safety.
 
 ## Transactions, errors and retries
@@ -98,7 +97,7 @@ Assign application operation IDs and enforce uniqueness in the same transaction
 as the business change when retryable commands must be deduplicated. After an
 unknown outcome, query that operation ID before deciding whether to repeat work.
 The library performs no universal retry or exactly-once protocol for you.
-The [native failure matrix](native-io-errors-evidence.md) reproduces why this
+The native failure matrix reproduces why this
 matters: a failed WAL sync can report a COMMIT error while the complete new
 transaction is present after process reopen. Treat that result as ambiguous
 until application state is checked.

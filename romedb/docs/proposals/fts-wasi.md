@@ -2,15 +2,14 @@
 
 Retired: after approval/integration, the user explicitly removed browser support.
 Commit `ae6777a17` reverts the core exception; frontend wiring is removed too.
-The proposal below is historical and must not be reapplied automatically. See
-[removal evidence](../browser-removal.md).
+The proposal below is historical and must not be reapplied automatically.
 
 
 Current status: explicitly approved by the user and integrated in isolated commit
 `2ef619c0704025512d9f4d4f5290dec3940a7361`. The original review and candidate-only evidence below are retained
 as history. Subsequent pending/unintegrated wording describes that earlier state.
 Track upstream replacement/removal in [the maintenance register](../core-exceptions.md).
-Combined-source acceptance now passes; see [integrated evidence](../v2-core-integration-evidence.md).
+Combined-source acceptance now passes.
 Final release qualification remains open.
 
 
@@ -95,7 +94,7 @@ version, source or checksum changes are needed. Lock SHA-256:
 - Frontend feature wiring SHA-256:
   `68adbabbe59c6c2b6b160aa3b12f046e8af17bef2aad6f790d1bddb9b9efa0a1`.
 - Candidate reactor passes the full shared fixture in Chromium and Firefox,
-  peak eight Rust workers and zero left active; see [runtime evidence](../browser-removal.md)
+  peak eight Rust workers and zero left active
   for exact artifact hashes, tools, commands and logs.
 - The active-core reactor passes the base fixture in both browsers and fails the
   full-text control with `unknown module name 'fts'`, also leaving zero active
