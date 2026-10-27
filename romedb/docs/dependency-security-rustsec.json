@@ -1,12 +1,12 @@
 {
-  "reviewed_at": "2026-10-21T05:29:06.505861+00:00",
-  "source_commit": "2cb12681eccdb63945a0aa64a41b87bbb6be1307",
-  "cargo_lock_sha256": "de51c5e96d6bd41bcc266ff0e3ff88ab2e20906ec8669192c4d8278ae6bd76fd",
+  "reviewed_at": "2026-10-27T01:03:33.606945+00:00",
+  "source_commit": "5a9faf7f052773413e2fe5211562480cabb423a4",
+  "cargo_lock_sha256": "fd14778135a39262701acbb28b5c02fa7f7ea170433d31427cd4c35efd2bf4c0",
   "advisory_database": {
     "repository": "https://github.com/RustSec/advisory-db.git",
-    "commit": "e6f94f3760d5e6c54c1b05f204002263bc025524",
-    "committed_at": "2026-10-20T21:24:19+02:00",
-    "advisory_count": 1348
+    "commit": "3279c99911354c400e1d41e47c7d60e39258b147",
+    "committed_at": "2026-10-26T22:32:25+01:00",
+    "advisory_count": 1378
   },
   "scanner": "cargo-audit 0.22.2",
   "target": "x86_64-unknown-linux-gnu",
@@ -88,6 +88,10 @@
     {
       "name": "base64",
       "version": "0.22.1"
+    },
+    {
+      "name": "base64",
+      "version": "0.23.1"
     },
     {
       "name": "bigdecimal",
@@ -255,7 +259,7 @@
     },
     {
       "name": "datasketches",
-      "version": "0.2.0"
+      "version": "0.5.0"
     },
     {
       "name": "deranged",
@@ -310,40 +314,8 @@
       "version": "0.14.1"
     },
     {
-      "name": "romedb",
-      "version": "0.2.9"
-    },
-    {
-      "name": "romedb-c",
-      "version": "0.2.9"
-    },
-    {
-      "name": "romedb-cli",
-      "version": "0.2.9"
-    },
-    {
-      "name": "romedb-node",
-      "version": "0.2.9"
-    },
-    {
-      "name": "romedb-protocol",
-      "version": "0.2.9"
-    },
-    {
-      "name": "romedb-python",
-      "version": "0.2.9"
-    },
-    {
-      "name": "romedb-service",
-      "version": "0.2.9"
-    },
-    {
       "name": "fastdivide",
       "version": "0.4.2"
-    },
-    {
-      "name": "romeql-parser",
-      "version": "0.2.9"
     },
     {
       "name": "fastrand",
@@ -372,6 +344,10 @@
     {
       "name": "form_urlencoded",
       "version": "1.2.1"
+    },
+    {
+      "name": "frostem",
+      "version": "1.20260821.8"
     },
     {
       "name": "fs4",
@@ -452,10 +428,6 @@
     {
       "name": "hashbrown",
       "version": "0.15.2"
-    },
-    {
-      "name": "hashbrown",
-      "version": "0.16.1"
     },
     {
       "name": "hashbrown",
@@ -699,11 +671,11 @@
     },
     {
       "name": "lru",
-      "version": "0.16.4"
+      "version": "0.18.5"
     },
     {
       "name": "lz4_flex",
-      "version": "0.13.0"
+      "version": "0.14.0"
     },
     {
       "name": "measure_time",
@@ -735,11 +707,11 @@
     },
     {
       "name": "mio",
-      "version": "1.0.3"
+      "version": "1.2.4"
     },
     {
       "name": "murmurhash32",
-      "version": "0.3.1"
+      "version": "0.4.0"
     },
     {
       "name": "napi",
@@ -958,6 +930,38 @@
       "version": "0.11.2"
     },
     {
+      "name": "romedb",
+      "version": "0.2.9"
+    },
+    {
+      "name": "romedb-c",
+      "version": "0.2.9"
+    },
+    {
+      "name": "romedb-cli",
+      "version": "0.2.9"
+    },
+    {
+      "name": "romedb-node",
+      "version": "0.2.9"
+    },
+    {
+      "name": "romedb-protocol",
+      "version": "0.2.9"
+    },
+    {
+      "name": "romedb-python",
+      "version": "0.2.9"
+    },
+    {
+      "name": "romedb-service",
+      "version": "0.2.9"
+    },
+    {
+      "name": "romeql-parser",
+      "version": "0.2.9"
+    },
+    {
       "name": "rquickjs",
       "version": "0.13.0"
     },
@@ -972,10 +976,6 @@
     {
       "name": "rusqlite",
       "version": "0.40.2"
-    },
-    {
-      "name": "rust-stemmers",
-      "version": "1.2.0"
     },
     {
       "name": "rustc-hash",
@@ -1042,6 +1042,10 @@
       "version": "1.0.228"
     },
     {
+      "name": "serde-tuple-vec-map",
+      "version": "1.0.1"
+    },
+    {
       "name": "serde_core",
       "version": "1.0.228"
     },
@@ -1103,7 +1107,7 @@
     },
     {
       "name": "socket2",
-      "version": "0.6.0"
+      "version": "0.6.5"
     },
     {
       "name": "softaes",
@@ -1151,19 +1155,19 @@
     },
     {
       "name": "tantivy",
-      "version": "0.26.2"
+      "version": "0.27.0"
     },
     {
       "name": "tantivy-bitpacker",
-      "version": "0.10.0"
+      "version": "0.27.0"
     },
     {
       "name": "tantivy-columnar",
-      "version": "0.7.0"
+      "version": "0.27.0"
     },
     {
       "name": "tantivy-common",
-      "version": "0.11.0"
+      "version": "0.27.0"
     },
     {
       "name": "tantivy-fst",
@@ -1174,12 +1178,16 @@
       "version": "0.26.0"
     },
     {
+      "name": "tantivy-query-grammar",
+      "version": "0.27.0"
+    },
+    {
       "name": "tantivy-sstable",
-      "version": "0.7.0"
+      "version": "0.27.0"
     },
     {
       "name": "tantivy-stacker",
-      "version": "0.7.0"
+      "version": "0.27.0"
     },
     {
       "name": "tantivy-tokenizer-api",
@@ -1227,11 +1235,11 @@
     },
     {
       "name": "tokio",
-      "version": "1.47.0"
+      "version": "1.53.3"
     },
     {
       "name": "tokio-macros",
-      "version": "2.5.0"
+      "version": "2.7.2"
     },
     {
       "name": "tokio-rustls",
@@ -1342,6 +1350,10 @@
       "version": "0.9.0"
     },
     {
+      "name": "unwrap-infallible",
+      "version": "1.0.0"
+    },
+    {
       "name": "url",
       "version": "2.5.4"
     },
@@ -1447,29 +1459,27 @@
     },
     {
       "name": "zstd",
-      "version": "0.13.3"
+      "version": "0.14.3"
     },
     {
       "name": "zstd-safe",
-      "version": "7.2.4"
+      "version": "8.2.0"
     },
     {
       "name": "zstd-sys",
-      "version": "2.0.16+zstd.1.5.7"
+      "version": "2.1.2+zstd.1.5.7"
     }
   ],
-  "findings": [
-    {
-      "kind": "unsound",
-      "package": "lru",
-      "version": "0.16.4",
-      "id": "RUSTSEC-2026-0253",
-      "title": "Potential use-after-free due to lack of panic safety in `LruCache::pop()`",
-      "url": "https://rustsec.org/advisories/RUSTSEC-2026-0253.html",
-      "accepted_informational": true
-    }
-  ],
+  "findings": [],
   "excluded_workspace_findings": [
+    {
+      "kind": "vulnerability",
+      "package": "ctutils",
+      "version": "0.4.2",
+      "id": "RUSTSEC-2026-0385",
+      "title": "Non-constant-time mask generation and `u128` comparisons",
+      "url": "https://rustsec.org/advisories/RUSTSEC-2026-0385.html"
+    },
     {
       "kind": "vulnerability",
       "package": "h2",

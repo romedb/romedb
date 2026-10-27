@@ -41,8 +41,8 @@ ORDER BY h.score DESC, h.id;
   it does not accept a different field list or search kind. `DROP INDEX`, table
   drop, builds, writes and catalog changes use statement savepoints.
 - Catalog version 4 persists the ordered paths and `tantivy-default-0.26`
-  tokenizer identity. The pinned engine uses Tantivy 0.26.2 with its default
-  tokenizer: split on punctuation, lowercase and omit tokens of 40 bytes
+  tokenizer identity. The engine uses Tantivy 0.27.0, whose default tokenizer is
+  unchanged from 0.26, so the identity stays the same. That tokenizer: split on punctuation, lowercase and omit tokens of 40 bytes
   or longer. No stemming, accent folding or language-specific segmentation is promised.
 - Queries apply across all indexed text fields. Supported grammar: terms,
   quoted phrases, prefix phrases, boolean AND/OR, parentheses, required and

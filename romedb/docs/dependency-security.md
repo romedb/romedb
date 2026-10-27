@@ -1,4 +1,22 @@
-# Dependency security review for 2.9.2
+# Dependency security review for 0.2.9
+Reviewed 2026-10-27 for the Linux x64 0.2.9 candidate, the first release under
+the RomeDB name. The exact lockfile scan covers 362 package/version identities
+against the RustSec advisory database at
+`3279c99911354c400e1d41e47c7d60e39258b147` (fetched just before the review)
+using the pinned `cargo-audit 0.22.2` binary.
+
+The first scan found 14 unresolved shipping findings published after the 2.9.2
+review: three vulnerabilities and ten unsoundness advisories in `zstd` 0.13.3 and
+`zstd-safe` 7.2.4 (RUSTSEC-2026-0391 and RUSTSEC-2026-0395 to 0406), and
+RUSTSEC-2026-0386 (`AsyncFd::new` I/O safety) in `tokio` 1.47.0. zstd reaches
+the shipping closure only through Tantivy's sstable and docstore compression.
+0.2.9 updates Tantivy from 0.26.2 to 0.27.0, which requires `zstd` 0.14.3 and
+`zstd-safe` 8.2.0, and moves the exact `tokio` pins in the CLI and service
+crates from 1.47.0 to 1.53.3. Tantivy 0.27.0 also moves `lru` to 0.18.5, so the
+RUSTSEC-2026-0253 exception kept since 2.6.0 is removed. The final scan found
+zero findings in the shipping closure, with no accepted exceptions.
+
+## Dependency security review for 2.9.2
 Reviewed 2026-10-21 for the Linux x64 2.9.2 candidate. The exact lockfile
 scan covers 359 package/version identities against the RustSec advisory
 database at `e6f94f3760d5e6c54c1b05f204002263bc025524` (1,348 advisories,
@@ -100,25 +118,6 @@ crossbeam-epoch. Rusqlite's [0.40.2 release](https://github.com/rusqlite/rusqlit
 explicitly restores Rust 1.88 support. Actual compilation and tests use the
 project's pinned Rust 1.88.0; declarations alone are not compilation evidence.
 
-### Retained informational finding: lru 0.16.4
-
-[RUSTSEC-2026-0253](https://rustsec.org/advisories/RUSTSEC-2026-0253.html) requires
-`LruCache::pop()` to unwind through a key's panicking `Drop` implementation, then
-further access to the damaged cache. The only `lru::LruCache` instantiation in
-pinned Tantivy 0.26.2 is `LruCache<usize, Block>` in `src/store/reader.rs`.
-It calls `get` and `put`, not `pop`; `usize` has no destructor that can panic.
-The RomeDB/engine sources contain no direct use of this external `lru` crate.
-The engine's separately implemented `LruCache` in `core/index_method/fts/mod.rs` is
-not this dependency.
-
-The advisory's required trigger is therefore unavailable in this shipping
-integration. Retain 0.16.4 without modifying upstream manifests. The unfiltered scanner report retains all findings. The shipping-closure review
-accepts this exact informational advisory only after checking its package identity
-and trigger; it does not suppress vulnerability advisories. RomeDB maintainers must revisit
-this analysis whenever Tantivy, cache key types/call sites or the lru dependency
-changes, and at each release/upstream sync. Patched upstream lru starts at
-0.18.2; remove this exception when the pinned dependency moves to a fixed version.
-
 ## Bundled native libraries
 
 The [native review receipt](dependency-security-native.json) records retrieved
@@ -169,7 +168,6 @@ advisory database revision. Run from the repository root:
 python3 romedb/scripts/check-dependency-advisories.py \
   --database /path/to/advisory-db \
   --cargo-audit /path/to/cargo-audit \
-  --allow-informational RUSTSEC-2026-0253 \
   --output romedb/docs/dependency-security-rustsec.json
 ```
 
