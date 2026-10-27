@@ -26,7 +26,7 @@ publication. It does not fall back to the old 0.2 database routes.
 
 ## Connecting
 
-Set `ROMEDB_API_KEY` to an organization key (`fdbo_…`). Credentials are accepted
+Set `ROMEDB_API_KEY` to an organization key (`rdbo_…`). Credentials are accepted
 only through the environment. `ROMEDB_CLOUD_URL` defaults to
 `https://cloud.romedb.com`; another endpoint must be an HTTPS origin, with HTTP
 allowed only on loopback for local development. `romedb://host` is accepted as an

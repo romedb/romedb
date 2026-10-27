@@ -12,7 +12,7 @@ import threading
 import uuid
 
 binary=sys.argv[1]
-key='fdbo_'+'b'*64
+key='rdbo_'+'b'*64
 org=str(uuid.uuid4())
 PART=8*1024*1024
 jobs={}; requests=[]; parts=[]
