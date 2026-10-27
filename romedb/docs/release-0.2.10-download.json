@@ -1,0 +1,20 @@
+{
+  "version": "0.2.10",
+  "verifiedAtUtc": "2026-10-27T09:51:31.264404+00:00",
+  "releaseUrl": "https://github.com/romedb/romedb/releases/tag/romedb-v0.2.10",
+  "archiveUrl": "https://github.com/romedb/romedb/releases/download/romedb-v0.2.10/romedb-0.2.10-linux-x64.tar.gz",
+  "archiveSha256": "a9a966cd9fd48f144813738707b509e377b27f7b304a941bb0c166a6ae3cab61",
+  "archiveBytes": 104529044,
+  "archiveReproduced": "the downloaded tar.gz is byte-identical to the archive built from the assembled bundle (fixed owner and commit-time mtimes)",
+  "sourceCommit": "e44445afabdfc6273e899a6080a8d22db90ecded",
+  "sourceArchiveSha256": "b046f7ae66b5e64e7e22ff739f6e1e450f150d241296fecb59e67f50c7f82d64",
+  "anonymousDownload": true,
+  "outerChecksumMatches": true,
+  "internalChecksumsPass": true,
+  "internalFiles": 87,
+  "sourceArchiveMatchesTag": true,
+  "cAbiSmoke": "passed",
+  "cliVersion": "bin/romedb --version prints 'romedb 0.2.10'",
+  "cliCloudKeys": "bin/romedb cloud db list succeeds against https://cloud.romedb.com with a new rdbo_ organization key; an fdbo_ key is refused before any request",
+  "manifestSha256": "4b1bea02a207b7954e983512632298fa03b3071fcf02fe960363180eaa54fc1f"
+}
