@@ -31,7 +31,9 @@ class Upgrade:
 # storage prefix. FastDB 1.x and 2.x databases are not upgradeable, so no
 # earlier package applies. Add a row for each RomeDB predecessor from 0.2.10 on,
 # using check-v251-upgrade.cjs (the generic previous-package -> candidate check).
-UPGRADES = []
+UPGRADES = [
+    Upgrade("v029", "0.2.9", "check-v251-upgrade.cjs", "0.2.10"),
+]
 
 
 def applicable(candidate):
