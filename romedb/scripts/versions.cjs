@@ -1,6 +1,6 @@
 'use strict';
 // Release version comparisons shared by the upgrade/restore checks, so a new
-// patch or minor candidate needs no edit to scripts that accept any later 2.x.
+// patch or minor candidate needs no edit to scripts that accept any later 0.x.
 const assert = require('node:assert/strict');
 
 function parse(version) {
@@ -15,9 +15,9 @@ function compare(a, b) {
   return 0;
 }
 
-/** Asserts that a candidate is a 2.x release at or after `first`. */
+/** Asserts that a candidate is a RomeDB 0.x release at or after `first`. */
 function assertCandidate(version, first) {
-  assert.equal(parse(version)[0], 2, `candidate must be a 2.x release: ${version}`);
+  assert.equal(parse(version)[0], 0, `candidate must be a RomeDB 0.x release: ${version}`);
   assert.ok(compare(version, first) >= 0, `candidate ${version} is older than ${first}`);
 }
 

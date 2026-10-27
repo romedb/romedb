@@ -1,6 +1,6 @@
 {
   "name": "@romedb/node",
-  "version": "0.2.9",
+  "version": "0.2.10",
   "private": true,
   "main": "index.cjs",
   "types": "index.d.ts",
