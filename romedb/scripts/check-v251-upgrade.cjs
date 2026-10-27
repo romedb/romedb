@@ -1,6 +1,6 @@
 'use strict';
 // Open separate copies with immutable old/new packages, never two owning processes.
-// 2.5.x patches change no stored format, so an older 2.5 package must keep reading
+// RomeDB 0.x patches change no stored format, so an older package must keep reading
 // files that a newer one wrote.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -11,8 +11,8 @@ const [oldPackage, newPackage, directory, phase, file] = process.argv.slice(2);
 const oldVersion = require(path.join(oldPackage, 'package.json')).version;
 const newVersion = require(path.join(newPackage, 'package.json')).version;
 const versions = require('./versions.cjs');
-versions.assertCandidate(oldVersion, '2.5.0');
-versions.assertCandidate(newVersion, '2.5.1');
+versions.assertCandidate(oldVersion, '0.2.9');
+versions.assertCandidate(newVersion, '0.2.10');
 assert.ok(versions.compare(oldVersion, newVersion) < 0, `${oldVersion} -> ${newVersion}`);
 const digest = file => createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 const point = (x, y) => ({ type: 'Point', coordinates: [x, y] });
