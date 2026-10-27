@@ -1,0 +1,130 @@
+{
+  "version": "2.9.2",
+  "qualified": true,
+  "qualifiedAtUtc": "2026-10-21T06:19:37.922717+00:00",
+  "sourceCommit": "110b5bfc43a34c7cca572db10742b602526010a1",
+  "sourceArchiveSha256": "f97b82be8e3e204746132996164584e0fe6006e26a30a3db6fea78310da0cc7e",
+  "cargoLockSha256": "de51c5e96d6bd41bcc266ff0e3ff88ab2e20906ec8669192c4d8278ae6bd76fd",
+  "buildManifestSha256": "e3e971f715f1ade40c64f2837838c79dfe1e94791e6980ed4f5eb2c641a512a1",
+  "buildChecksumsSha256": "cfe77bd594a72acef0d67e7a9ef917aca1dbc20879f3f9eddf70b6d5df069c41",
+  "buildProfile": "romedb-production",
+  "sourceCi": "https://github.com/romedb/romedb/actions/runs/39549838762",
+  "sourceTests": {
+    "rust": 1107,
+    "rustIgnored": 4,
+    "node": 192,
+    "cAbi": 5,
+    "releasePolicy": 2,
+    "upgradeTable": 3,
+    "formatting": "passed",
+    "scopedClippy": "passed",
+    "strictTypeScript": "passed"
+  },
+  "installedGroups": [
+    "c-abi",
+    "cli",
+    "cli-v22",
+    "cli-graph",
+    "cli-spatial",
+    "sqlite-adoption",
+    "cli-elf",
+    "c-elf",
+    "node-0",
+    "node-1",
+    "python-0",
+    "python-1",
+    "python-2",
+    "php-package",
+    "go-package",
+    "swift-package",
+    "node-upgrade-install",
+    "v1-upgrade-restore",
+    "node-ownership-0",
+    "v2-upgrade-restore-0",
+    "v21-upgrade-restore-0",
+    "v22-upgrade-restore-0",
+    "v23-upgrade-restore-0",
+    "v24-upgrade-restore-0",
+    "v25-upgrade-restore-0",
+    "v251-upgrade-restore-0",
+    "v252-upgrade-restore-0",
+    "v253-upgrade-restore-0",
+    "v254-upgrade-restore-0",
+    "v260-upgrade-restore-0",
+    "v270-upgrade-restore-0",
+    "v280-upgrade-restore-0",
+    "v290-upgrade-restore-0",
+    "v291-upgrade-restore-0",
+    "node-ownership-1",
+    "v2-upgrade-restore-1",
+    "v21-upgrade-restore-1",
+    "v22-upgrade-restore-1",
+    "v23-upgrade-restore-1",
+    "v24-upgrade-restore-1",
+    "v25-upgrade-restore-1",
+    "v251-upgrade-restore-1",
+    "v252-upgrade-restore-1",
+    "v253-upgrade-restore-1",
+    "v254-upgrade-restore-1",
+    "v260-upgrade-restore-1",
+    "v270-upgrade-restore-1",
+    "v280-upgrade-restore-1",
+    "v290-upgrade-restore-1",
+    "v291-upgrade-restore-1",
+    "nuget-package"
+  ],
+  "nodeVersions": [
+    "22.0.0",
+    "24.19.0"
+  ],
+  "pythonVersions": [
+    "3.10.21",
+    "3.12.3",
+    "3.14.7"
+  ],
+  "standaloneRustConsumer": "passed with the romedb-production profile; 342 registry/git package identities match the workspace lockfile",
+  "upgradeRestore": "Immutable 1.0.0/2.0.0/2.1.0/2.2.0/2.3.0/2.4.0/2.5.0/2.5.1/2.5.2/2.5.3/2.5.4/2.6.0/2.7.0/2.8.0/2.9.0/2.9.1 libraries, driven by the version-range table in scripts/upgrade_matrix.py; candidate writes, reopen, rollback, unchanged previous backups and independent restores. 1.0.0 and 2.4.0 refuse files with a new-format spatial index; 2.5.0 to 2.9.1 read files written by 2.9.2.",
+  "engine": {
+    "upstream": "Turso v0.8.3",
+    "upstreamCommit": "607bff9fd0e547a25a97b3bf06e83bcc5d99d53c",
+    "previousUpstream": "607bff9fd0e547a25a97b3bf06e83bcc5d99d53c",
+    "exceptions": "all eight maintained engine exceptions retained (romedb/docs/core-exceptions.md)",
+    "storageFormat": "unchanged; catalog version 7",
+    "sync": "romedb/romedb#30",
+    "change": "unchanged from 2.9.1"
+  },
+  "spatial": {
+    "catalogVersion": 7,
+    "explainReadsNoData": "metered EXPLAIN reports zero rows read for every spatial form (spatial_explain_reads_no_documents_or_index_entries)",
+    "cliSpatialCheck": "passed"
+  },
+  "supportedScope": {
+    "platform": "Linux x64",
+    "clients": [
+      "rust",
+      "node",
+      "python",
+      "php",
+      "swift",
+      "csharp",
+      "go"
+    ],
+    "ownership": "One owning process per database file; shared clients connect to its service"
+  },
+  "security": {
+    "unresolvedFindings": 0,
+    "acceptedInformational": [
+      "RUSTSEC-2026-0253"
+    ],
+    "advisoryDatabase": "e6f94f3760d5e6c54c1b05f204002263bc025524",
+    "resolvedForRelease": [
+      "RUSTSEC-2026-0382 (rustls-webpki 0.103.16)"
+    ]
+  },
+  "documentationOverrides": {
+    "ENVELOPE.md": "Historical raw-evidence reference points to its immutable 2.1.0 release"
+  },
+  "performance": "Historical 2.1.0 operating envelope retained; fresh bounded application sample, not capacity guarantees",
+  "buildHost": "Built and qualified under scripts/romedb-heavy (shared lock, two jobs, cgroup memory ceiling)",
+  "publication": "Qualified for publication; anonymous public-download verification is separate"
+}

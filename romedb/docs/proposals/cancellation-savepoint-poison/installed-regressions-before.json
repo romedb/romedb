@@ -1,0 +1,68 @@
+{
+  "status": "expected-baseline-failures",
+  "finalArtifactQualification": false,
+  "sourceCommit": "a4df9cc27da6b4d6f0fdcc82aff5b61edafdfdff",
+  "boundaries": [
+    "COMMIT",
+    "RELEASE caller"
+  ],
+  "assertionsBeforeFailure": [
+    "FDB_CANCELLED",
+    "active transaction retained",
+    "last_insert_rowid > 1 proves native inserts occurred",
+    "cancelled rows absent",
+    "prior caller work retained",
+    "subsequent small write succeeds"
+  ],
+  "expectedFailure": "FDB_ENGINE: cannot commit - an unfinished write statement was abandoned",
+  "checks": [
+    {
+      "runtime": "node22",
+      "exitCode": 1,
+      "log": {
+        "path": "/tmp/romedb-v21-node22-cancel-regression-before.log",
+        "sha256": "1651fd0252aafd0546be11e2cf3af6481817392f5aac330253d33ed83a59cb10"
+      }
+    },
+    {
+      "runtime": "node24",
+      "exitCode": 1,
+      "log": {
+        "path": "/tmp/romedb-v21-node24-cancel-regression-before.log",
+        "sha256": "d80afe133c0e2adcbd578ec2bd8ec7d4d2848f840df19d5d7153c7f10197bf9e"
+      }
+    },
+    {
+      "runtime": "c-abi",
+      "exitCode": 1,
+      "log": {
+        "path": "/tmp/romedb-v21-c-cancel-regression-before.log",
+        "sha256": "8ae7867ea60eb645a2db8db01d4b878a91be0dfd969e515be2ceb25db4d55e53"
+      }
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "/tmp/romedb-v21-final-bundle/packages/romedb-node-2.1.0.tgz",
+      "sha256": "871a436c11835215259406f62ffefa004422bb79245afc89c98b51b086288f8f"
+    },
+    {
+      "path": "/tmp/romedb-v21-final-bundle/lib/libromedb_c.so",
+      "sha256": "ab601784d08a3f3b2adb6a79484ee9e8bfd61b3198bd0d7e6537c836c2159e4b"
+    }
+  ],
+  "testSources": [
+    {
+      "path": "/home/tan/Sites/fastdb/turso/romedb/scripts/check-node-package.cjs",
+      "sha256": "f3881b87158615d72aad8f6093bd8d66f9faad72886e94cb36eca21a596e73c1"
+    },
+    {
+      "path": "/home/tan/Sites/fastdb/turso/romedb/scripts/check-c-abi.py",
+      "sha256": "6e51e7e05f72731933789c3acf599591751260033f7b2538939ed6058d5dce7b"
+    }
+  ],
+  "patch": {
+    "path": "/tmp/romedb-v21-installed-cancellation-regressions.patch",
+    "sha256": "919f81b56bd0a12f9b845c35e22a9459b63b96721a3c9203d04de53b27b85df1"
+  }
+}

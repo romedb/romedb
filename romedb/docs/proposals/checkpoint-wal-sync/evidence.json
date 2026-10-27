@@ -1,0 +1,112 @@
+{
+  "recordedAt": "2026-09-25T14:27:49.533881+00:00",
+  "scope": "Isolated proposed core patch, not integrated release artifacts",
+  "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+  "rust": "rustc 1.88.0 (6b00bc388 2025-06-23)",
+  "before": {
+    "checkout": "/home/tan/Sites/fastdb/turso",
+    "results": {
+      "trace": 101,
+      "crash": 101,
+      "boundaries": 101
+    },
+    "head": "613d8dd6287ccf6bc5a972c922cb8c76dac5d467",
+    "sourceSha256": {
+      "core/storage/wal.rs": "0c7c13d028b1e5a928e39c62078992b67bc9bd0acfef7b51484f8f1bfd0b5dfc",
+      "core/storage/pager.rs": "51fd2993df514b9a1eb2b9732a8c349c3866bccd7dfe5de67304aae2d74fb3ba",
+      "core/vdbe/mod.rs": "debc9bd4eebf6513f0cdea1cf3650940f728a61b5386a2671f72950b43313a11",
+      "core/vdbe/vacuum.rs": "96928343de47f8b3b89f8696ecb8bfa10ddb19d1f0f845ffcaa78698fda7c322",
+      "core/mvcc/database/mod.rs": "944e43b988ffb98a4e95c53c2d14f708757f4c1511d786165214286b6530b179",
+      "core/mvcc/database/checkpoint_state_machine.rs": "0058fe6472e59c8b15ac59211a85f31c353464d93b512d5961535e19994d2624",
+      "Cargo.lock": "4fffaa23990bc8b514b0081b63da337223320efab2c9371ea4ea42cdf2521194"
+    },
+    "regressionSha256": {
+      "repro.rs": "79c84c8e154616292fd499c092d177398f6a4c61f856608fd891ece91d51ee1f",
+      "crash_atomicity.rs": "3b0f17e77a7be98650c7f8c28722f4fd2cc8031d0ae3355c3671b5946831529b",
+      "boundaries.rs": "f7690624f427675c725dfa868115bd2a0549ea69d84f8207aa6aae02327cda49"
+    },
+    "patchSha256": "5154633cc2c1187efa0b3066c008ac46f1f999286fb48ccacf3a1a7743da7d88"
+  },
+  "after": {
+    "checkout": "/tmp/romedb-checkpoint-wal-sync-patched",
+    "results": {
+      "trace": 0,
+      "crash": 0,
+      "boundaries": 0
+    },
+    "head": "d442099b66ebe8920fa457e52b10255623a0e1f8",
+    "sourceSha256": {
+      "core/storage/wal.rs": "ff0163a94ec4ec9788138c76369c2827900def0faa8be9cc375b75e40c6d3992",
+      "core/storage/pager.rs": "d6752451bf6ed78429525b427595d40cf6e3b05240a2cac57f15c21000774fd1",
+      "core/vdbe/mod.rs": "8b2935cbb55356ab514d801e86c06d53b5756e2154d7155d62deaf98cece8bf3",
+      "core/vdbe/vacuum.rs": "fbb85b806cc7d9545f954ee07fd1b12ac77b14a1d49e7de529b62eecbdc6aefb",
+      "core/mvcc/database/mod.rs": "b9acc620b5d7a04ad5a05ced1d454c413891028b023e51185c556b54ca0b2cfb",
+      "core/mvcc/database/checkpoint_state_machine.rs": "0e788e518d8921af125f5afef5f581afe7a8650c444180574bf75ea81cc82d4b",
+      "Cargo.lock": "4fffaa23990bc8b514b0081b63da337223320efab2c9371ea4ea42cdf2521194"
+    },
+    "regressionSha256": {
+      "repro.rs": "79c84c8e154616292fd499c092d177398f6a4c61f856608fd891ece91d51ee1f",
+      "crash_atomicity.rs": "3b0f17e77a7be98650c7f8c28722f4fd2cc8031d0ae3355c3671b5946831529b",
+      "boundaries.rs": "f7690624f427675c725dfa868115bd2a0549ea69d84f8207aa6aae02327cda49"
+    },
+    "patchSha256": "5154633cc2c1187efa0b3066c008ac46f1f999286fb48ccacf3a1a7743da7d88"
+  },
+  "logs": {
+    "before/trace": {
+      "path": "/tmp/romedb-checkpoint-final-before/trace.log",
+      "sha256": "990056b4ae90950d01aad28bb9d5094e4d11464dc34cabcea8394faf5f160608",
+      "results": []
+    },
+    "before/crash": {
+      "path": "/tmp/romedb-checkpoint-final-before/crash.log",
+      "sha256": "c615973601fbd625c4cc1e40df3920b22e9e27932718e312747f053dc9fe7d01",
+      "results": [
+        "test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s"
+      ]
+    },
+    "before/boundaries": {
+      "path": "/tmp/romedb-checkpoint-final-before/boundaries.log",
+      "sha256": "663b907f9727d38715dd5586889a4bde8be126e5396598407d69dc7d13c22829",
+      "results": [
+        "test result: FAILED. 2 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.75s"
+      ]
+    },
+    "after/trace": {
+      "path": "/tmp/romedb-checkpoint-final-after/trace.log",
+      "sha256": "2f4adede260ee64ba2c26d7ba016c278c0069177bc93c026e74a3755094c8b7e",
+      "results": []
+    },
+    "after/crash": {
+      "path": "/tmp/romedb-checkpoint-final-after/crash.log",
+      "sha256": "3857e5b03b1ba24a9d94f4c9c25551073b0ae2c2dbc80456781e085632ef8225",
+      "results": [
+        "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s"
+      ]
+    },
+    "after/boundaries": {
+      "path": "/tmp/romedb-checkpoint-final-after/boundaries.log",
+      "sha256": "1bb483a463b62e1541df371afd8b9a2e4cf4c0eebbb3421ddba39d75cb7610ae",
+      "results": [
+        "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.85s"
+      ]
+    },
+    "checkpoint": {
+      "path": "/tmp/romedb-checkpoint-core-unit.log",
+      "sha256": "a125e7fc36dc0ecce4b1f7ed534f5eebb1de6fd6e473870494ba8e44ec5d9e91",
+      "results": [
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2153 filtered out; finished in 0.05s",
+        "test result: ok. 126 passed; 0 failed; 0 ignored; 0 measured; 2028 filtered out; finished in 21.43s"
+      ]
+    },
+    "vacuum": {
+      "path": "/tmp/romedb-vacuum-core-unit.log",
+      "sha256": "2d5ea066aea86f072d4226e6f6e5d8437347781a954f00f3b94e005380752a88",
+      "results": [
+        "test result: ok. 38 passed; 0 failed; 0 ignored; 0 measured; 2116 filtered out; finished in 0.17s"
+      ]
+    }
+  },
+  "knownBaselineFailure": "NORMAL checkpoint backfilled database pages before WAL sync; durable-image recovery failed integrity_check. FULL acknowledged-write control passes.",
+  "patchedResult": "Native trace, two crash models and five boundary tests pass; 126 checkpoint and 38 VACUUM upstream unit tests pass.",
+  "review": "Root and independent bounded review found no blocking issue in the final six-file patch."
+}

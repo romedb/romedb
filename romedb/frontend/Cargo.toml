@@ -1,0 +1,27 @@
+[package]
+name = "romedb"
+version = "0.2.9"
+edition = "2021"
+license = "MIT"
+publish = false
+
+[dependencies]
+romeql-parser = { path = "../parser" }
+turso_core = { path = "../../core", features = ["conn_raw_api", "fts"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true, features = ["float_roundtrip", "unbounded_depth"] }
+thiserror.workspace = true
+turso_parser = { path = "../../sqlite/parser" }
+turso_ext = { path = "../../extensions/core" }
+
+rquickjs = { version = "=0.13.0", default-features = false, features = ["std"] }
+
+stacker = "=0.1.22"
+
+tantivy-query-grammar = "=0.26.0"
+
+h3o = { version = "=0.9.4", default-features = false }
+
+usearch = { version = "=2.26.2", default-features = false }
+sha2 = "=0.10.9"
+half = "=2.5.0"

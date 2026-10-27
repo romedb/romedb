@@ -1,0 +1,17 @@
+{
+  "name": "romedb/embedded",
+  "description": "Native embedded RomeDB and RomeQL",
+  "type": "library",
+  "license": "MIT",
+  "require": {
+    "php": ">=8.1",
+    "ext-ffi": "*",
+    "ext-json": "*"
+  },
+  "autoload": {
+    "classmap": [
+      "src/"
+    ]
+  },
+  "version": "0.2.9"
+}

@@ -1,0 +1,6 @@
+[package]
+name = "romedb-ann-probe"
+version = "0.0.0"
+edition = "2021"
+[dependencies]
+usearch = { version = "=2.26.2", default-features = false }

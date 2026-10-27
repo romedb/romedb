@@ -1,0 +1,45 @@
+{
+  "name": "@romedb/node",
+  "version": "0.2.9",
+  "private": true,
+  "main": "index.cjs",
+  "types": "index.d.ts",
+  "exports": {
+    ".": { "types": "./index.d.ts", "default": "./index.cjs" },
+    "./client": { "types": "./client.d.ts", "default": "./client.cjs" },
+    "./embedded-client": { "types": "./embedded-client.d.ts", "default": "./embedded-client.cjs" },
+    "./*": "./*"
+  },
+  "scripts": {
+    "test": "node --test --test-concurrency=2 test.cjs client.test.cjs client-native.test.cjs embedded-client.test.cjs",
+    "typecheck": "tsc --noEmit --strict --target ES2022 --module Node16 types.test.ts client.types.test.ts embedded-client.types.test.ts",
+    "prepack": "node -e \"require('./romedb.node')\""
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "typescript": "5.8.3"
+  },
+  "license": "MIT",
+  "files": [
+    "index.cjs",
+    "client.cjs",
+    "client.d.ts",
+    "client-internal.cjs",
+    "embedded-client.cjs",
+    "embedded-client.d.ts",
+    "embedded-worker.cjs",
+    "values.cjs",
+    "request-journal.cjs",
+    "worker.cjs",
+    "native.cjs",
+    "index.d.ts",
+    "romedb.node",
+    "LICENSE.md",
+    "README.md",
+    "THIRD_PARTY_NOTICES.md",
+    "THIRD_PARTY_CRATE_NOTICES.md",
+    "RUST-LIBRARY-NOTICES.html"
+  ]
+}

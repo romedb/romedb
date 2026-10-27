@@ -1,0 +1,41 @@
+diff --git a/romedb/frontend/src/interrupt.rs b/romedb/frontend/src/interrupt.rs
+index da97532e5..acf43e20e 100644
+--- a/romedb/frontend/src/interrupt.rs
++++ b/romedb/frontend/src/interrupt.rs
+@@ -212,7 +212,13 @@ mod tests {
+     use std::sync::atomic::{AtomicBool, Ordering};
+     #[test]
+     fn cancelled_plain_native_writes_undo_rows_and_preserve_caller_work() {
+-        for outer in [None, Some("BEGIN"), Some("SAVEPOINT caller")] {
++        for (outer, finish) in [
++            (None, None),
++            (Some("BEGIN"), Some("ROLLBACK")),
++            (Some("BEGIN"), Some("COMMIT")),
++            (Some("SAVEPOINT caller"), Some("ROLLBACK")),
++            (Some("SAVEPOINT caller"), Some("RELEASE caller")),
++        ] {
+             for via_handle in [false, true] {
+                 let db = Database::open(":memory:").unwrap();
+                 let c = db.connect().unwrap();
+@@ -280,9 +286,18 @@ mod tests {
+                     q("SELECT n FROM sink ORDER BY n").rows,
+                     (1..=4).map(|n| vec![Value::Integer(n)]).collect::<Vec<_>>()
+                 );
+-                if outer.is_some() {
+-                    q("ROLLBACK");
+-                    assert!(q("SELECT * FROM sink").rows.is_empty());
++                if let Some(finish) = finish {
++                    // Visibility before COMMIT is not enough: cancellation must
++                    // leave earlier caller work committable after statement undo.
++                    q(finish);
++                    assert_eq!(c.transaction_state(), crate::TransactionState::Autocommit);
++                    if finish == "ROLLBACK" {
++                        assert!(q("SELECT * FROM sink").rows.is_empty());
++                        assert!(q("SELECT * FROM prior").rows.is_empty());
++                    } else {
++                        assert_eq!(q("SELECT * FROM sink").rows.len(), 4);
++                        assert_eq!(q("SELECT * FROM prior").rows, vec![vec![Value::Integer(9)]]);
++                    }
+                 }
+             }
+         }

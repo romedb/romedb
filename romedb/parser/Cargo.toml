@@ -1,0 +1,10 @@
+[package]
+name = "romeql-parser"
+version = "0.2.9"
+edition = "2021"
+license = "MIT"
+publish = false
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+thiserror.workspace = true

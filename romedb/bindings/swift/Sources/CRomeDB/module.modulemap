@@ -1,0 +1,5 @@
+module CRomeDB [system] {
+    header "shim.h"
+    link "romedb_c"
+    export *
+}
