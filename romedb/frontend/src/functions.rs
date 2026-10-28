@@ -620,6 +620,9 @@ fn helper(args: &[ExtValue]) -> ExtValue {
                 | "object_from_entries",
                 _,
             ) => crate::collections::call(name, &args)?,
+            ("array_path_contains", [value, Value::String(path), needle]) => {
+                crate::collections::path_contains(value, path, needle)?
+            }
             ("doc_omit", [Value::Object(document), Value::String(paths)]) => {
                 crate::omit::apply(document, paths)?
             }
@@ -662,6 +665,7 @@ fn helper(args: &[ExtValue]) -> ExtValue {
                     | "doc_after"
                     | "doc_diff"
                     | "array_contains"
+                    | "array_path_contains"
             )
         ) || helper.is_some_and(crate::spatial::categorized_errors)
         {

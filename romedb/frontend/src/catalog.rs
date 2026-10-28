@@ -45,7 +45,10 @@ pub(crate) const fn legacy_version() -> u32 {
     1
 }
 pub(crate) fn validate_version(collection: &Collection) -> Result<()> {
-    if !matches!(collection.version, 1..=7) {
+    if !matches!(
+        collection.version,
+        1..=crate::array_index::ARRAY_PATH_CATALOG_VERSION
+    ) {
         return Err(Error::Storage(format!(
             "unsupported collection metadata version {}",
             collection.version
@@ -99,6 +102,17 @@ pub(crate) fn validate_version(collection: &Collection) -> Result<()> {
         return Err(Error::Storage(
             "array indexes require catalog version 5".into(),
         ));
+    }
+    if collection.version < crate::array_index::ARRAY_PATH_CATALOG_VERSION
+        && collection
+            .indexes
+            .iter()
+            .any(|index| crate::array_index::steps_into_arrays(&index.path))
+    {
+        return Err(Error::Storage(format!(
+            "array index * path steps require catalog version {}",
+            crate::array_index::ARRAY_PATH_CATALOG_VERSION
+        )));
     }
     if !collection.relations.is_empty() && collection.version < 3 {
         return Err(Error::Storage("relations require catalog version 3".into()));
@@ -182,6 +196,16 @@ pub(crate) fn decode(metadata: &str, name: &str) -> Result<Collection> {
         let mut names = std::collections::BTreeSet::new();
         for index in &c.indexes {
             crate::validate_path(&index.path)?;
+            for path in index.paths() {
+                if crate::array_index::steps_into_arrays(path)
+                    && index.kind != crate::IndexKind::Array
+                {
+                    return Err(Error::Storage(
+                        "only array indexes accept * path steps".into(),
+                    ));
+                }
+            }
+            crate::array_index::validate_array_path(&index.path)?;
             if canonical(&index.name)? != index.name
                 || !names.insert(&index.name)
                 || index.storage != storage("__romedb_i_", &index.name)
@@ -208,6 +232,9 @@ pub(crate) fn compatible_index(
     path: &[String],
     kind: crate::IndexKind,
 ) -> Result<()> {
+    if crate::array_index::steps_into_arrays(path) {
+        return compatible_array_path(c, path);
+    }
     for field in &c.fields {
         let incompatible = if field.path == path {
             match kind {
@@ -245,6 +272,50 @@ pub(crate) fn compatible_index(
         return Err(Error::Validation(
             "array index requires scalar or record element types".into(),
         ));
+    }
+    Ok(())
+}
+fn compatible_array_path(c: &Collection, path: &[String]) -> Result<()> {
+    let step = path
+        .iter()
+        .position(|segment| segment == crate::array_index::ARRAY_STEP)
+        .expect("array path has a step");
+    let array = &path[..step];
+    let element_is_array = path
+        .get(step + 1)
+        .is_some_and(|segment| segment == crate::array_index::ARRAY_STEP);
+    for field in &c.fields {
+        let compatible = if field.path == array {
+            matches!(field.kind, FieldType::Array)
+        } else if array.starts_with(&field.path) {
+            matches!(field.kind, FieldType::Object)
+        } else {
+            !field.path.starts_with(array)
+        };
+        if !compatible {
+            return Err(Error::Validation(format!(
+                "field {} is incompatible with index path {}",
+                field.path.join("."),
+                path.join(".")
+            )));
+        }
+    }
+    if c.field_policies.iter().any(|policy| {
+        policy.path == array
+            && policy.options.element_type.as_ref().is_some_and(|element| {
+                if element_is_array {
+                    !matches!(element, FieldType::Array)
+                } else {
+                    !matches!(element, FieldType::Object)
+                }
+            })
+    }) {
+        return Err(Error::Validation(format!(
+            "index path {} steps into {} elements of {}",
+            path.join("."),
+            if element_is_array { "array" } else { "object" },
+            array.join(".")
+        )));
     }
     Ok(())
 }

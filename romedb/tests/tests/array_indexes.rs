@@ -482,3 +482,403 @@ fn array_membership_seeks_bound_query_work_on_a_large_collection() {
         2000
     );
 }
+
+fn ids(c: &romedb::Connection, sql: &str, params: &Parameters) -> Vec<Vec<Value>> {
+    c.execute(sql, params)
+        .unwrap_or_else(|e| panic!("{sql}: {e}"))
+        .rows
+}
+
+fn seeks(c: &romedb::Connection, sql: &str, params: &Parameters, index: &str) -> bool {
+    let plan = c
+        .execute(&format!("EXPLAIN QUERY PLAN {sql}"), params)
+        .unwrap();
+    plan.rows.iter().flatten().any(|value| {
+        matches!(value, Value::String(plan) if plan.contains("SEARCH") && plan.contains(index) && plan.contains("key=?"))
+    })
+}
+
+#[test]
+fn array_path_indexes_seek_values_inside_arrays_of_objects() {
+    let c = Database::open(":memory:").unwrap().connect().unwrap();
+    for sql in [
+        "INSERT INTO docs {id:docs:p1,team:[{role:'Lead',links:[{kind:'site'}]},{role:'Dev'}]}",
+        "INSERT INTO docs {id:docs:p2,team:[{role:'Dev',links:[{kind:'mail'},{kind:null},{}]},null,{role:null}]}",
+        "INSERT INTO docs {id:docs:p3}",
+        "INSERT INTO docs {id:docs:p4,team:null}",
+        "INSERT INTO docs {id:docs:p5,team:[]}",
+        "INSERT INTO docs {id:docs:p6,team:[{role:'Dev',links:null},{role:'Dev',links:[]}]}",
+    ] {
+        q(&c, sql);
+    }
+    let roles = "SELECT id FROM docs WHERE array::contains(team.*.role,$needle) ORDER BY id";
+    let kinds =
+        "SELECT id FROM docs WHERE array::contains(team.*.links.*.kind,$needle) ORDER BY id";
+    let cases = [
+        (roles, "Lead", vec![vec![id("p1")]]),
+        (
+            roles,
+            "Dev",
+            vec![vec![id("p1")], vec![id("p2")], vec![id("p6")]],
+        ),
+        (roles, "Ops", vec![]),
+        (kinds, "site", vec![vec![id("p1")]]),
+        (kinds, "mail", vec![vec![id("p2")]]),
+    ];
+    let needle = |value: &str| Parameters::from([("$needle".into(), Value::String(value.into()))]);
+    for (sql, value, expected) in &cases {
+        assert_eq!(&ids(&c, sql, &needle(value)), expected, "{sql} {value}");
+    }
+    let null = Parameters::from([("$needle".into(), Value::Null)]);
+    assert!(ids(&c, roles, &null).is_empty());
+    q(
+        &c,
+        "CREATE SEARCH INDEX roles ON docs(team.*.role) USING ARRAY",
+    );
+    q(
+        &c,
+        "CREATE SEARCH INDEX kinds ON docs(team.*.links.*.kind) USING ARRAY",
+    );
+    q(
+        &c,
+        "CREATE SEARCH INDEX IF NOT EXISTS roles ON docs(team.*.role) USING ARRAY",
+    );
+    for (sql, value, expected) in &cases {
+        let params = needle(value);
+        assert_eq!(&ids(&c, sql, &params), expected, "{sql} {value}");
+        assert_eq!(
+            &ids(
+                &c,
+                &sql.replace("FROM docs WHERE", "FROM docs NOT INDEXED WHERE"),
+                &params
+            ),
+            expected
+        );
+        let index = if *sql == roles { "roles" } else { "kinds" };
+        assert!(seeks(&c, sql, &params, index), "{sql}");
+    }
+    assert!(ids(&c, roles, &null).is_empty());
+    assert_eq!(
+        q(
+            &c,
+            "SELECT id FROM docs WHERE array::contains(team.*.links.*.kind,'site')"
+        )
+        .rows,
+        vec![vec![id("p1")]]
+    );
+    assert!(seeks(
+        &c,
+        "SELECT id FROM docs WHERE array::contains(team.*.links.*.kind,'site')",
+        &Parameters::new(),
+        "kinds"
+    ));
+    let aliased = "SELECT d.id FROM docs d WHERE array::contains(d.team.*.role,'Lead')";
+    assert_eq!(q(&c, aliased).rows, vec![vec![id("p1")]]);
+    assert!(seeks(&c, aliased, &Parameters::new(), "roles"));
+    let combined = "SELECT id FROM docs WHERE array::contains(team.*.role,'Dev') AND array::contains(team.*.links.*.kind,'mail')";
+    assert_eq!(q(&c, combined).rows, vec![vec![id("p2")]]);
+    assert_eq!(
+        q(
+            &c,
+            "SELECT team.*.links.*.kind AS kinds, array::contains(team.*.role,'Lead') AS lead FROM docs:p1"
+        )
+        .rows,
+        vec![vec![
+            Value::Array(vec![
+                Value::Array(vec![Value::String("site".into())]),
+                Value::Null
+            ]),
+            Value::Boolean(true)
+        ]]
+    );
+    let report = c
+        .check_collection_integrity("docs", Default::default())
+        .unwrap();
+    assert_eq!(report.documents, 6);
+    assert_eq!(report.index_entries, 6);
+    let info = format!("{:?}", q(&c, "INFO FOR INDEX kinds"));
+    assert!(info.contains("\"*\"") && info.contains("kind"), "{info}");
+
+    q(&c, "BEGIN");
+    q(
+        &c,
+        "UPDATE docs:p1 CONTENT {team:[{role:'Ops',links:[{kind:'chat'}]}]}",
+    );
+    assert!(ids(&c, roles, &needle("Lead")).is_empty());
+    assert_eq!(ids(&c, roles, &needle("Ops")), vec![vec![id("p1")]]);
+    assert_eq!(ids(&c, kinds, &needle("chat")), vec![vec![id("p1")]]);
+    q(&c, "UPDATE docs:p1 UNSET team");
+    assert!(ids(&c, roles, &needle("Ops")).is_empty());
+    q(&c, "REINDEX roles");
+    q(&c, "REINDEX kinds");
+    c.check_collection_integrity("docs", Default::default())
+        .unwrap();
+    q(&c, "ROLLBACK");
+    assert_eq!(ids(&c, roles, &needle("Lead")), vec![vec![id("p1")]]);
+    q(&c, "DELETE FROM docs:p1");
+    assert!(ids(&c, kinds, &needle("site")).is_empty());
+    assert_eq!(
+        c.check_collection_integrity("docs", Default::default())
+            .unwrap()
+            .index_entries,
+        3
+    );
+}
+
+#[test]
+fn array_path_indexes_reject_invalid_shapes_paths_and_limits() {
+    let c = Database::open(":memory:").unwrap().connect().unwrap();
+    q(&c, "INSERT INTO docs {id:docs:a,team:[{role:'Lead'}]}");
+    q(
+        &c,
+        "CREATE SEARCH INDEX kinds ON docs(team.*.links.*.kind) USING ARRAY",
+    );
+    for (sql, message) in [
+        (
+            "INSERT INTO docs {id:docs:b,team:'x'}",
+            "array path requires an array, null or missing field at team",
+        ),
+        (
+            "INSERT INTO docs {id:docs:b,team:['x']}",
+            "array path requires an object, null or missing value before links",
+        ),
+        (
+            "INSERT INTO docs {id:docs:b,team:[{links:{kind:'x'}}]}",
+            "array path requires an array, null or missing field at links",
+        ),
+        (
+            "INSERT INTO docs {id:docs:b,team:[{links:[{kind:{a:1}}]}]}",
+            "array index elements must be scalars or records",
+        ),
+        (
+            "INSERT INTO docs {id:docs:b,team:[{links:[{kind:['x']}]}]}",
+            "array index elements must be scalars or records",
+        ),
+    ] {
+        let error = c.execute(sql, &Parameters::new()).unwrap_err();
+        assert_eq!(error.code(), "FDB_VALIDATION", "{sql}");
+        assert!(error.to_string().contains(message), "{sql}: {error}");
+    }
+    let team = |links: usize| {
+        Value::Array(
+            (0..64)
+                .map(|_| {
+                    Value::Object(romedb::Document::from([(
+                        "links".into(),
+                        Value::Array(vec![
+                            Value::Object(romedb::Document::from([(
+                                "kind".into(),
+                                Value::Integer(1)
+                            )]));
+                            links
+                        ]),
+                    )]))
+                })
+                .collect(),
+        )
+    };
+    let insert = |key: &str, team: Value| {
+        c.execute(
+            "INSERT INTO docs {id:$id,team:$team}",
+            &Parameters::from([("$id".into(), id(key)), ("$team".into(), team)]),
+        )
+    };
+    insert("fits", team(63)).unwrap();
+    assert_eq!(insert("over", team(64)).unwrap_err().code(), "FDB_LIMIT");
+    assert_eq!(
+        c.execute(
+            "CREATE SEARCH INDEX bad ON docs(team.*.links) USING ARRAY",
+            &Parameters::new()
+        )
+        .unwrap_err()
+        .code(),
+        "FDB_VALIDATION"
+    );
+    assert!(c
+        .execute("SELECT id FROM docs WHERE bad=1", &Parameters::new())
+        .is_ok());
+    for path in [vec!["*", "role"], vec!["team", "*"], vec!["team", "*", ""]] {
+        let path = path.into_iter().map(String::from).collect::<Vec<_>>();
+        assert_eq!(
+            c.create_array_index("docs", "bad", path.clone(), false)
+                .unwrap_err()
+                .code(),
+            "FDB_VALIDATION",
+            "{path:?}"
+        );
+    }
+    let star = vec!["team".to_owned(), "*".to_owned(), "role".to_owned()];
+    assert_eq!(
+        c.create_index("docs", "bad", star.clone(), false)
+            .unwrap_err()
+            .code(),
+        "FDB_VALIDATION"
+    );
+    let deep = std::iter::once("team")
+        .chain(std::iter::repeat_n("*", 63))
+        .chain(["x"])
+        .map(String::from)
+        .collect::<Vec<_>>();
+    assert_eq!(
+        c.create_array_index("docs", "bad", deep, false)
+            .unwrap_err()
+            .code(),
+        "FDB_LIMIT"
+    );
+    for sql in [
+        "CREATE SEARCH INDEX bad ON docs(team.*) USING ARRAY",
+        "CREATE SEARCH INDEX bad ON docs(team.*.role) USING FULLTEXT",
+    ] {
+        assert_eq!(
+            c.execute(sql, &Parameters::new()).unwrap_err().code(),
+            "FDB_SYNTAX",
+            "{sql}"
+        );
+    }
+    let error = c
+        .execute(
+            "SELECT id FROM docs WHERE array::contains(team[0].links.*.kind,'x')",
+            &Parameters::new(),
+        )
+        .unwrap_err();
+    assert_eq!(error.code(), "FDB_UNSUPPORTED", "{error}");
+}
+
+#[test]
+fn array_path_indexes_follow_declared_field_types() {
+    let c = Database::open(":memory:").unwrap().connect().unwrap();
+    q(&c, "CREATE TABLE typed");
+    q(&c, "DEFINE FIELD team ON typed TYPE array<object>");
+    q(&c, "DEFINE FIELD grid ON typed TYPE array<array>");
+    q(&c, "DEFINE FIELD tags ON typed TYPE array<string>");
+    q(&c, "DEFINE FIELD name ON typed TYPE string");
+    q(&c, "DEFINE FIELD profile ON typed TYPE object");
+    q(
+        &c,
+        "CREATE SEARCH INDEX roles ON typed(team.*.role) USING ARRAY",
+    );
+    q(
+        &c,
+        "CREATE SEARCH INDEX cells ON typed(grid.*.*.v) USING ARRAY",
+    );
+    q(
+        &c,
+        "CREATE SEARCH INDEX nested ON typed(profile.items.*.v) USING ARRAY",
+    );
+    for sql in [
+        "CREATE SEARCH INDEX bad ON typed(team) USING ARRAY",
+        "CREATE SEARCH INDEX bad ON typed(tags.*.v) USING ARRAY",
+        "CREATE SEARCH INDEX bad ON typed(name.*.v) USING ARRAY",
+        "CREATE SEARCH INDEX bad ON typed(grid.*.v) USING ARRAY",
+        "CREATE SEARCH INDEX bad ON typed(team.*.*.v) USING ARRAY",
+        "DEFINE FIELD OVERWRITE team ON typed TYPE array<string>",
+        "DEFINE FIELD OVERWRITE team ON typed TYPE object",
+    ] {
+        assert_eq!(
+            c.execute(sql, &Parameters::new()).unwrap_err().code(),
+            "FDB_VALIDATION",
+            "{sql}"
+        );
+    }
+    q(
+        &c,
+        "INSERT INTO typed {id:typed:a,team:[{role:'Lead'}],grid:[[{v:1}],[{v:2}]],tags:['x'],name:'a',profile:{items:[{v:3}]}}",
+    );
+    for (sql, expected) in [
+        (
+            "SELECT id FROM typed WHERE array::contains(team.*.role,'Lead')",
+            "roles",
+        ),
+        (
+            "SELECT id FROM typed WHERE array::contains(grid.*.*.v,2)",
+            "cells",
+        ),
+        (
+            "SELECT id FROM typed WHERE array::contains(profile.items.*.v,3)",
+            "nested",
+        ),
+    ] {
+        assert_eq!(q(&c, sql).rows.len(), 1, "{sql}");
+        assert!(seeks(&c, sql, &Parameters::new(), expected), "{sql}");
+    }
+}
+
+#[test]
+fn array_path_indexes_need_catalog_version_8_and_survive_backup_restore() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = dir.path().join("source.db");
+    let backup = dir.path().join("restore").join("backup.db");
+    std::fs::create_dir(backup.parent().unwrap()).unwrap();
+    {
+        let c = Database::open(source.to_str().unwrap())
+            .unwrap()
+            .connect()
+            .unwrap();
+        q(&c, "INSERT INTO docs {id:docs:p1,team:[{role:'Lead'}]}");
+        q(&c, "INSERT INTO plain {id:plain:a,tags:['x']}");
+        q(&c, "CREATE SEARCH INDEX tags ON plain(tags) USING ARRAY");
+        q(
+            &c,
+            "CREATE SEARCH INDEX roles ON docs(team.*.role) USING ARRAY",
+        );
+        let raw = raw(&source);
+        assert_eq!(version(&raw, "docs"), turso_core::Value::from_i64(8));
+        assert_eq!(version(&raw, "plain"), turso_core::Value::from_i64(5));
+        q(&c, "PRAGMA wal_checkpoint(TRUNCATE)");
+    }
+    std::fs::copy(&source, &backup).unwrap();
+    {
+        let c = Database::open(backup.to_str().unwrap())
+            .unwrap()
+            .connect()
+            .unwrap();
+        let sql = "SELECT id FROM docs WHERE array::contains(team.*.role,'Lead')";
+        assert_eq!(q(&c, sql).rows, vec![vec![id("p1")]]);
+        assert!(seeks(&c, sql, &Parameters::new(), "roles"));
+        c.check_collection_integrity("docs", Default::default())
+            .unwrap();
+        let raw = raw(&backup);
+        raw.execute("UPDATE __romedb_catalog SET metadata=json_set(metadata,'$.version',7) WHERE name='docs'")
+            .unwrap();
+        let error = c.execute(sql, &Parameters::new()).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("array index * path steps require catalog version 8"),
+            "{error}"
+        );
+        assert_eq!(
+            q(&c, "SELECT id FROM plain WHERE array::contains(tags,'x')").rows,
+            vec![vec![Value::Record(romedb::Record {
+                table: "plain".into(),
+                key: romedb::Key::String("a".into()),
+            })]]
+        );
+    }
+}
+
+fn raw(path: &std::path::Path) -> std::sync::Arc<turso_core::Connection> {
+    let path = path.to_str().unwrap();
+    turso_core::Database::open_file(
+        turso_core::Database::io_for_path(path).unwrap(),
+        path,
+        std::sync::Arc::new(turso_core::SqliteDialect),
+    )
+    .unwrap()
+    .connect()
+    .unwrap()
+}
+
+fn version(raw: &std::sync::Arc<turso_core::Connection>, table: &str) -> turso_core::Value {
+    let mut values = Vec::new();
+    raw.prepare(format!(
+        "SELECT json_extract(metadata,'$.version') FROM __romedb_catalog WHERE name='{table}'"
+    ))
+    .unwrap()
+    .run_with_row_callback(|row| {
+        values.extend(row.get_values().cloned());
+        Ok(())
+    })
+    .unwrap();
+    values.pop().expect("catalog version")
+}

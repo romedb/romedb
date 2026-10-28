@@ -26,6 +26,9 @@ Back up before upgrading. Legacy full-text indexes require `REINDEX`.
   correction that keeps caller transactions after scalar read errors.
 - [Seven native clients](native-language-clients.md), CLI and RomeQL editor parity.
 
+Unreleased in source: [array path indexes](v2.2-language.md#array-path-indexes-source-unreleased)
+such as `team.*.role`, with catalog version 8 for collections that use them.
+
 ## Release verification
 
 Each release record lists its build source, exact-source CI run, installed

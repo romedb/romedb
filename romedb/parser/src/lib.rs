@@ -569,6 +569,24 @@ impl Parser<'_> {
         }
         Ok(path)
     }
+    fn search_index_path(&mut self) -> Result<Vec<String>> {
+        let mut path = vec![self.search_index_field()?];
+        while self.eat(".") {
+            if self.eat("*") {
+                path.push("*".to_owned());
+            } else {
+                path.push(self.search_index_field()?);
+            }
+        }
+        Ok(path)
+    }
+    fn search_index_field(&mut self) -> Result<String> {
+        let name = self.name()?;
+        if name == "*" {
+            return Err(self.error("a field named * cannot be indexed"));
+        }
+        Ok(name)
+    }
     fn record(&mut self) -> Result<Record> {
         let table_pos = self.pos;
         let table = self.name()?;
@@ -1269,12 +1287,20 @@ pub fn parse(input: &str) -> Result<Statement> {
         if !p.eat("(") {
             return Err(p.error("expected ("));
         }
-        let mut paths = vec![p.path()?];
+        let mut paths = vec![p.search_index_path()?];
         while p.eat(",") {
-            paths.push(p.path()?);
+            paths.push(p.search_index_path()?);
         }
         if !(p.eat(")") && p.eat("USING")) {
             return Err(p.error("expected USING search kind"));
+        }
+        let steps_into_arrays = paths.iter().flatten().any(|segment| segment == "*");
+        if steps_into_arrays
+            && p.tokens
+                .get(p.pos)
+                .is_none_or(|t| !t.text.eq_ignore_ascii_case("ARRAY"))
+        {
+            return Err(p.error("only ARRAY indexes accept * path steps"));
         }
         if p.eat("VECTOR") {
             if paths.len() != 1 || !(p.eat("WITH") && p.eat("(")) {
@@ -1400,6 +1426,9 @@ pub fn parse(input: &str) -> Result<Statement> {
         if p.eat("ARRAY") {
             if paths.len() != 1 || !p.end() {
                 return Err(p.error("ARRAY index requires one path"));
+            }
+            if paths[0].last().is_some_and(|segment| segment == "*") {
+                return Err(p.error("ARRAY index path must end with a field"));
             }
             return Ok(Statement::CreateArrayIndex {
                 if_not_exists,

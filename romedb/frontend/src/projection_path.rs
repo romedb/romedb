@@ -488,6 +488,16 @@ pub(crate) fn expand(sql: &str) -> Result<String> {
         let aliased = tokens
             .get(end + 1)
             .is_some_and(|t| t.kind == Kind::Word && t.text.eq_ignore_ascii_case("AS"));
+        if special && array_contains_argument(&tokens, start, end) {
+            if let Some(path) = array_path(&tokens[base_end].text, &parts)? {
+                let base = &sql[tokens[start].start..tokens[base_end].end];
+                out.push_str(&sql[copied..tokens[start].start]);
+                out.push_str(&format!("__romedb_array_path({base},'{path}')"));
+                copied = tokens[end].end;
+                i = end + 1;
+                continue;
+            }
+        }
         if special && (!single_star || aliased) {
             let base = &sql[tokens[start].start..tokens[base_end].end];
             let encoded = serde_json::to_string(&parts)?.replace('\'', "''");
@@ -499,6 +509,53 @@ pub(crate) fn expand(sql: &str) -> Result<String> {
     }
     out.push_str(&sql[copied..]);
     Ok(out)
+}
+
+fn array_contains_argument(tokens: &[Token], start: usize, end: usize) -> bool {
+    let first_argument = tokens.get(end + 1).is_some_and(|token| token.text == ",")
+        && start
+            .checked_sub(1)
+            .is_some_and(|open| tokens[open].text == "(");
+    if !first_argument {
+        return false;
+    }
+    let helper = start
+        .checked_sub(2)
+        .map(|i| &tokens[i])
+        .is_some_and(|token| token.kind == Kind::Word && token.text == "__romedb_h_array_contains");
+    let namespaced = start.checked_sub(5).is_some_and(|first| {
+        let before = &tokens[first..start - 1];
+        before.windows(2).all(|pair| pair[0].end == pair[1].start)
+            && before[0].kind == Kind::Word
+            && before[0].text.eq_ignore_ascii_case("array")
+            && before[1].text == ":"
+            && before[2].text == ":"
+            && before[3].kind == Kind::Word
+            && before[3].text.eq_ignore_ascii_case("contains")
+    });
+    helper || namespaced
+}
+
+fn array_path(field: &str, parts: &[Part]) -> Result<Option<String>> {
+    if !matches!(parts.last(), Some(Part::Key(_)))
+        || !parts.iter().any(|part| matches!(part, Part::All))
+    {
+        return Ok(None);
+    }
+    let mut path = vec![field.to_owned()];
+    for part in parts {
+        match part {
+            Part::All => path.push(crate::array_index::ARRAY_STEP.to_owned()),
+            Part::Key(key) if key == crate::array_index::ARRAY_STEP => {
+                return Err(Error::Validation(
+                    "a field named * cannot be used in an array path".into(),
+                ))
+            }
+            Part::Key(key) => path.push(key.clone()),
+            _ => return Ok(None),
+        }
+    }
+    Ok(Some(serde_json::to_string(&path)?.replace('\'', "''")))
 }
 
 fn path_root(tokens: &[Token], index: usize) -> bool {

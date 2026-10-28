@@ -2163,6 +2163,29 @@ impl Scope {
         {
             return Err(unsupported("aggregate modifiers on document helpers"));
         }
+        if helper == "array_contains" {
+            let marker = args
+                .first()
+                .and_then(|arg| array_path_argument(arg))
+                .map(|(base, path)| (base.clone(), path.clone()));
+            if let Some((mut base, mut path)) = marker {
+                let [_, needle] = args.as_mut_slice() else {
+                    return Err(Error::Validation(
+                        "array::contains expects array and value".into(),
+                    ));
+                };
+                match self.projection_field(&base)? {
+                    Some((source, field)) => base = self.accessor(source, &field, true)?,
+                    None => self.typed(&mut base)?,
+                }
+                self.typed(&mut path)?;
+                self.typed(needle)?;
+                *expr = expression(&format!(
+                    "__romedb_helper('array_path_contains',{base},{path},{needle})"
+                ))?;
+                return Ok(true);
+            }
+        }
         if helper == "udf" {
             let Some((definition, values)) = args.split_first_mut() else {
                 return Err(Error::Validation("function definition missing".into()));
@@ -4024,7 +4047,21 @@ fn array_filter(
     {
         return Ok(None);
     }
-    let Some((source, path)) = scope.field(field)? else {
+    let field = match array_path_argument(field) {
+        Some((base, path)) => {
+            let Some(steps) = path_steps(path) else {
+                return Ok(None);
+            };
+            scope
+                .projection_field(base)?
+                .map(|(source, mut base_path)| {
+                    base_path.extend(steps.into_iter().skip(1));
+                    (source, base_path)
+                })
+        }
+        None => scope.field(field)?,
+    };
+    let Some((source, path)) = field else {
         return Ok(None);
     };
     if source != source_index {
@@ -4043,6 +4080,30 @@ fn array_filter(
         index.clone(),
         expression(&format!("i.key=__romedb_array_key({needle})"))?,
     )))
+}
+
+fn array_path_argument(expr: &Expr) -> Option<(&Expr, &Expr)> {
+    let Expr::FunctionCall { name, args, .. } = expr else {
+        return None;
+    };
+    if name.as_str() != "__romedb_array_path" {
+        return None;
+    }
+    let [base, path] = args.as_slice() else {
+        return None;
+    };
+    Some((base, path))
+}
+
+fn path_steps(path: &Expr) -> Option<Vec<String>> {
+    let Expr::Literal(Literal::String(text)) = path else {
+        return None;
+    };
+    let steps: Vec<String> = text
+        .strip_prefix('\'')
+        .and_then(|text| text.strip_suffix('\''))
+        .and_then(|text| serde_json::from_str(&text.replace("''", "'")).ok())?;
+    crate::array_index::steps_into_arrays(&steps).then_some(steps)
 }
 
 fn compound_filter(

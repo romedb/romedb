@@ -1563,7 +1563,7 @@ mod index_tests {
         metadata["indexes"][0]["spatial"]["format"] = serde_json::json!(2);
         metadata["indexes"][0]["unique"] = serde_json::json!(true);
         assert!(crate::catalog::decode(&metadata.to_string(), "places").is_err());
-        metadata["version"] = serde_json::json!(8);
+        metadata["version"] = serde_json::json!(crate::array_index::ARRAY_PATH_CATALOG_VERSION + 1);
         metadata["indexes"][0]["unique"] = serde_json::json!(false);
         assert!(crate::catalog::decode(&metadata.to_string(), "places").is_err());
         c.run("DROP INDEX locations", &[]).unwrap();

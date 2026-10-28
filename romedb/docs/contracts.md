@@ -1576,3 +1576,29 @@ traversal, distance/reranking CPU and frontend preparation remain outside these
 counters, so read/VM limits do not bound all ANN work. Direct unmetered calls and
 search ranking remain unchanged. This is partial development instrumentation,
 not complete search billing qualification or a new embedded release.
+
+## Array path indexes (source implemented, release pending)
+
+`CREATE SEARCH INDEX … USING ARRAY` accepts `*` steps that go into every array
+element, and `array::contains(path, needle)` reads the same flattened values. The
+full contract is in [the language reference](v2.2-language.md#array-path-indexes-source-unreleased).
+
+Implementation. The parser stores `*` as a path segment. The projection-path
+expander turns a `*` path that is the first argument of `array::contains` into an
+internal path marker instead of a projection. Collection lowering evaluates the
+marker with a flattened-path helper, and the planner matches it to an ARRAY index
+with the same path. Index keys, REINDEX, the integrity audit and the helper share
+one path walker, so indexed, NOT INDEXED and unindexed results agree.
+
+Catalog. Collections carry their own version. Version 8 is required for any index
+path with a `*` step, and only ARRAY indexes may have one. Collections without such
+an index keep their version. A 0.2.10 binary refuses to open the whole database
+when one collection uses version 8.
+
+Evidence. `romedb/tests/tests/array_indexes.rs` covers one and two `*` levels,
+arrays of arrays, null and missing values, rejected shapes, the element limit
+across arrays, constant, bound and aliased seeks with NOT INDEXED parity, UPDATE,
+UNSET, DELETE, REINDEX and audit, declared field types, the version 8 gate and a
+checkpointed file backup and restore. Parser tests cover accepted and rejected
+paths. A manual run of the 0.2.10 CLI against a version 8 database returned
+"unsupported collection metadata version 8".
