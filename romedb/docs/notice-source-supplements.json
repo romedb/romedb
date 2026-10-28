@@ -467,7 +467,7 @@
   },
   {
    "package": "romedb",
-   "version": "0.2.10",
+   "version": "0.2.11",
    "manifestPath": "romedb/frontend/Cargo.toml",
    "licenseExpression": "MIT",
    "noticeFiles": [
@@ -479,7 +479,7 @@
   },
   {
    "package": "romeql-parser",
-   "version": "0.2.10",
+   "version": "0.2.11",
    "manifestPath": "romedb/parser/Cargo.toml",
    "licenseExpression": "MIT",
    "noticeFiles": [
@@ -491,7 +491,7 @@
   },
   {
    "package": "romedb-cli",
-   "version": "0.2.10",
+   "version": "0.2.11",
    "manifestPath": "romedb/cli/Cargo.toml",
    "licenseExpression": "MIT",
    "noticeFiles": [
@@ -503,7 +503,7 @@
   },
   {
    "package": "romedb-node",
-   "version": "0.2.10",
+   "version": "0.2.11",
    "manifestPath": "romedb/bindings/node/Cargo.toml",
    "licenseExpression": "MIT",
    "noticeFiles": [
@@ -515,7 +515,7 @@
   },
   {
    "package": "romedb-python",
-   "version": "0.2.10",
+   "version": "0.2.11",
    "manifestPath": "romedb/bindings/python/Cargo.toml",
    "licenseExpression": "MIT",
    "noticeFiles": [
@@ -527,7 +527,7 @@
   },
   {
    "package": "romedb-protocol",
-   "version": "0.2.10",
+   "version": "0.2.11",
    "manifestPath": "romedb/bindings/protocol/Cargo.toml",
    "licenseExpression": "MIT",
    "noticeFiles": [
@@ -539,7 +539,7 @@
   },
   {
    "package": "romedb-c",
-   "version": "0.2.10",
+   "version": "0.2.11",
    "manifestPath": "romedb/bindings/c/Cargo.toml",
    "licenseExpression": "MIT",
    "noticeFiles": [
@@ -551,7 +551,7 @@
   },
   {
    "package": "romedb-service",
-   "version": "0.2.10",
+   "version": "0.2.11",
    "manifestPath": "romedb/service/Cargo.toml",
    "licenseExpression": "MIT",
    "noticeFiles": [

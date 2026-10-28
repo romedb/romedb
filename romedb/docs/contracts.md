@@ -1577,11 +1577,11 @@ counters, so read/VM limits do not bound all ANN work. Direct unmetered calls an
 search ranking remain unchanged. This is partial development instrumentation,
 not complete search billing qualification or a new embedded release.
 
-## Array path indexes (source implemented, release pending)
+## Array path indexes (0.2.11)
 
 `CREATE SEARCH INDEX … USING ARRAY` accepts `*` steps that go into every array
 element, and `array::contains(path, needle)` reads the same flattened values. The
-full contract is in [the language reference](v2.2-language.md#array-path-indexes-source-unreleased).
+full contract is in [the language reference](v2.2-language.md#array-path-indexes-0211).
 
 Implementation. The parser stores `*` as a path segment. The projection-path
 expander turns a `*` path that is the first argument of `array::contains` into an

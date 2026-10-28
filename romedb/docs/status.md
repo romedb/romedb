@@ -25,9 +25,8 @@ Back up before upgrading. Legacy full-text indexes require `REINDEX`.
 - [Sandboxed JavaScript functions](v2-user-functions.md), including the
   correction that keeps caller transactions after scalar read errors.
 - [Seven native clients](native-language-clients.md), CLI and RomeQL editor parity.
-
-Unreleased in source: [array path indexes](v2.2-language.md#array-path-indexes-source-unreleased)
-such as `team.*.role`, with catalog version 8 for collections that use them.
+- [Array path indexes](v2.2-language.md#array-path-indexes-0211) such as
+  `team.*.role`, from 0.2.11, with catalog version 8 for collections that use them.
 
 ## Release verification
 

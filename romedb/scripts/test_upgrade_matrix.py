@@ -12,7 +12,8 @@ class UpgradeMatrixTests(unittest.TestCase):
     def test_upgrade_groups_start_after_0_2_9(self):
         self.assertEqual(matrix.applicable("0.2.9"), [])
         self.assertEqual([u.previous for u in matrix.applicable("0.2.10")], ["0.2.9"])
-        self.assertEqual([u.previous for u in matrix.applicable("0.3.0")], ["0.2.9"])
+        self.assertEqual([u.previous for u in matrix.applicable("0.2.11")], ["0.2.9", "0.2.10"])
+        self.assertEqual([u.previous for u in matrix.applicable("0.3.0")], ["0.2.9", "0.2.10"])
         self.assertTrue(matrix.at_least("0.2.10", "0.2.9"))
         self.assertFalse(matrix.at_least("0.2.9", "0.2.10"))
 
