@@ -4,8 +4,7 @@ Current status (2026-09-30): **retain the pending-completion/retry companion on
 Turso 0.8.1**. The upstream release already supplies the WAL barrier itself.
 Local code still observes failed deferred completions, resets the failed barrier
 and preserves a committed write when automatic checkpointing fails. The original
-patch below describes the 0.7.2 integration; see the
-[current exception audit](../core-exception-audit-2026-09-30.md).
+patch below describes the 0.7.2 integration.
 
 ## Historical approval and reproduction (0.7.2)
 

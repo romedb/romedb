@@ -3,8 +3,7 @@
 Current status (2026-09-30): **approved, retained and adapted to Turso 0.8.1**.
 Read-only scalar extension failures still require the local cleanup exception to
 preserve caller transactions and savepoints. The earlier pending/release-gate
-wording below is historical; see the
-[current exception audit](../core-exception-audit-2026-09-30.md).
+wording below is historical.
 
 ## Historical approval and reproduction (0.7.2)
 
@@ -12,7 +11,7 @@ Current status: explicitly approved by the user and integrated in isolated commi
 `f26014f04de4077a49268fd94c37ff9ad6ad6425`. The original review and candidate-only evidence below are retained
 as history. Subsequent pending/unintegrated wording describes that earlier state.
 Track upstream replacement/removal in [the maintenance register](../core-exceptions.md).
-Combined-source acceptance now passes; see [integrated evidence](../v2-core-integration-evidence.md).
+Combined-source acceptance now passes.
 Final release qualification remains open.
 
 
@@ -102,7 +101,7 @@ Patch SHA-256:
 `git apply --check` passes against the active checkout. No active core/integration
 files are changed by this proposal. The temporary Node addon is a debug test
 artifact. Subsequent active-addon builds and their exact scope are recorded in
-[upgrade evidence](../v2-upgrade-restore-evidence.md). This is focused review
+upgrade evidence. This is focused review
 evidence, not full scoped acceptance or a V2 release.
 
 ## Integration readiness recheck, 2026-09-25

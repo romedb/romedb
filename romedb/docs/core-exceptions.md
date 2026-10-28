@@ -28,7 +28,7 @@ core patch can be removed based on this comparison. Historical proposal pages
 now state their current retained/partial/retired status before their old review
 records. Full file inventory, replacement criteria, future sync hazards and
 fresh regression evidence are in the
-[follow-up audit](core-exception-audit-2026-09-30.md).
+follow-up audit.
 
 ## MVCC metering follow-up (2026-09-30)
 
@@ -51,7 +51,7 @@ changes (`Cargo.toml`, `Cargo.lock`, `core/connection.rs`,
 `core/translate/emitter/update.rs`, `core/translate/sequence.rs`,
 `core/vdbe/execute.rs`, `core/vdbe/mod.rs`), always in different places from
 the local patches. 0.8.3 replaces no exception, so every patch stays. Notes and
-evidence: [integration notes](turso-0.8.3.md), [checklist](turso-0.8.3-tasks.md).
+evidence: [integration notes](turso-0.8.3.md), checklist.
 
 | Existing exception | 0.8.3 decision | Evidence |
 |---|---|---|
@@ -90,7 +90,7 @@ after allocation in a stable Box; rollback invalidates them before truncating
 new pages. Existing fulltext suite: 8 passed; new public 0.8.1 suite: 6 passed.
 The exact isolated patch and its safety invariant are in the review record.
 Broader current-source regression results are tracked in the
-[upgrade checklist](turso-0.8.1-tasks.md); pending checks are not release evidence.
+upgrade checklist; pending checks are not release evidence.
 
 ## Release review: 2026-09-25
 
@@ -128,7 +128,7 @@ first-FULL-commit exception and must not be silently included in it.
 
 | Exception / local commit | Required behavior and regression | When to update or remove |
 |---|---|---|
-| Trigger interruption `ded389aea` | `OpProgram` preserves interruption versus contention; keep the RomeDB after-write trigger cancellation regression and affected native trigger suite. [Review](trigger-interrupt-review.md). | Upstream propagates Interrupt correctly through subprograms, with saved state and unchanged Busy handling. |
+| Trigger interruption `ded389aea` | `OpProgram` preserves interruption versus contention; keep the RomeDB after-write trigger cancellation regression and affected native trigger suite. Review. | Upstream propagates Interrupt correctly through subprograms, with saved state and unchanged Busy handling. |
 | FTS cache isolation `fb246a8e4` | `test_fts_cache_preserves_connection_snapshots`: no uncommitted membership/score leaks; existing reader snapshot survives writer commit. [Review](proposals/fts-cache-snapshot.md). | Upstream directory caching is scoped to the owning pager or otherwise proves equivalent isolation and rollback behavior. |
 | First FULL commit WAL sync `fe2ccd404` | Native first-commit sync probe and FULL/NORMAL/OFF controls. The historical browser flush-fault matrix is supporting evidence, not a current gate. [Review](proposals/wal-first-commit-sync.md). | Upstream flushes prepared frames before publishing/acknowledging FULL commits, including the first commit. |
 | FTS backing storage `12109384a` | `test_fts_backing_storage_integrity`, `test_drop_table_frees_backing_and_ordinary_indexes`, `test_fts_backing_storage_physical_corruption`; upgrade/restore rehearsal. [Review](proposals/fts-integrity.md). | Upstream excludes backing trees only from inappropriate logical counts, retains physical checks, and reclaims all backing roots on teardown/rollback. Existing orphan pages still need separate handling. |
@@ -149,7 +149,7 @@ reverts `2ef619c07` in isolation, restoring the ten core files to their prior st
 Frontend WASI feature wiring, the browser package and its build/probe code are
 also removed. This exception is **not active** and must not be reapplied on an
 upstream sync. The reviewed patches remain historical evidence for any separately
-requested future browser work. See [the removal record](browser-removal.md).
+requested future browser work.
 
 ## Upstream sync checklist
 

@@ -32,5 +32,5 @@ capacity and has a regression checking that an upper layer is a proper subset.
 
 Browser/WASM probe sources and build scripts were removed at the user's request.
 Their source archive and historical evidence are recorded in
-[browser removal](../browser-removal.md). Do not restore them for native release
+browser removal. Do not restore them for native release
 qualification. `fts-wasm-experiment.patch` is retained as historical review data.

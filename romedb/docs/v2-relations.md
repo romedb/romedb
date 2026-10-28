@@ -1,7 +1,7 @@
 # V2 declared inverse relationships
 
 Implemented in the V2 working tree; unavailable in released 1.0.0 artifacts.
-Focused and combined milestone checks pass; see [qualification evidence](v2-relations-evidence.md).
+Focused and combined milestone checks pass.
 
 ```sql
 CREATE INDEX posts_author ON posts(author);

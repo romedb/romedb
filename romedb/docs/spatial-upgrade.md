@@ -1,11 +1,8 @@
 # Spatial upgrade contract
 
-Status: released in RomeDB 2.5.0 for Linux x64 ([release record](release-2.5.0.md)).
-Implementation status is tracked in [the task checklist](spatial-upgrade-tasks.md). The planning record is
-`plan-spatial-upgrade.md` in the parent planning directory.
+Status: released for Linux x64.
 
-This contract revises the 2.2.0 decision that general geometry is out of scope
-([decision record](v2.2-decisions.md#additional-temporaldecimal-value-domains-and-general-geometry-wont-do)).
+This contract revises the 2.2.0 decision that general geometry is out of scope.
 The user authorized the revision on 2026-10-12. It covers only the bounded subset
 below: Point, Polygon and MultiPolygon values, point-in-region predicates,
 viewport search, exact nearest search, and additional H3 cell functions. General

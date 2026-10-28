@@ -1,7 +1,6 @@
 # RomeDB local service
 
-The optional Linux x64 database service is included in RomeDB 2.3.0. Studio integration and delivery
-remain in the [implementation checklist](../../../plan-studio.md).
+The optional Linux x64 database service is included in RomeDB.
 
 Shared client qualification, from `turso`, uses the built native addon and CLI:
 

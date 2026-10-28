@@ -3,8 +3,7 @@
 Current status (2026-09-30): **retired in the Turso 0.8.1 sync**. Upstream's
 snapshot-aware FTS implementation replaces this old directory-cache patch.
 Retain `test_fts_cache_preserves_connection_snapshots` and the public concurrent
-FTS tests, but do not reapply the historical patch below. See the
-[current exception audit](../core-exception-audit-2026-09-30.md).
+FTS tests, but do not reapply the historical patch below.
 
 ## Historical approval and reproduction (0.7.2)
 
@@ -66,7 +65,7 @@ At review time, the active checkout passed the new parser regression, package-sc
 Clippy with warnings denied for all five RomeDB packages/all targets, and Node
 test-file syntax checking. Node behavior and full runtime acceptance were deferred until the approved core
 integration. Current combined acceptance is recorded in
-[the V2-F evidence](../v2-fulltext-evidence.md).
+the V2-F evidence.
 
 The user approved integration on 2026-09-25. The active core now includes the
 reviewed fix and the native index-method suite includes the snapshot regression.
@@ -78,4 +77,4 @@ import warning in upstream sync code was not changed.
 
 The isolated commit contains the core fix, native regression, this review record
 and the provenance entry. It is commit `fb246a8e4`. Managed/client acceptance
-has now passed; see [V2-F evidence](../v2-fulltext-evidence.md).
+has now passed.

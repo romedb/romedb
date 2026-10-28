@@ -1,7 +1,0 @@
-{
-  "scope": "Temporary debug addon for finite FTS batching correctness discovery only",
-  "sourceCommit": "fac013f0d144cba0855016d1232b53246feb6ac8",
-  "fulltextSourceSha256": "027e7460717703037a9863f316096ad096b1cd978c88f81819bc0118ae0b75bd",
-  "addonSha256": "12641035467147f8766eec9b27da35565e1cb7152fcd35a1cd7078696d54e353",
-  "checkoutAddonSha256": "c1ff58d828c4120f2e83194676a1b75b684f27f0824ae23c08d94edac14aeea4"
-}

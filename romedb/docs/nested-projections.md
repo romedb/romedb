@@ -35,7 +35,7 @@ Whitespace and comments around the dot/star are accepted.
 Installed 2.1.0 rejects the first example at `AS` but accepts the second. This
 was a parser/lowering gap in the unqualified aliased form, not a missing record
 resolver. The fix uses the existing snapshot, traversal and result-limit paths.
-See [2.2.0 working evidence](v2.2-tasks.md); exact release artifact and client
+See 2.2.0 working evidence; exact release artifact and client
 qualification is still pending.
 
 - [x] Verify wildcard behavior against SurrealDB 3.2.4.

@@ -46,7 +46,7 @@ not add storage durability or provide a browser adapter by itself. The existing
 
 A native memory-backend regression checks close/reopen, persisted catalog
 validation and unique indexes, rollback and integrity without creating a host
-database file. Browser OPFS has separate [durability/fault evidence](v2-wal-durability-evidence.md) and [upgrade checks](v2-upgrade-restore-evidence.md); those results apply to their identified artifacts and do not qualify an arbitrary custom I/O backend.
+database file. Browser OPFS has separate durability/fault evidence and upgrade checks; those results apply to their identified artifacts and do not qualify an arbitrary custom I/O backend.
 
 ## V2 native operations (development)
 
@@ -211,10 +211,10 @@ transaction boundary, and native conflict policies retain their dispositions.
 The regression uses plain SQL without a trigger or scalar callback; a separate
 oracle compares rows, state, `changes()` and `last_insert_rowid()` to the pinned
 engine. The separately approved scalar-read fix now also preserves caller work
-after read-only extension errors; see [integrated native evidence](v2-core-integration-evidence.md).
+after read-only extension errors.
 This does not redefine ambiguous `FDB_ROLLBACK` cleanup outcomes as successful rollback.
 
-The [V2 standalone consumer](v2-rust-client-evidence.md) now additionally checks
+The V2 standalone consumer now additionally checks
 the direct managed-index, relation and function APIs, typed search results,
 spatial/H3, projections, rollback and reopening. Its offline build verifies the
 resolved registry/git identities against the pinned baseline. This complements

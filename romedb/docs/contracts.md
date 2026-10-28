@@ -1,11 +1,11 @@
 # RomeDB behavior contracts and implementation history
 
-Current source integrates [Turso 0.8.1](turso-0.8.1.md). Its explicit FTS migration,
+Current source integrates Turso 0.8.1. Its explicit FTS migration,
 catalog version 4, concurrent transactions, and rejection of trailing DML LIMIT
 supersede the older descriptions below; published release artifacts are unchanged.
 
-RomeDB/RomeQL V1 are released; see [release 1.0.0](release-1.0.0.md) and
-[the accepted V1 query matrix](v1-query-matrix.md). This file grew cumulatively
+RomeDB/RomeQL V1 were released as 1.0.0 with
+the accepted V1 query matrix. This file grew cumulatively
 during V1 development. Early descriptions of alpha status, duplicate-column
 rejection and unfinished release gates are historical; later sections and the
 release record supersede them. Do not reopen those gates from this history.
@@ -13,7 +13,7 @@ release record supersede them. Do not reopen those gates from this history.
 Released V2 contracts: [spatial and H3](v2-spatial.md),
 [record brace projections](v2-record-projections.md),
 [inverse relationships](v2-relations.md), and
-[the completed implementation checklist](v2-tasks.md). These are included in
+the completed implementation checklist. These are included in
 the published 2.0.0 Linux x64 release.
 
 Post-release [nested projection paths](nested-projections.md) are separate work
@@ -26,7 +26,7 @@ history. This also affects read evaluation inside managed writes and RETURNING:
 the frontend restores the failed statement while retaining prior caller work.
 Native writer-error and other engine-error dispositions are not universally
 changed; continue inspecting transaction reports. See [the reviewed change](proposals/udf-error-transaction.md)
-and [combined acceptance evidence](v2-core-integration-evidence.md).
+and combined acceptance evidence.
 
 ## Original value and collection foundation
 
@@ -286,7 +286,7 @@ These bundled helpers evaluate only compiled-in source. Inputs pass as function 
 
 Direct object-expression argument errors use validation errors; input/output, execution and recognized allocation/stack failures use `FDB_LIMIT`. Runtime initialization or unexpected bundle failures use storage errors. SQL UDF failures pass through the engine error path. The maintained scalar-read-error correction preserves caller transactions and named savepoints for read-only extension errors; write failures retain the documented rollback/conflict rules. Inspect transaction reports after errors.
 
-Fresh runtimes trade performance for isolated calls. The Linux release includes cancellation, native packaging and attribution qualification; the [2.1 checklist](v2.1-tasks.md) tracks updated runtime, artifact and workload evidence. Non-Linux platforms are outside the current release scope. Runtime/Unicode upgrades can affect deterministic outputs and must be tested against application expectations.
+Fresh runtimes trade performance for isolated calls. The Linux release includes cancellation, native packaging and attribution qualification; the 2.1 checklist tracks updated runtime, artifact and workload evidence. Non-Linux platforms are outside the current release scope. Runtime/Unicode upgrades can affect deterministic outputs and must be tested against application expectations.
 
 
 ## Initial collection grouping
@@ -919,7 +919,7 @@ Native-table INSERT SELECT cancellation during IN, NOT IN, EXISTS and scalar agg
 
 ## Observed pinned trigger cancellation exception (2026-09-07)
 
-Interruption inside an AFTER INSERT trigger currently surfaces as FDB_BUSY because the pinned OpProgram executor maps child Interrupt and Busy results to Busy. Do not treat the completed source-evaluation tests as proof of correct error classification inside trigger execution. The first native/autocommit reproducer leaves both target and trigger-effect tables empty; broader after-write transaction behavior still requires qualification. The strict regression is an ignored, explicitly failing V1 release gate. See [the proposed core fix](trigger-interrupt-review.md); approval and validation remain pending.
+Interruption inside an AFTER INSERT trigger currently surfaces as FDB_BUSY because the pinned OpProgram executor maps child Interrupt and Busy results to Busy. Do not treat the completed source-evaluation tests as proof of correct error classification inside trigger execution. The first native/autocommit reproducer leaves both target and trigger-effect tables empty; broader after-write transaction behavior still requires qualification. The strict regression is an ignored, explicitly failing V1 release gate. See the proposed core fix; approval and validation remain pending.
 
 ## Source-free typed nested SELECTs (2026-09-07)
 
@@ -1489,7 +1489,7 @@ V2 ANN development adds managed `CREATE SEARCH INDEX ... USING VECTOR WITH
 Dense float32 HNSW candidates are reranked by distance and typed-ID bytes, then
 limited before outer filters. Graph snapshots and redo logs participate in the
 document transaction; connection caches validate snapshot generations. See
-[the ANN contract](v2-ann.md) and [evidence](v2-ann-evidence.md) for limits and
+[the ANN contract](v2-ann.md) and evidence for limits and
 completed native qualification. This is
 working-tree functionality, not part of the published V1 contract.
 
@@ -1501,7 +1501,7 @@ its partial rows and preserves prior work; autocommit keeps its native transacti
 boundary. Non-cancellation error handling retains native conflict dispositions,
 including OR FAIL and OR ROLLBACK. The regression avoids SQL callbacks/triggers,
 which can change engine statement-journal eligibility. See
-[browser/client evidence](browser-removal.md) for control/fix results and the
+browser/client evidence for control/fix results and the
 conflict oracle. The pending user-function scalar-error bug and ambiguous
 FDB_ROLLBACK cleanup outcomes remain separate limitations.
 

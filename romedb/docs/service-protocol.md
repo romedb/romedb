@@ -309,5 +309,4 @@ and reserved automatic unique-index details remain an engine metadata limitation
 
 References: [current Cloud API](../../../cloud/docs/api.md),
 [database JWTs](../../../cloud/docs/database-jwt.md),
-[embedded deployment](deployment.md), [transfer values](transfer.md),
-[Studio checklist](../../../plan-studio.md).
+[embedded deployment](deployment.md) and [transfer values](transfer.md).
