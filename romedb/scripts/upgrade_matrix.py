@@ -33,6 +33,7 @@ class Upgrade:
 # using check-v251-upgrade.cjs (the generic previous-package -> candidate check).
 UPGRADES = [
     Upgrade("v029", "0.2.9", "check-v251-upgrade.cjs", "0.2.10"),
+    Upgrade("v0210", "0.2.10", "check-v251-upgrade.cjs", "0.2.11"),
 ]
 
 

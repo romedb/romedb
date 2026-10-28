@@ -4,7 +4,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <PackageId>RomeDB.Embedded</PackageId>
-    <Version>0.2.10</Version>
+    <Version>0.2.11</Version>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <Description>Native embedded RomeDB and RomeQL</Description>
