@@ -662,6 +662,15 @@ impl Connection {
         } else {
             collection.version.max(catalog::version())
         };
+        if collection
+            .indexes
+            .iter()
+            .any(|index| array_index::steps_into_arrays(&index.path))
+        {
+            collection.version = collection
+                .version
+                .max(array_index::ARRAY_PATH_CATALOG_VERSION);
+        }
         self.run(
             "UPDATE __romedb_catalog SET metadata = ?1 WHERE name = ?2",
             &[
@@ -855,6 +864,12 @@ impl Connection {
             if !seen.insert(path) {
                 return Err(Error::Validation("duplicate index path".into()));
             }
+            if array_index::steps_into_arrays(path) && kind != IndexKind::Array {
+                return Err(Error::Validation(
+                    "only array indexes accept * path steps".into(),
+                ));
+            }
+            array_index::validate_array_path(path)?;
         }
         let path = paths[0].clone();
         let name = canonical(name)?;

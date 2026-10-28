@@ -5,23 +5,12 @@ use std::collections::BTreeSet;
 
 const MAX_ELEMENTS: usize = 4096;
 const MAX_BYTES: usize = 1024 * 1024;
+pub(crate) const ARRAY_STEP: &str = "*";
+pub(crate) const ARRAY_PATH_CATALOG_VERSION: u32 = 8;
+const MAX_PATH_SEGMENTS: usize = 64;
 impl Index {
     pub(crate) fn array_keys(&self, document: &Document) -> Result<Vec<Vec<u8>>> {
-        let value = crate::path_value(document, &self.path)?.unwrap_or(&Value::Null);
-        let values = match value {
-            Value::Null => return Ok(Vec::new()),
-            Value::Array(values) => values,
-            _ => {
-                return Err(Error::Validation(
-                    "array index requires an array, null or missing field".into(),
-                ))
-            }
-        };
-        if values.len() > MAX_ELEMENTS {
-            return Err(Error::Limit(
-                "array index exceeds 4096 input elements per document".into(),
-            ));
-        }
+        let values = path_values(document, &self.path)?;
         let mut remaining = MAX_BYTES;
         let mut keys = BTreeSet::new();
         for value in values {
@@ -53,6 +42,114 @@ impl Index {
             }
         }
         Ok(keys.into_iter().collect())
+    }
+}
+
+pub(crate) fn steps_into_arrays(path: &[String]) -> bool {
+    path.iter().any(|segment| segment == ARRAY_STEP)
+}
+
+pub(crate) fn validate_array_path(path: &[String]) -> Result<()> {
+    if !steps_into_arrays(path) {
+        return Ok(());
+    }
+    if path.len() > MAX_PATH_SEGMENTS {
+        return Err(Error::Limit(format!(
+            "array index path exceeds {MAX_PATH_SEGMENTS} segments"
+        )));
+    }
+    if path.first().is_some_and(|segment| segment == ARRAY_STEP) {
+        return Err(Error::Validation(
+            "array index path must start with a field".into(),
+        ));
+    }
+    if path.last().is_some_and(|segment| segment == ARRAY_STEP) {
+        return Err(Error::Validation(
+            "array index path must end with a field".into(),
+        ));
+    }
+    Ok(())
+}
+
+fn path_values<'a>(document: &'a Document, path: &[String]) -> Result<Vec<&'a Value>> {
+    if !steps_into_arrays(path) {
+        let values = match crate::path_value(document, path)?.unwrap_or(&Value::Null) {
+            Value::Null => return Ok(Vec::new()),
+            Value::Array(values) => values,
+            _ => {
+                return Err(Error::Validation(
+                    "array index requires an array, null or missing field".into(),
+                ))
+            }
+        };
+        if values.len() > MAX_ELEMENTS {
+            return Err(index_element_limit());
+        }
+        return Ok(values.iter().collect());
+    }
+    let (first, rest) = path
+        .split_first()
+        .ok_or_else(|| Error::Validation("empty field path".into()))?;
+    let mut walk = PathWalk::new(MAX_ELEMENTS, index_element_limit);
+    if let Some(value) = document.get(first) {
+        walk.visit(value, rest, first)?;
+    }
+    Ok(walk.values)
+}
+
+fn index_element_limit() -> Error {
+    Error::Limit("array index exceeds 4096 input elements per document".into())
+}
+
+pub(crate) struct PathWalk<'a> {
+    pub(crate) values: Vec<&'a Value>,
+    stepped: usize,
+    max_elements: usize,
+    element_limit: fn() -> Error,
+}
+
+impl<'a> PathWalk<'a> {
+    pub(crate) fn new(max_elements: usize, element_limit: fn() -> Error) -> Self {
+        Self {
+            values: Vec::new(),
+            stepped: 0,
+            max_elements,
+            element_limit,
+        }
+    }
+
+    pub(crate) fn visit(&mut self, value: &'a Value, path: &[String], field: &str) -> Result<()> {
+        let Some((segment, rest)) = path.split_first() else {
+            if !matches!(value, Value::Null) {
+                self.values.push(value);
+            }
+            return Ok(());
+        };
+        match value {
+            Value::Null => Ok(()),
+            _ if segment == ARRAY_STEP => {
+                let Value::Array(elements) = value else {
+                    return Err(Error::Validation(format!(
+                        "array path requires an array, null or missing field at {field}"
+                    )));
+                };
+                self.stepped = self.stepped.saturating_add(elements.len());
+                if self.stepped > self.max_elements {
+                    return Err((self.element_limit)());
+                }
+                for element in elements {
+                    self.visit(element, rest, field)?;
+                }
+                Ok(())
+            }
+            Value::Object(fields) => match fields.get(segment) {
+                Some(value) => self.visit(value, rest, segment),
+                None => Ok(()),
+            },
+            _ => Err(Error::Validation(format!(
+                "array path requires an object, null or missing value before {segment}"
+            ))),
+        }
     }
 }
 impl Connection {

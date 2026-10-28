@@ -116,6 +116,28 @@ fn contains(args: &[Value]) -> Result<Value> {
     Ok(output)
 }
 
+pub(crate) fn path_contains(input: &Value, path: &str, needle: &Value) -> Result<Value> {
+    let path: Vec<String> =
+        serde_json::from_str(path).map_err(|_| Error::Validation("invalid array path".into()))?;
+    let Some((field, steps)) = path.split_first() else {
+        return Err(Error::Validation("invalid array path".into()));
+    };
+    needle.encode_with_limit(Some(1024 * 1024))?;
+    let mut budget = crate::links::FetchBudget {
+        used: 0,
+        limit: MAX_BYTES,
+    };
+    charge(&mut budget, input)?;
+    charge(&mut budget, needle)?;
+    let mut walk = crate::array_index::PathWalk::new(MAX_ITEMS, || {
+        Error::Limit("array/object helper exceeds 100000 items".into())
+    });
+    walk.visit(input, steps, field)?;
+    let output = Value::Boolean(walk.values.iter().any(|value| equal(value, needle)));
+    charge(&mut budget, &output)?;
+    Ok(output)
+}
+
 fn bounded(length: usize) -> Result<()> {
     if length > MAX_ITEMS {
         return Err(Error::Limit(

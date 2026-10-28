@@ -361,6 +361,39 @@ fn compound_and_array_index_grammar_preserves_native_fallbacks() {
     ] {
         assert!(parse(sql).is_err(), "{sql}");
     }
+}
+
+#[test]
+fn array_index_paths_step_into_arrays_with_star() {
+    assert!(
+        matches!(parse("CREATE SEARCH INDEX roles ON docs(team.*.role) USING ARRAY").unwrap(),Statement::CreateArrayIndex {path,..} if path==["team","*","role"])
+    );
+    assert!(
+        matches!(parse("CREATE SEARCH INDEX kinds ON docs(team . * . links.*.kind) USING ARRAY").unwrap(),Statement::CreateArrayIndex {path,..} if path==["team","*","links","*","kind"])
+    );
+    for sql in [
+        "CREATE SEARCH INDEX roles ON docs(team.*) USING ARRAY",
+        "CREATE SEARCH INDEX roles ON docs(*.role) USING ARRAY",
+        "CREATE SEARCH INDEX roles ON docs(team.\"*\".role) USING ARRAY",
+        "CREATE SEARCH INDEX roles ON docs(\"*\") USING ARRAY",
+        "CREATE SEARCH INDEX roles ON docs(team.*.role) USING FULLTEXT",
+        "CREATE SEARCH INDEX roles ON docs(team.*.at) USING SPATIAL",
+        "CREATE SEARCH INDEX roles ON docs(team.*.v) USING VECTOR WITH (dimensions=3,metric='l2')",
+        "CREATE INDEX roles ON docs(team.*.role)",
+        "CREATE UNIQUE INDEX roles ON docs(team.*.role)",
+    ] {
+        assert!(
+            !matches!(
+                parse(sql),
+                Ok(Statement::CreateArrayIndex { .. }
+                    | Statement::CreateIndex { .. }
+                    | Statement::CreateFullTextIndex { .. }
+                    | Statement::CreateSpatialIndex { .. }
+                    | Statement::CreateVectorIndex { .. })
+            ),
+            "{sql}"
+        );
+    }
     for sql in [
         "CREATE INDEX native ON relational(a DESC,b COLLATE NOCASE)",
         "CREATE INDEX native ON relational(a) WHERE a>0",
