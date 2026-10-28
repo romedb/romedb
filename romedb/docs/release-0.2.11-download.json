@@ -1,0 +1,20 @@
+{
+  "version": "0.2.11",
+  "verifiedAtUtc": "2026-10-28T10:09:30.275706+00:00",
+  "releaseUrl": "https://github.com/romedb/romedb/releases/tag/romedb-v0.2.11",
+  "archiveUrl": "https://github.com/romedb/romedb/releases/download/romedb-v0.2.11/romedb-0.2.11-linux-x64.tar.gz",
+  "archiveSha256": "188d41946ea7ce8062ecc7eb4d8d1fc2a975deeb56920ad6d268c18d9a62ffdf",
+  "archiveBytes": 104433048,
+  "archiveReproduced": "the downloaded tar.gz is byte-identical to the archive built from the assembled bundle (fixed owner and commit-time mtimes)",
+  "sourceCommit": "b8129ced1784250be7259f0c49170dfc8c9d9ac0",
+  "sourceArchiveSha256": "2aeb2297ed5b7d7b8db1ecd7b654eec8a2dc5778b9133e83c6b7157676012baf",
+  "anonymousDownload": true,
+  "outerChecksumMatches": true,
+  "internalChecksumsPass": true,
+  "internalFiles": 101,
+  "sourceArchiveMatchesTag": true,
+  "cAbiSmoke": "passed",
+  "cliVersion": "bin/romedb --version prints 'romedb 0.2.11'",
+  "arrayPathIndexSmoke": "bin/romedb finds a document through CREATE SEARCH INDEX ... (team.*.links.*.kind) USING ARRAY and array::contains, and RomeDB Cloud on the 0.2.11 image does the same with the index in EXPLAIN",
+  "manifestSha256": "b8188377fe53bfcfaf119d8245ac71b02b7899ce5e6863ec22836403bd8fcbc1"
+}
