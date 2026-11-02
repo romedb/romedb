@@ -34,6 +34,7 @@ class Upgrade:
 UPGRADES = [
     Upgrade("v029", "0.2.9", "check-v251-upgrade.cjs", "0.2.10"),
     Upgrade("v0210", "0.2.10", "check-v251-upgrade.cjs", "0.2.11"),
+    Upgrade("v0211", "0.2.11", "check-v251-upgrade.cjs", "0.2.12"),
 ]
 
 

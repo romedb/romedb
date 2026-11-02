@@ -4,7 +4,7 @@ Generated from the pinned Cargo dependency inventory and checksummed source arch
 
 This is a partial notice collection. It supplements LICENSE.md and THIRD_PARTY_NOTICES.md. Inline attributions, unconventional filenames and other bundled components require further review before a complete distribution-notice claim.
 
-Target: `x86_64-unknown-linux-gnu`. Cargo.lock SHA-256: `5c5143162d496f7409088361f695ddac5fedf72ede5e3ba0b4912ed965e1777e`.
+Target: `x86_64-unknown-linux-gnu`. Cargo.lock SHA-256: `f065eb377ff1eed208add1ebb20ee8039e125fcfb4dbd38cd663c4933167c709`.
 
 ## Packages without collected archive or supplemental texts
 
@@ -800,16 +800,16 @@ Target: `x86_64-unknown-linux-gnu`. Cargo.lock SHA-256: `5c5143162d496f740908836
 - `LICENSE-APACHE`: [source text a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2](#text-a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2)
 - `LICENSE-MIT`: [source text 42d3bf7e7d4d49d72c0555d14ed99c3ee7ce9ce3cbffbc38bbafe8c103f50969](#text-42d3bf7e7d4d49d72c0555d14ed99c3ee7ce9ce3cbffbc38bbafe8c103f50969)
 
-### romedb-cli 0.2.11
+### romedb-cli 0.2.12
 - Workspace `LICENSE.md`: [source text b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5](#text-b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5)
 
-### romedb-service 0.2.11
+### romedb-service 0.2.12
 - Workspace `LICENSE.md`: [source text b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5](#text-b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5)
 
-### romedb 0.2.11
+### romedb 0.2.12
 - Workspace `LICENSE.md`: [source text b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5](#text-b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5)
 
-### romeql-parser 0.2.11
+### romeql-parser 0.2.12
 - Workspace `LICENSE.md`: [source text b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5](#text-b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5)
 
 ### rquickjs-core 0.13.0

@@ -1,12 +1,12 @@
 {
-  "reviewed_at": "2026-10-28T07:48:50.082811+00:00",
-  "source_commit": "b572479f235f8e2c5fbd3d1473667ba920182dac",
-  "cargo_lock_sha256": "5c5143162d496f7409088361f695ddac5fedf72ede5e3ba0b4912ed965e1777e",
+  "reviewed_at": "2026-11-02T17:23:15.375458+00:00",
+  "source_commit": "6f8233fad01bc263e2d7ba1e2201c46fff44e324",
+  "cargo_lock_sha256": "f065eb377ff1eed208add1ebb20ee8039e125fcfb4dbd38cd663c4933167c709",
   "advisory_database": {
     "repository": "https://github.com/RustSec/advisory-db.git",
-    "commit": "99670cfc0bc574433034b75876a4b791ccaa2efb",
-    "committed_at": "2026-10-27T11:02:42+01:00",
-    "advisory_count": 1380
+    "commit": "263a4d951a0867d4bddc29dddd6d59427c78f9a7",
+    "committed_at": "2026-11-02T12:45:44+01:00",
+    "advisory_count": 1402
   },
   "scanner": "cargo-audit 0.22.2",
   "target": "x86_64-unknown-linux-gnu",
@@ -931,35 +931,35 @@
     },
     {
       "name": "romedb",
-      "version": "0.2.11"
+      "version": "0.2.12"
     },
     {
       "name": "romedb-c",
-      "version": "0.2.11"
+      "version": "0.2.12"
     },
     {
       "name": "romedb-cli",
-      "version": "0.2.11"
+      "version": "0.2.12"
     },
     {
       "name": "romedb-node",
-      "version": "0.2.11"
+      "version": "0.2.12"
     },
     {
       "name": "romedb-protocol",
-      "version": "0.2.11"
+      "version": "0.2.12"
     },
     {
       "name": "romedb-python",
-      "version": "0.2.11"
+      "version": "0.2.12"
     },
     {
       "name": "romedb-service",
-      "version": "0.2.11"
+      "version": "0.2.12"
     },
     {
       "name": "romeql-parser",
-      "version": "0.2.11"
+      "version": "0.2.12"
     },
     {
       "name": "rquickjs",
