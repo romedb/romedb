@@ -5594,6 +5594,13 @@ pub fn op_savepoint(
             .map_err(Into::into)
         }
         SavepointOp::Release => {
+            if !matches!(state.commit_state, CommitState::Ready) {
+                let auto_commit = Insn::AutoCommit {
+                    auto_commit: true,
+                    rollback: false,
+                };
+                return op_auto_commit(program, state, &auto_commit, pager);
+            }
             let release_result = if let Some(mv_store) = mv_store.as_ref() {
                 match conn.get_mv_tx_id() {
                     Some(tx_id) => mv_store.release_named_savepoint(tx_id, name)?,
