@@ -34,7 +34,7 @@ async function connect(options) {
 
 class RemoteDatabase {
   #url; #token; #fetch; #timeout; #sequence = 0; #id; #capabilities; #transport;
-  #closed = false; #active = new Set(); #inflightBytes = 0; #sequenceKnown = false; #deferred = false; #cloud = false; #warm = false;
+  #closed = false; #active = new Set(); #inflightBytes = 0; #sequenceKnown = false; #deferred = false; #cloud = false; #warm = false; #loopbackOrganization = false;
   constructor(options, key, transport) {
     if (key !== construction) throw new TypeError('use connect()');
     if (!plainObject(options)) throw new TypeError('connection options require an object');
@@ -48,13 +48,16 @@ class RemoteDatabase {
     if (options.deferInfo !== undefined && typeof options.deferInfo !== 'boolean') throw new TypeError('deferInfo requires a boolean');
     if (options.warm !== undefined && typeof options.warm !== 'boolean') throw new TypeError('warm requires a boolean');
     const cloudId = transport ? undefined : /\/databases\/([0-9a-f-]{36})$/.exec(this.#url)?.[1];
-    this.#cloud = cloudId !== undefined;
-    if (!this.#cloud && options.deferInfo === true) throw new TypeError('deferInfo applies only to Cloud database URLs');
-    if (!this.#cloud && options.warm === true) throw new TypeError('warm applies only to Cloud database URLs');
+    // A loopback organization URL is a local service directory or Cloud in development;
+    // the details reply tells which, so these connections always read details first.
+    this.#loopbackOrganization = cloudId !== undefined && loopbackHost(new URL(this.#url).hostname);
+    this.#cloud = cloudId !== undefined && !this.#loopbackOrganization;
+    if (cloudId === undefined && options.deferInfo === true) throw new TypeError('deferInfo applies only to Cloud database URLs');
+    if (cloudId === undefined && options.warm === true) throw new TypeError('warm applies only to Cloud database URLs');
     // Cloud database URLs carry the database id and have documented capabilities,
     // so the details request waits until a write needs a current sequence.
     if (this.#cloud && options.deferInfo !== false) {
-      this.#id = cloudId; this.#capabilities = capabilities(this.#url, {}); this.#deferred = true;
+      this.#id = cloudId; this.#capabilities = capabilities(this.#url, {}, false); this.#deferred = true;
     }
     this.#warm = this.#cloud && options.warm !== false;
   }
@@ -70,7 +73,8 @@ class RemoteDatabase {
     if (!plainObject(info) || typeof info.id !== 'string' || !/^[A-Za-z0-9_-]{1,80}$/.test(info.id) || !sequence(info.sequence, true) || (this.#id !== undefined && this.#id !== info.id)) {
       throw new ClientError('FDB_PROTOCOL', 'Invalid database details or changed database identity', 'read-failed');
     }
-    const supported = capabilities(this.#url, info);
+    if (this.#loopbackOrganization) this.#cloud = info.serviceVersion === undefined;
+    const supported = capabilities(this.#url, info, !this.#cloud);
     this.#id = info.id;
     this.#sequence = Math.max(this.#sequence, info.sequence);
     this.#sequenceKnown = true;
@@ -239,7 +243,7 @@ function normalizeUrl(input) {
   if (typeof input !== 'string' || input.length > 4096) throw new TypeError('url requires a bounded database URL');
   // romedb:// is an alias for https://; the same checks apply after the rewrite.
   const url = new URL(input.startsWith('romedb://') ? 'https://' + input.slice('romedb://'.length) : input);
-  const loopback = ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname);
+  const loopback = loopbackHost(url.hostname);
   if (url.username || url.password || url.search || url.hash || (url.protocol !== 'https:' && !(url.protocol === 'http:' && loopback))) throw new TypeError('use HTTPS or loopback HTTP without URL credentials, query or fragment');
   let path = url.pathname.replace(/\/$/, '').replace(/\/(?:query|read)$/, '');
   if (loopback && !path) path = '/v1/database';
@@ -315,8 +319,10 @@ async function boundedJson(response, limit) {
   } finally { await reader.cancel().catch(() => {}); }
 }
 
-function capabilities(url, info) {
-  if (url.startsWith('file:') || url.endsWith('/v1/database')) {
+function loopbackHost(hostname) { return ['127.0.0.1', 'localhost', '[::1]'].includes(hostname); }
+
+function capabilities(url, info, local) {
+  if (local) {
     if ((url.startsWith('file:') ? info.adapterVersion : info.serviceVersion) !== 1 || !plainObject(info.capabilities) || !plainObject(info.limits) || info.capabilities.readVersion !== 2 || typeof info.capabilities.atomicWrites !== 'boolean' || typeof info.capabilities.exactSequenceCondition !== 'boolean' || (info.capabilities.atomicWrites && info.capabilities.replayWindow !== 64)) throw new ClientError('FDB_PROTOCOL', 'Unsupported database client contract', 'read-failed');
     return { ...info.capabilities, provenance: 'negotiated' };
   }

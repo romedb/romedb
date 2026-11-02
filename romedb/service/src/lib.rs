@@ -1,5 +1,7 @@
 mod admission;
 #[cfg(unix)]
+pub mod directory;
+#[cfg(unix)]
 pub mod http;
 #[cfg(all(test, unix))]
 mod recovery;
@@ -79,6 +81,10 @@ struct Publication {
 
 impl DatabaseService {
     pub fn create(path: &Path) -> Result<Self> {
+        Self::create_with_id(path, &uuid::Uuid::new_v4().to_string())
+    }
+
+    pub fn create_with_id(path: &Path, database_id: &str) -> Result<Self> {
         if !path.is_absolute() {
             return Err(Error::new(
                 "FDB_VALIDATION",
@@ -112,14 +118,11 @@ impl DatabaseService {
             options.mode(0o600);
         }
         options.open(path)?.sync_all()?;
-        let database = Database::open(
+        let database = Database::create_mvcc(
             path.to_str()
                 .ok_or_else(|| Error::new("FDB_VALIDATION", "database path must be UTF-8"))?,
         )?;
-        let connection = database.connect()?;
-        connection.execute("PRAGMA journal_mode=mvcc", &Parameters::new())?;
-        drop(connection);
-        let service = Self::initialize(database)?;
+        let service = Self::initialize(database, database_id)?;
         #[cfg(unix)]
         std::fs::File::open(path.parent().ok_or_else(|| {
             Error::new(
@@ -132,6 +135,24 @@ impl DatabaseService {
     }
 
     pub fn open(path: &Path) -> Result<Self> {
+        Self::initialize(
+            Self::open_database(path)?,
+            &uuid::Uuid::new_v4().to_string(),
+        )
+    }
+
+    pub fn open_with_id(path: &Path, database_id: &str) -> Result<Self> {
+        let service = Self::initialize(Self::open_database(path)?, database_id)?;
+        if service.database_id != database_id {
+            return Err(Error::new(
+                "FDB_CONFLICT",
+                "database file holds another database's identity; it was copied or renamed",
+            ));
+        }
+        Ok(service)
+    }
+
+    fn open_database(path: &Path) -> Result<Database> {
         let metadata = std::fs::symlink_metadata(path).map_err(|error| {
             if error.kind() == std::io::ErrorKind::NotFound {
                 Error::new(
@@ -152,16 +173,14 @@ impl DatabaseService {
                 "service requires a regular database file with one link; use its original path",
             ));
         }
-        let database = Database::open_for_service(
-            path.to_str()
-                .ok_or_else(|| Error::new("FDB_VALIDATION", "database path must be UTF-8"))?,
-        )?;
-        Self::initialize(database)
+        Ok(Database::open_mvcc(path.to_str().ok_or_else(|| {
+            Error::new("FDB_VALIDATION", "database path must be UTF-8")
+        })?)?)
     }
 
-    fn initialize(database: Database) -> Result<Self> {
+    fn initialize(database: Database, database_id: &str) -> Result<Self> {
         let connection = database.connect()?;
-        let catalog = connection.initialize_service_catalog(&uuid::Uuid::new_v4().to_string())?;
+        let catalog = connection.initialize_service_catalog(database_id)?;
         Ok(Self {
             database,
             database_id: catalog.database_id,

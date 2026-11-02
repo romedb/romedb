@@ -8,12 +8,13 @@ let sequence = 0;
 let fenced = false;
 const receipts = new Map();
 try {
-  database = new NativeDatabase(workerData.path, '10000', '67108864');
+  database = new NativeDatabase(workerData.path, '10000', '67108864', workerData.create ? 'create-mvcc' : 'mvcc');
   const foreignKeys = JSON.parse(database.execute('PRAGMA foreign_keys=ON', '{}'));
   if (foreignKeys.execution.error) throw new Error(foreignKeys.execution.error.message);
   parentPort.postMessage({ ready: true });
 } catch (error) {
-  parentPort.postMessage({ readyError: { code: /file is locked/i.test(error.message) ? 'FDB_BUSY' : error.code?.startsWith('FDB_') ? error.code : 'FDB_STORAGE', message: error.message } });
+  const coded = /^(FDB_[A-Z0-9_]+): (.*)$/s.exec(error.message);
+  parentPort.postMessage({ readyError: { code: /file is locked/i.test(error.message) ? 'FDB_BUSY' : coded?.[1] ?? (error.code?.startsWith('FDB_') ? error.code : 'FDB_STORAGE'), message: coded?.[2] ?? error.message } });
   database?.close();
   parentPort.close();
 }
@@ -21,6 +22,7 @@ try {
 if (database) parentPort.on('message', ({ id, operation, body, cancellationKey }) => {
   try {
     if (operation === 'close') {
+      if (!fenced) try { database.execute('PRAGMA wal_checkpoint(TRUNCATE)', '{}'); } catch {}
       database.close();
       parentPort.postMessage({ id });
       parentPort.close();

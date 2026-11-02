@@ -36,7 +36,7 @@ fn publication_fault_child() {
         file_suffix: ".db-log",
     });
     let database = Database::open_with_io(&path, io).unwrap();
-    let service = DatabaseService::initialize(database).unwrap();
+    let service = DatabaseService::initialize(database, "fault-test").unwrap();
     armed.store(true, Ordering::SeqCst);
     let result = service.query(&update_request());
     assert!(

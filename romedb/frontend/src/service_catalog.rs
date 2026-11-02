@@ -1,5 +1,4 @@
-use crate::{text, Connection, Database, EngineDatabase, EngineValue, Error, Result};
-use std::sync::Arc;
+use crate::{text, Connection, EngineValue, Error, Result};
 
 const STATE_DDL: &str = "CREATE TABLE IF NOT EXISTS __romedb_service_state (slot INTEGER PRIMARY KEY, version INTEGER NOT NULL, database_id TEXT NOT NULL, sequence INTEGER NOT NULL)";
 const RECEIPT_DDL: &str = "CREATE TABLE IF NOT EXISTS __romedb_service_receipts (request_id TEXT PRIMARY KEY, request_hash TEXT NOT NULL, sequence INTEGER NOT NULL UNIQUE, response TEXT NOT NULL)";
@@ -14,6 +13,7 @@ pub struct ServiceCatalog {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Database;
 
     fn connection() -> Connection {
         let database = Database::open(":memory:").unwrap();
@@ -124,38 +124,6 @@ pub struct ServiceReceipt {
     pub request_hash: String,
     pub sequence: u64,
     pub response: String,
-}
-
-impl Database {
-    pub fn open_for_service(path: &str) -> Result<Self> {
-        if !std::path::Path::new(path).is_file() {
-            return Err(Error::NotFound(
-                "service requires an existing database file".into(),
-            ));
-        }
-        let io = Arc::new(turso_core::io::PlatformIO::new()?);
-        let engine = EngineDatabase::open_file_with_flags(
-            io,
-            path,
-            turso_core::OpenFlags::default(),
-            turso_core::DatabaseOpts::new().with_index_method(true),
-            None,
-            Arc::new(turso_core::SqliteDialect),
-        )?;
-        let conn = engine.connect()?;
-        let mut statement = conn.prepare("PRAGMA journal_mode")?;
-        let rows = crate::collect_rows(&mut statement)?;
-        if !matches!(rows.as_slice(), [row] if matches!(row.as_slice(), [EngineValue::Text(mode)] if mode.as_str().eq_ignore_ascii_case("mvcc")))
-        {
-            return Err(Error::Unsupported(
-                "service requires MVCC; back up and explicitly migrate this WAL database first"
-                    .into(),
-            ));
-        }
-        drop(statement);
-        drop(conn);
-        Self::initialize(engine, false)
-    }
 }
 
 impl Connection {

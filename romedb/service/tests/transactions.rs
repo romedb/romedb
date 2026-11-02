@@ -443,7 +443,7 @@ fn validation_failure_rolls_back_all_managed_indexes() {
         .to_string()
         .contains("QUERY INDEX METHOD fts"));
     drop(service);
-    let database = romedb::Database::open_for_service(path.to_str().unwrap()).unwrap();
+    let database = romedb::Database::open_mvcc(path.to_str().unwrap()).unwrap();
     let integrity = database
         .connect()
         .unwrap()

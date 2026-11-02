@@ -205,7 +205,7 @@ fn acknowledged_http_writes_and_receipts_survive_sigkill() {
     assert_eq!(killed.signal(), Some(9));
     drop(server);
     {
-        let database = romedb::Database::open_for_service(path.to_str().unwrap()).unwrap();
+        let database = romedb::Database::open_mvcc(path.to_str().unwrap()).unwrap();
         let connection = database.connect().unwrap();
         assert_eq!(connection.service_catalog().unwrap().sequence, 2);
         assert_eq!(
@@ -240,5 +240,105 @@ fn acknowledged_http_writes_and_receipts_survive_sigkill() {
     let (mut server, restarted_token) = start(&path, port, false);
     assert_eq!(token, restarted_token);
     assert_eq!(send(&body), acknowledged);
+    stop(&mut server);
+}
+
+#[test]
+fn cli_serves_a_directory_with_one_token_and_refuses_a_second_directory_owner() {
+    let root = tempfile::tempdir().unwrap();
+    let directory = root.path().join("sites");
+    let romedb = env!("CARGO_BIN_EXE_romedb");
+    for (args, message) in [
+        (
+            vec!["--directory", "sites"],
+            "database directory is missing",
+        ),
+        (
+            vec!["--directory", "sites", "--max-open", "0"],
+            "--max-open must be between 1 and 1024",
+        ),
+        (
+            vec!["app.romedb", "--max-open", "4"],
+            "--max-open applies to --directory",
+        ),
+        (vec!["app.romedb", "--directory", "sites"], "not both"),
+    ] {
+        let output = Command::new(romedb)
+            .arg("serve")
+            .args(args)
+            .current_dir(root.path())
+            .output()
+            .unwrap();
+        assert!(!output.status.success());
+        assert!(
+            String::from_utf8_lossy(&output.stderr).contains(message),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    drop(listener);
+    let mut server = Server(
+        Command::new(romedb)
+            .args(["serve", "--directory"])
+            .arg(&directory)
+            .args(["--create", "--max-open", "2", "--port", &port.to_string()])
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap(),
+    );
+    let mut stdout = BufReader::new(server.0.stdout.take().unwrap());
+    let mut url = String::new();
+    stdout.read_line(&mut url).unwrap();
+    let organization = url
+        .trim()
+        .strip_prefix(&format!(
+            "Organization URL: http://127.0.0.1:{port}/v1/organizations/"
+        ))
+        .unwrap()
+        .to_owned();
+    let mut token_line = String::new();
+    stdout.read_line(&mut token_line).unwrap();
+    let token_file = directory.canonicalize().unwrap().join("romedb.token");
+    assert_eq!(
+        token_line.trim(),
+        format!("Token file: {}", token_file.display())
+    );
+    let token = std::fs::read_to_string(&token_file)
+        .unwrap()
+        .trim()
+        .to_owned();
+    let client = reqwest::blocking::Client::builder()
+        .timeout(Duration::from_secs(20))
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+    let created: Value = serde_json::from_str(
+        &client
+            .post(format!(
+                "http://127.0.0.1:{port}/v1/organizations/{organization}/databases"
+            ))
+            .bearer_auth(&token)
+            .header("content-type", "application/json")
+            .body(json!({"name":"main"}).to_string())
+            .send()
+            .unwrap()
+            .text()
+            .unwrap(),
+    )
+    .unwrap();
+    let id = created["id"].as_str().unwrap();
+    assert!(directory.join(format!("{id}.romedb")).is_file());
+    let competitor = Command::new(romedb)
+        .args(["serve", "--directory"])
+        .arg(&directory)
+        .args(["--port", "1"])
+        .output()
+        .unwrap();
+    assert!(!competitor.status.success());
+    assert!(String::from_utf8_lossy(&competitor.stderr)
+        .contains("another romedb serve owns this directory"));
     stop(&mut server);
 }

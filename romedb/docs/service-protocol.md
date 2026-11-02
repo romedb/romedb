@@ -30,7 +30,9 @@ for audit limits, failure handling, and the paired main-file/journal publication
 
 An application and Studio connect through the service when they share a live
 file. Embedded access remains available when one application owns the file.
-No multiprocess WAL or embedded default change is part of this contract.
+Embedded files (`openEmbedded`), the service and Cloud all use MVCC, so a file
+moves between them without conversion. No multiprocess access is part of this
+contract: one OS process owns a file at a time.
 Service opens require a regular file with one link. Reject symlink and hard-link
 aliases before opening the engine, because an alias can select a different journal.
 
@@ -39,6 +41,55 @@ Startup prints the database URL and token-file path, never the token. Reuse the
 protected token on restart. Reject insecure token files, symlinks and accidental
 replacement of existing credentials. Require an explicit token-file override for
 managed credentials. Never put a token in a URL or ordinary log.
+
+## Directory of databases
+
+```sh
+romedb serve --directory storage/sites --create
+```
+
+`--directory DIR` serves every `DIR/{id}.romedb` file (a lowercase UUID v4 name)
+behind one token, with RomeDB Cloud's organization routes on
+`http://127.0.0.1:PORT/v1/organizations/{org}`. Startup prints that organization URL
+and the token-file path; the token file defaults to `DIR/romedb.token`. `--create`
+makes a missing directory (mode 0700); it never creates database files.
+`DIR/romedb-directory.json` keeps the local organization ID and each database's
+name and creation time. `DIR/romedb-directory.lock` keeps a second `serve` off the
+same directory. While `serve` runs it owns the directory: do not open its files from
+another process.
+
+| Method and path | Reply |
+| --- | --- |
+| `GET .../databases` | 200 `{databases: [entry]}`, oldest first |
+| `POST .../databases` `{name}` | 201 `entry` for a new MVCC database; the same name returns the existing one |
+| `GET .../databases/{id}` | 200 `entry` plus the service details (`sequence`, `serviceVersion`, `engineVersion`, `journalMode`, `capabilities`, `limits`) |
+| `DELETE .../databases/{id}` | 204; closes the database and removes its file and journal files |
+| `POST .../databases/{id}/read` and `/query` | the service protocol below, per database |
+
+An entry is `{id, name, organizationId, status: "active", createdAt, updatedAt,
+nameRevision: 0, url}`, the same fields as Cloud; `url` ends in `/query`. Names
+follow Cloud's rule: 1 to 48 characters of `a-z`, `0-9` and `-`, starting with a
+letter. Management errors use Cloud's `{"error": "message"}` body; `/read` and
+`/query` errors keep the service body. A deletion with requests in progress gets
+503 and can be retried.
+
+At most `--max-open` databases (1 to 1024, default 32) stay open. Opening one more
+checkpoints and closes the least recently used idle database; when every open
+database has requests in progress the request gets 503 `FDB_BUSY`. Stopping the
+service checkpoints every open database, so the files open in `openEmbedded`
+without a log to replay.
+
+A `{id}.romedb` file that the manifest does not name, for example one created by
+`openEmbedded`, is listed with the name `db-{id}`, and the service stores its
+identity on first open. A file whose stored identity differs from its file name
+(a copied or renamed database) is refused with 409, and a WAL file with the
+`migrate-to-mvcc` guidance. Other files in the directory are ignored.
+
+The Node client accepts these database URLs. On a loopback host it reads the
+details at connect: `serviceVersion: 1` means a local service, so it negotiates
+capabilities and uses 64 KiB requests; Cloud running locally keeps the Cloud
+format. `service/tests/directory-sdk.cjs [BINARY]` runs the whole flow against the
+CLI: management, the client, the same files in `openEmbedded`, and back.
 
 ## URL and authentication
 
@@ -134,8 +185,10 @@ Local service request connections also enable SQL foreign keys before beginning
 their transaction and report `foreignKeys: true` in capabilities. Cloud query
 connections also enable foreign keys before BEGIN; immediate/deferred rollback
 and the hosted common fixture pass qualification.
-The adapter preserves its journal mode and enables foreign keys on its managed
-connection. Clients for the same canonical file in one Node module share a worker
+The adapter opens only MVCC files (`create: true` makes one) and refuses WAL files
+with `FDB_UNSUPPORTED` before writing to them. It enables foreign keys on its managed
+connection. `maxOpen` bounds the different files open in one process (default 16),
+and closing the last client checkpoints the MVCC log. Clients for the same canonical file in one Node module share a worker
 and revision. Other native handles do not advance that revision. Capabilities
 state `sequenceScope: 'adapter'` and `replayDurability: 'adapter-lifetime'`.
 The last client's close ends the replay lifetime. Reopening creates a new

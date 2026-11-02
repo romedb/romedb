@@ -36,10 +36,10 @@ access: the embedded library provides no network authentication boundary.
 
 | Application | Supported arrangement |
 |---|---|
-| Node.js/TypeScript | One application process with `Database` or `AsyncDatabase`. The latter owns its connection in a worker thread. Multiple connections remain inside the owner process. |
+| Node.js/TypeScript | One application process with `openEmbedded`, `Database` or `AsyncDatabase`. `openEmbedded` and `AsyncDatabase` own their connection in a worker thread. Multiple connections remain inside the owner process. One process can keep many files open, one per tenant, up to `openEmbedded`'s `maxOpen`. |
 | Rust, Python, Go, Swift, C# | One long-lived application process owns the database; coordinate concurrent callers and transaction ownership using the client's API. |
 | PHP | A long-lived PHP CLI application can own a database using the PHP client. Independent PHP-FPM workers cannot each open the same file. |
-| Node cluster, PHP-FPM, multiple service replicas | Route database operations through one application-owned process, using application IPC/RPC if needed, or give each process an independent database. RomeDB does not ship a network database server or coordinate these processes. |
+| Node cluster, PHP-FPM, multiple service replicas | Route database operations through one owner process: `romedb serve FILE` for one MVCC database or `romedb serve --directory DIR` for many, both on loopback only, or your own application IPC/RPC. Alternatively give each process an independent database. RomeDB does not coordinate several processes on one file. |
 | CLI, migrations, backup/restore | Stop application access, close all handles, then run one maintenance process. Restart only after maintenance closes its handles. |
 
 Connections are not transaction scopes for individual HTTP requests. Interleaving

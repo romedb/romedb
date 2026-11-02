@@ -99,7 +99,7 @@ pub fn migrate(args: Vec<String>) -> Result<ExitCode> {
     drop(connection);
     drop(database);
     {
-        let database = Database::open_for_service(path_string(&working)?)?;
+        let database = Database::open_mvcc(path_string(&working)?)?;
         let connection = database.connect()?;
         require_mode(&connection, "mvcc")?;
         if audit(&connection, options.limits)? != before {

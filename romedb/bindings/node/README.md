@@ -433,6 +433,14 @@ Pass `deferInfo: false` to request the details at connect, as 2.5 did by default
 Other URLs always request the details at connect, and `deferInfo: true` is
 rejected for them.
 
+An organization URL on a loopback host, such as a database of
+`romedb serve --directory` (`http://127.0.0.1:4321/v1/organizations/{org}/databases/{db}`),
+always requests the details at connect. A reply with `serviceVersion: 1` is a local
+service: the client negotiates its capabilities and uses the 64 KiB service request
+format, with no warm request. Any other reply is Cloud running locally, which keeps
+the Cloud request format. Application code can therefore use the same organization
+URLs for a local directory and for Cloud.
+
 `connect()` on a Cloud URL also sends a warm request in the background and does
 not wait for it. Cloud then starts the database's container and opens the
 database, so a query sent a second or more later skips that start-up time. Errors
@@ -483,9 +491,22 @@ try {
 
 Opening requires an existing regular file with one link. To create a new file,
 use `openEmbedded({ path: 'new.romedb', create: true })`. Creation refuses existing
-files and journal sidecars. New files retain the embedded WAL default. Existing
-MVCC files retain their journal mode. The managed connection enables SQL foreign
-keys without changing the legacy APIs.
+files and journal sidecars. Files use MVCC, the journal mode of `romedb serve` and
+Cloud, so a file moves between these modes without conversion and sees the same
+write conflicts. Opening a WAL file fails with `FDB_UNSUPPORTED` and leaves the file
+unchanged; stop its owner and convert it with `romedb migrate-to-mvcc`. The managed
+connection enables SQL foreign keys without changing the legacy APIs.
+
+One process keeps at most `maxOpen` different files open (1 to 1024, default 16).
+An open that would pass this number fails with `FDB_LIMIT`; clients of a file that
+is already open do not count again. `close()` of the last client checkpoints the
+MVCC log into the database file, so the next open has no log to replay, and then
+releases the file's OS lock. To keep many databases, such as one per site, open
+them with the same `maxOpen` and close the least recently used one yourself.
+Reopening a closed file takes about 75 to 90 ms on Linux x64 (release build,
+2026-11-02), nearly independent of its size: each open file has its own worker
+thread, and starting it and loading the addon in it is about 60 ms of that; the
+engine open is about 9 ms and closing with the checkpoint about 10 ms.
 
 Clients for the same canonical file in one Node module share one native worker.
 Each batch runs as one worker operation inside a managed transaction. All

@@ -1,6 +1,6 @@
 export * from './client';
 import type { Client, DatabaseInfo, Statement, RequestOptions, ReadOptions, WriteOptions, BatchResult, PreparedWrite } from './client';
-export interface EmbeddedOptions { path: string; create?: boolean; timeoutMs?: number; }
+export interface EmbeddedOptions { path: string; create?: boolean; timeoutMs?: number; maxOpen?: number; }
 export class EmbeddedDatabase implements Client {
   private constructor();
   readonly path: string;

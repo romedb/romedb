@@ -1,4 +1,7 @@
-use crate::{DatabaseService, Error, Result};
+use crate::{
+    directory::{valid_id, DirectoryService},
+    DatabaseService, Error, Result,
+};
 use bytes::Bytes;
 use http_body_util::{BodyExt, Full};
 use hyper::{
@@ -108,9 +111,65 @@ impl Token {
     }
 }
 
+#[derive(Clone)]
+enum Target {
+    Database(Arc<DatabaseService>),
+    Directory(Arc<DirectoryService>),
+}
+
+impl Target {
+    fn begin_shutdown(&self) {
+        match self {
+            Self::Database(database) => database.begin_shutdown(),
+            Self::Directory(directory) => directory.begin_shutdown(),
+        }
+    }
+
+    fn checkpoint_for_shutdown(&self) {
+        match self {
+            Self::Database(database) => {
+                if let Err(error) = database.checkpoint_for_shutdown() {
+                    eprintln!("romedb-service: {}: {}", error.code, error.message);
+                }
+            }
+            Self::Directory(directory) => directory.checkpoint_for_shutdown(),
+        }
+    }
+}
+
+enum Route {
+    Info,
+    Read,
+    Query,
+    List,
+    Create,
+    Details(String),
+    Delete(String),
+    DatabaseRead(String),
+    DatabaseQuery(String),
+}
+
 pub async fn serve(
     listener: TcpListener,
     database: Arc<DatabaseService>,
+    token: Token,
+    shutdown: impl Future<Output = ()>,
+) -> Result<()> {
+    serve_target(listener, Target::Database(database), token, shutdown).await
+}
+
+pub async fn serve_directory(
+    listener: TcpListener,
+    directory: Arc<DirectoryService>,
+    token: Token,
+    shutdown: impl Future<Output = ()>,
+) -> Result<()> {
+    serve_target(listener, Target::Directory(directory), token, shutdown).await
+}
+
+async fn serve_target(
+    listener: TcpListener,
+    target: Target,
     token: Token,
     shutdown: impl Future<Output = ()>,
 ) -> Result<()> {
@@ -136,7 +195,7 @@ pub async fn serve(
             accepted = listener.accept() => {
                 let (stream, _) = match accepted { Ok(accepted) => accepted, Err(error) => break Err(error.into()) };
                 let permit = match connections.clone().try_acquire_owned() { Ok(permit) => permit, Err(_) => { drop(stream); continue; } };
-                let context = Context { database: database.clone(), token: token.clone(), jobs: jobs.clone(), port: address.port() };
+                let context = Context { target: target.clone(), token: token.clone(), jobs: jobs.clone(), port: address.port() };
                 let mut stopped = stopping.subscribe();
                 tasks.spawn(async move {
                     let _permit = permit;
@@ -156,7 +215,7 @@ pub async fn serve(
         }
     };
     drop(listener);
-    database.begin_shutdown();
+    target.begin_shutdown();
     let _ = stopping.send(true);
     while let Some(completed) = tasks.join_next().await {
         if completed.is_err() && outcome.is_ok() {
@@ -167,15 +226,13 @@ pub async fn serve(
         .acquire_many(MAX_DATABASE_JOBS)
         .await
         .map_err(|_| Error::new("FDB_STORAGE", "database job tracking closed"))?;
-    if let Err(error) = database.checkpoint_for_shutdown() {
-        eprintln!("romedb-service: {}: {}", error.code, error.message);
-    }
+    target.checkpoint_for_shutdown();
     outcome
 }
 
 #[derive(Clone)]
 struct Context {
-    database: Arc<DatabaseService>,
+    target: Target,
     token: Arc<Token>,
     jobs: Arc<Semaphore>,
     port: u16,
@@ -185,6 +242,9 @@ async fn dispatch(
     context: Context,
     request: Request<Incoming>,
 ) -> std::result::Result<Response<Full<Bytes>>, Infallible> {
+    let management = request.uri().path().starts_with("/v1/organizations/")
+        && !request.uri().path().ends_with("/read")
+        && !request.uri().path().ends_with("/query");
     let response = match process(context, request).await {
         Ok(response) => response,
         Err(error) => {
@@ -202,8 +262,12 @@ async fn dispatch(
             };
             response(
                 status,
-                serde_json::json!({"error":{"code":error.code,"message":error.message}})
-                    .to_string(),
+                if management {
+                    serde_json::json!({"error":error.message})
+                } else {
+                    serde_json::json!({"error":{"code":error.code,"message":error.message}})
+                }
+                .to_string(),
             )
         }
     };
@@ -211,10 +275,9 @@ async fn dispatch(
 }
 
 async fn process(context: Context, request: Request<Incoming>) -> Result<Response<Full<Bytes>>> {
-    validate_request(&context, &request)?;
-    let method = request.method().clone();
-    let path = request.uri().path().to_owned();
-    let body = if method == Method::POST {
+    let route = validate_request(&context, &request)?;
+    let origin = format!("http://{}", host(&request).unwrap_or_default());
+    let body = if request.method() == Method::POST {
         if request
             .headers()
             .get(header::CONTENT_TYPE)
@@ -268,19 +331,50 @@ async fn process(context: Context, request: Request<Incoming>) -> Result<Respons
         .map_err(|_| Error::new("FDB_BUSY", "service request capacity is full"))?;
     let operation = tokio::task::spawn_blocking(move || {
         let _permit = permit;
-        match body {
-            None => context.database.info().map(|value| value.to_string()),
-            Some(body) if path.ends_with("/read") => context.database.read(&body),
-            Some(body) => context.database.query(&body),
+        let body = body.unwrap_or_default();
+        match (&context.target, route) {
+            (Target::Database(database), Route::Info) => {
+                Ok((StatusCode::OK, database.info()?.to_string()))
+            }
+            (Target::Database(database), Route::Read) => {
+                Ok((StatusCode::OK, database.read(&body)?))
+            }
+            (Target::Database(database), Route::Query) => {
+                Ok((StatusCode::OK, database.query(&body)?))
+            }
+            (Target::Directory(directory), Route::List) => {
+                Ok((StatusCode::OK, directory.list(&origin)?.to_string()))
+            }
+            (Target::Directory(directory), Route::Create) => Ok((
+                StatusCode::CREATED,
+                directory.create(&body, &origin)?.to_string(),
+            )),
+            (Target::Directory(directory), Route::Details(id)) => {
+                Ok((StatusCode::OK, directory.details(&id, &origin)?.to_string()))
+            }
+            (Target::Directory(directory), Route::Delete(id)) => {
+                directory.delete(&id)?;
+                Ok((StatusCode::NO_CONTENT, String::new()))
+            }
+            (Target::Directory(directory), Route::DatabaseRead(id)) => {
+                Ok((StatusCode::OK, directory.database(&id)?.read(&body)?))
+            }
+            (Target::Directory(directory), Route::DatabaseQuery(id)) => {
+                Ok((StatusCode::OK, directory.database(&id)?.query(&body)?))
+            }
+            _ => Err(Error::new(
+                "FDB_NOT_FOUND",
+                "database endpoint does not exist",
+            )),
         }
     });
-    let body = operation
+    let (status, body) = operation
         .await
         .map_err(|_| Error::new("FDB_STORAGE", "database request task failed"))??;
-    Ok(response(StatusCode::OK, body))
+    Ok(response(status, body))
 }
 
-fn validate_request(context: &Context, request: &Request<Incoming>) -> Result<()> {
+fn validate_request(context: &Context, request: &Request<Incoming>) -> Result<Route> {
     if request.uri().scheme().is_some()
         || request.uri().authority().is_some()
         || request.uri().query().is_some()
@@ -290,10 +384,7 @@ fn validate_request(context: &Context, request: &Request<Incoming>) -> Result<()
             "request requires a relative database path without a query",
         ));
     }
-    let host = request
-        .headers()
-        .get(header::HOST)
-        .and_then(|v| v.to_str().ok());
+    let host = host(request);
     let hosts = [
         format!("127.0.0.1:{}", context.port),
         format!("localhost:{}", context.port),
@@ -330,6 +421,25 @@ fn validate_request(context: &Context, request: &Request<Incoming>) -> Result<()
     if !authorization.is_some_and(|value| context.token.authorizes(value.as_bytes())) {
         return Err(Error::new("FDB_AUTH", "database token is required"));
     }
+    let route = match &context.target {
+        Target::Database(_) => database_route(request.method(), request.uri().path())?,
+        Target::Directory(directory) => directory_route(
+            request.method(),
+            request.uri().path(),
+            directory.organization_id(),
+        )?,
+    };
+    let expected = match (&context.target, &route) {
+        (Target::Database(database), _) => Some(database.database_id.as_str()),
+        (
+            Target::Directory(_),
+            Route::Details(id)
+            | Route::Delete(id)
+            | Route::DatabaseRead(id)
+            | Route::DatabaseQuery(id),
+        ) => Some(id.as_str()),
+        (Target::Directory(_), _) => None,
+    };
     if request
         .headers()
         .get_all("x-romedb-database-id")
@@ -339,16 +449,21 @@ fn validate_request(context: &Context, request: &Request<Incoming>) -> Result<()
         || request
             .headers()
             .get("x-romedb-database-id")
-            .is_some_and(|id| id.to_str().ok() != Some(context.database.database_id.as_str()))
+            .is_some_and(|id| expected.is_none() || id.to_str().ok() != expected)
     {
         return Err(Error::new(
             "FDB_REQUEST_IDENTITY",
             "database identity changed; connect to the intended database before continuing",
         ));
     }
-    match (request.method(), request.uri().path()) {
-        (&Method::GET, "/v1/database")
-        | (&Method::POST, "/v1/database/read" | "/v1/database/query") => Ok(()),
+    Ok(route)
+}
+
+fn database_route(method: &Method, path: &str) -> Result<Route> {
+    match (method, path) {
+        (&Method::GET, "/v1/database") => Ok(Route::Info),
+        (&Method::POST, "/v1/database/read") => Ok(Route::Read),
+        (&Method::POST, "/v1/database/query") => Ok(Route::Query),
         (_, "/v1/database" | "/v1/database/read" | "/v1/database/query") => {
             Err(Error::new("FDB_METHOD", "method is not supported"))
         }
@@ -359,10 +474,47 @@ fn validate_request(context: &Context, request: &Request<Incoming>) -> Result<()
     }
 }
 
+fn directory_route(method: &Method, path: &str, organization_id: &str) -> Result<Route> {
+    let not_found = || Error::new("FDB_NOT_FOUND", "database endpoint does not exist");
+    let rest = path
+        .strip_prefix("/v1/organizations/")
+        .and_then(|rest| rest.strip_prefix(organization_id))
+        .and_then(|rest| rest.strip_prefix("/databases"))
+        .ok_or_else(not_found)?;
+    let segments: Vec<&str> = rest.split('/').skip(1).collect();
+    if rest.is_empty() {
+        return match *method {
+            Method::GET => Ok(Route::List),
+            Method::POST => Ok(Route::Create),
+            _ => Err(Error::new("FDB_METHOD", "method is not supported")),
+        };
+    }
+    match (method, segments.as_slice()) {
+        (_, [id, ..]) if !valid_id(id) => Err(not_found()),
+        (&Method::GET, [id]) => Ok(Route::Details((*id).to_owned())),
+        (&Method::DELETE, [id]) => Ok(Route::Delete((*id).to_owned())),
+        (&Method::POST, [id, "read"]) => Ok(Route::DatabaseRead((*id).to_owned())),
+        (&Method::POST, [id, "query"]) => Ok(Route::DatabaseQuery((*id).to_owned())),
+        (_, [_] | [_, "read" | "query"]) => {
+            Err(Error::new("FDB_METHOD", "method is not supported"))
+        }
+        _ => Err(not_found()),
+    }
+}
+
+fn host(request: &Request<Incoming>) -> Option<&str> {
+    request
+        .headers()
+        .get(header::HOST)
+        .and_then(|v| v.to_str().ok())
+}
+
 fn response(status: StatusCode, body: String) -> Response<Full<Bytes>> {
-    Response::builder()
-        .status(status)
-        .header(header::CONTENT_TYPE, "application/json")
+    let mut builder = Response::builder().status(status);
+    if status != StatusCode::NO_CONTENT {
+        builder = builder.header(header::CONTENT_TYPE, "application/json");
+    }
+    builder
         .header(header::CACHE_CONTROL, "no-store")
         .header(header::CONNECTION, "close")
         .header("x-content-type-options", "nosniff")
