@@ -1,0 +1,101 @@
+{
+  "version": "0.2.12",
+  "qualified": true,
+  "qualifiedAtUtc": "2026-11-02T18:45:18.334632+00:00",
+  "sourceCommit": "bbf7cb4840f90f7538ba10b48d44f687083ba4a4",
+  "sourceArchiveSha256": "382a01ac7725722689c10cf5a601a00aa33ad1561c4cd8d3abbcf281026927b0",
+  "cargoLockSha256": "f065eb377ff1eed208add1ebb20ee8039e125fcfb4dbd38cd663c4933167c709",
+  "buildManifestSha256": "9d190f52d07d22a1c5bfe7c19ee0a8be8d398420f25c6d4a0f1d670a6d49874f",
+  "buildChecksumsSha256": "813e112150c6ddab56475f7e32a1dce350803df3a33bca211578b830aad21204",
+  "buildProfile": "romedb-production",
+  "sourceCi": "https://github.com/romedb/romedb/actions/runs/41490833288",
+  "sourceTests": {
+    "rust": 1120,
+    "rustIgnored": 4,
+    "node": 204,
+    "cAbi": 5,
+    "releasePolicy": 2,
+    "upgradeTable": 4,
+    "formatting": "passed",
+    "scopedClippy": "passed",
+    "strictTypeScript": "passed"
+  },
+  "installedGroups": [
+    "c-abi",
+    "cli",
+    "cli-v22",
+    "cli-graph",
+    "cli-spatial",
+    "sqlite-adoption",
+    "cli-elf",
+    "c-elf",
+    "node-0",
+    "node-1",
+    "python-0",
+    "python-1",
+    "python-2",
+    "php-package",
+    "go-package",
+    "swift-package",
+    "node-upgrade-install",
+    "node-ownership-0",
+    "v029-upgrade-restore-0",
+    "v0210-upgrade-restore-0",
+    "v0211-upgrade-restore-0",
+    "node-ownership-1",
+    "v029-upgrade-restore-1",
+    "v0210-upgrade-restore-1",
+    "v0211-upgrade-restore-1",
+    "nuget-package"
+  ],
+  "nodeVersions": [
+    "22.0.0",
+    "24.19.0"
+  ],
+  "pythonVersions": [
+    "3.10.21",
+    "3.12.3",
+    "3.14.7"
+  ],
+  "standaloneRustConsumer": "passed with the romedb-production profile; 336 registry/git package identities match the workspace lockfile",
+  "upgradeRestore": "0.2.9, 0.2.10 and 0.2.11 to 0.2.12 on Node 22.0.0 and 24.19.0 (check-v251-upgrade.cjs with the released 0.2.9, 0.2.10 and 0.2.11 Node packages): upgrade, previous reader, reopen and independent restore pass; backups unchanged.",
+  "engine": {
+    "upstream": "Turso v0.8.3",
+    "upstreamCommit": "607bff9fd0e547a25a97b3bf06e83bcc5d99d53c",
+    "previousUpstream": "607bff9fd0e547a25a97b3bf06e83bcc5d99d53c",
+    "exceptions": "the eight maintained engine exceptions retained, plus the new MVCC savepoint commit resume patch in core/vdbe/execute.rs (romedb/docs/core-exceptions.md)",
+    "storageFormat": "__romedb_ schema prefix, .romedb extension; openEmbedded and serve use MVCC files; collections with a * array path index use catalog version 8, others keep version 7 or earlier",
+    "sync": "romedb/romedb#30",
+    "change": "unchanged engine base (Turso v0.8.3, Tantivy 0.27.0); adds the MVCC savepoint commit resume patch"
+  },
+  "spatial": {
+    "catalogVersion": 7,
+    "explainReadsNoData": "metered EXPLAIN reports zero rows read for every spatial form (spatial_explain_reads_no_documents_or_index_entries)",
+    "cliSpatialCheck": "passed"
+  },
+  "supportedScope": {
+    "platform": "Linux x64",
+    "clients": [
+      "rust",
+      "node",
+      "python",
+      "php",
+      "swift",
+      "csharp",
+      "go"
+    ],
+    "ownership": "One owning process per database file; shared clients connect to its service"
+  },
+  "security": {
+    "unresolvedFindings": 0,
+    "acceptedInformational": [],
+    "advisoryDatabase": "263a4d951a0867d4bddc29dddd6d59427c78f9a7",
+    "resolvedForRelease": []
+  },
+  "documentationOverrides": {
+    "ENVELOPE.md": "Historical 2.1.0 measurements; the raw-evidence link points to the immutable fastdb-v2.1.0 release"
+  },
+  "performance": "Historical 2.1.0 operating envelope retained; fresh bounded application sample, not capacity guarantees",
+  "buildHost": "Built and qualified under scripts/romedb-heavy (shared lock, two jobs, cgroup memory ceiling)",
+  "publication": "Qualified for publication; anonymous public-download verification is separate"
+}
