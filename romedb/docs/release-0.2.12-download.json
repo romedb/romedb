@@ -1,0 +1,28 @@
+{
+  "version": "0.2.12",
+  "verifiedAtUtc": "2026-11-02T18:49:11.232130+00:00",
+  "releaseUrl": "https://github.com/romedb/romedb/releases/tag/romedb-v0.2.12",
+  "archiveUrl": "https://github.com/romedb/romedb/releases/download/romedb-v0.2.12/romedb-0.2.12-linux-x64.tar.gz",
+  "archiveSha256": "ec8038dfafd470c3144b8126f091875e1fb2f5779a255eebb4906369eea63034",
+  "archiveBytes": 104805632,
+  "archiveReproduced": "the downloaded tar.gz is byte-identical to the archive built from the assembled bundle (fixed owner and commit-time mtimes)",
+  "sourceCommit": "bbf7cb4840f90f7538ba10b48d44f687083ba4a4",
+  "sourceArchiveSha256": "382a01ac7725722689c10cf5a601a00aa33ad1561c4cd8d3abbcf281026927b0",
+  "anonymousDownload": true,
+  "outerChecksumMatches": true,
+  "internalChecksumsPass": true,
+  "internalFiles": 115,
+  "sourceArchiveMatchesTag": true,
+  "cAbiSmoke": "passed",
+  "cliVersion": "bin/romedb --version prints 'romedb 0.2.12'",
+  "nodePackageAsset": {
+    "url": "https://github.com/romedb/romedb/releases/download/romedb-v0.2.12/romedb-node-0.2.12.tgz",
+    "sha256": "5912edf3f8c00f5e18d8b73af2c3be2b4c4ac65ceb9bbb94f9b9709ccb8d1d59",
+    "bytes": 15915080,
+    "matchesBundle": "byte-identical to packages/romedb-node-0.2.12.tgz in the archive",
+    "pnpmAdd": "pnpm add of the asset URL in an empty project records the URL as the dependency and installs @romedb/node 0.2.12"
+  },
+  "consumerChecks": "from that install, on Node 22.0.0 and 24.19.0: a WAL file made by the Database class is refused by openEmbedded with FDB_UNSUPPORTED and left unchanged, romedb migrate-to-mvcc converts it and openEmbedded reads it; a new openEmbedded database is MVCC with the database, WAL and log files all 0600 and binaries as plain Uint8Array; romedb serve --directory from the archive serves a database the installed client reaches by its loopback URL with negotiated capabilities; client.mjs and values.mjs load and contain no Node-only APIs",
+  "workersCheck": "a Worker bundled by esbuild (platform neutral) from the installed @romedb/node/client uses client.mjs and values.mjs and ran in Miniflare (compatibility date 2026-06-06, no nodejs_compat) against serve --directory: engine 0.2.12, negotiated capabilities, typed values, and a lost write recovered exactly once",
+  "manifestSha256": "e20e73223646603b4578db0642496155f9d39b2993dc6c3c2996a69f304e22f9"
+}
