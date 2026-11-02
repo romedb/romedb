@@ -8,6 +8,7 @@ Cloud runs the same engine but is a separate private project.
 Release clients are Rust, Node.js/TypeScript, Python, PHP, Swift, C# and Go.
 Browser/WASM is removed. macOS, Windows, ARM and Apple mobile are not supported.
 Packages are distributed in the GitHub Linux bundle, not language registries.
+From 0.2.12 the Node.js package is also its own release asset.
 Releases use the optimized `romedb-production` profile, which keeps assertions
 and overflow checks; see [the build policy](production-build.md).
 
@@ -27,6 +28,11 @@ Back up before upgrading. Legacy full-text indexes require `REINDEX`.
 - [Seven native clients](native-language-clients.md), CLI and RomeQL editor parity.
 - [Array path indexes](v2.2-language.md#array-path-indexes-0211) such as
   `team.*.role`, from 0.2.11, with catalog version 8 for collections that use them.
+- [A directory of databases](service-protocol.md#directory-of-databases) served
+  by `romedb serve --directory` with Cloud's organization routes, MVCC-only
+  `openEmbedded` with a `maxOpen` limit, private journal files, and a
+  [Node.js client for Workers and browsers](../bindings/node/README.md#workers-browsers-and-other-runtimes),
+  from 0.2.12.
 
 ## Release verification
 

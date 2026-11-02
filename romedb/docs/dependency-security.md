@@ -1,4 +1,12 @@
-# Dependency security review for 0.2.11
+# Dependency security review for 0.2.12
+Reviewed 2026-11-03 for the Linux x64 0.2.12 candidate. The exact lockfile scan
+covers 362 package/version identities against the RustSec advisory database at
+`263a4d951a0867d4bddc29dddd6d59427c78f9a7` using the pinned `cargo-audit 0.22.2`
+binary. It found zero findings in the shipping closure, with no accepted
+exceptions. The lockfile differs from 0.2.11 only in the nine RomeDB workspace
+package versions.
+
+## Dependency security review for 0.2.11
 Reviewed 2026-10-28 for the Linux x64 0.2.11 candidate. The exact lockfile scan
 covers 362 package/version identities against the RustSec advisory database at
 `99670cfc0bc574433034b75876a4b791ccaa2efb` using the pinned `cargo-audit 0.22.2`
