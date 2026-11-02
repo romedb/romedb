@@ -78,6 +78,9 @@ pub fn release_cancellation_token(key: String) {
 fn error(error: impl std::fmt::Display) -> napi::Error {
     napi::Error::from_reason(error.to_string())
 }
+fn coded_error(error: romedb::Error) -> napi::Error {
+    napi::Error::from_reason(format!("{}: {error}", error.code()))
+}
 /// Standalone typed construction; no database connection is opened.
 #[napi]
 pub fn vector_from_components(
@@ -151,6 +154,7 @@ impl NativeDatabase {
         path: String,
         max_rows: Option<String>,
         max_payload_bytes: Option<String>,
+        journal: Option<String>,
     ) -> napi::Result<Self> {
         let limits = match (max_rows, max_payload_bytes) {
             (None, None) => None,
@@ -164,7 +168,12 @@ impl NativeDatabase {
             }),
             _ => return Err(error("both write buffer limits are required")),
         };
-        let db = romedb::Database::open(&path).map_err(error)?;
+        let db = match journal.as_deref() {
+            None => romedb::Database::open(&path).map_err(error)?,
+            Some("mvcc") => romedb::Database::open_mvcc(&path).map_err(coded_error)?,
+            Some("create-mvcc") => romedb::Database::create_mvcc(&path).map_err(coded_error)?,
+            Some(_) => return Err(error("journal must be mvcc or create-mvcc")),
+        };
         let conn = db.connect().map_err(error)?;
         let conn = if let Some(limits) = limits {
             conn.with_write_buffer_limits(limits)

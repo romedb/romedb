@@ -164,3 +164,28 @@ end of the file or wherever the cursor happened to be.
 ## CI Note
 
 Running in GitHub Action? Max-turns limit in `.github/workflows/claude.yml`. OK to push WIP and continue in another action. Stay focused, avoid rabbit holes.
+
+## RomeDB fork: local Turso core patches
+
+This fork carries patches to Turso core (`core/`). Check every one of them when
+merging a new upstream Turso release. The full register, with the regression
+tests and the condition for dropping each patch, is
+[romedb/docs/core-exceptions.md](romedb/docs/core-exceptions.md); the current
+upstream base is in [romedb/UPSTREAM.md](romedb/UPSTREAM.md).
+
+Newest patch (2026-11-02): **MVCC savepoint commit resume**, `core/vdbe/execute.rs`,
+`SavepointOp::Release` in `op_savepoint`. When `RELEASE` of the savepoint that
+opened a transaction commits it, and that commit waits on I/O (on MVCC files, the
+automatic checkpoint at about 4 MB of log), the resumed instruction now finishes
+the commit through `op_auto_commit` instead of looking up the released savepoint
+again and failing with `no such savepoint`. Upstream main `36da5b2e4` (2026-11-02)
+still has the bug.
+
+On an upstream sync:
+- Keep the patch unless upstream changed `SavepointOp::Release` to resume a
+  commit in progress (`ProgramState::commit_state` not `Ready`).
+- Either way, both regressions must pass:
+  `cargo test -p core_tester --test integration_tests test_named_savepoint_release_resumes_commit_after_auto_checkpoint`
+  and `cargo test -p romedb-tests --test transactions atomic_requests_on_mvcc_files_survive_automatic_checkpoints`.
+- The fix is a candidate for an upstream Turso PR; once upstream ships it, drop
+  the local patch and keep the tests.

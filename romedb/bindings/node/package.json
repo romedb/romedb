@@ -6,13 +6,14 @@
   "types": "index.d.ts",
   "exports": {
     ".": { "types": "./index.d.ts", "default": "./index.cjs" },
-    "./client": { "types": "./client.d.ts", "default": "./client.cjs" },
+    "./client": { "types": "./client.d.ts", "node": "./client.cjs", "default": "./client.mjs" },
+    "./values": { "types": "./values.d.ts", "node": "./values.cjs", "default": "./values.mjs" },
     "./embedded-client": { "types": "./embedded-client.d.ts", "default": "./embedded-client.cjs" },
     "./*": "./*"
   },
   "scripts": {
-    "test": "node --test --test-concurrency=2 test.cjs client.test.cjs client-native.test.cjs embedded-client.test.cjs",
-    "typecheck": "tsc --noEmit --strict --target ES2022 --module Node16 types.test.ts client.types.test.ts embedded-client.types.test.ts",
+    "test": "node build-esm.cjs --check && node --test --test-concurrency=2 test.cjs client.test.cjs client-web.test.mjs client-native.test.cjs embedded-client.test.cjs",
+    "typecheck": "tsc --noEmit --strict --target ES2022 --module Node16 types.test.ts client.types.test.ts embedded-client.types.test.ts values.types.test.ts",
     "prepack": "node -e \"require('./romedb.node')\""
   },
   "engines": {
@@ -25,12 +26,15 @@
   "files": [
     "index.cjs",
     "client.cjs",
+    "client.mjs",
     "client.d.ts",
     "client-internal.cjs",
     "embedded-client.cjs",
     "embedded-client.d.ts",
     "embedded-worker.cjs",
     "values.cjs",
+    "values.mjs",
+    "values.d.ts",
     "request-journal.cjs",
     "worker.cjs",
     "native.cjs",

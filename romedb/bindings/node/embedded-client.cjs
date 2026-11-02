@@ -32,10 +32,13 @@ async function openEmbedded(options) {
 }
 
 async function openEmbeddedFile(options) {
-  if (!plainObject(options) || Object.keys(options).some(key => !['path', 'create', 'timeoutMs'].includes(key)) || typeof options.path !== 'string' || !options.path || options.path.length > 4096 || options.path.includes('\0') || (options.create !== undefined && typeof options.create !== 'boolean')) throw new TypeError('embedded options require a bounded path, optional create and timeoutMs');
+  if (!plainObject(options) || Object.keys(options).some(key => !['path', 'create', 'timeoutMs', 'maxOpen'].includes(key)) || typeof options.path !== 'string' || !options.path || options.path.length > 4096 || options.path.includes('\0') || (options.create !== undefined && typeof options.create !== 'boolean')) throw new TypeError('embedded options require a bounded path, optional create, timeoutMs and maxOpen');
   if (options.timeoutMs !== undefined && (!Number.isInteger(options.timeoutMs) || options.timeoutMs < 1 || options.timeoutMs > 120000)) throw new RangeError('timeoutMs must be 1..120000');
+  const maxOpen = options.maxOpen ?? 16;
+  if (!Number.isInteger(maxOpen) || maxOpen < 1 || maxOpen > 1024) throw new RangeError('maxOpen must be 1..1024');
   const file = path.resolve(options.path);
   if (options.create) {
+    if (sessions.size >= maxOpen) throw openLimit();
     const parsed = path.parse(file);
     for (const sidecar of [file + '-wal', file + '-shm', file + '-log', file + '-journal', path.join(parsed.dir, parsed.name + '.db-log')]) {
       try { await fs.lstat(sidecar); throw new common.ClientError('FDB_CONFLICT', 'Database sidecar exists; recover it before creating a file', 'not-sent'); }
@@ -57,8 +60,8 @@ async function openEmbeddedFile(options) {
   let session = sessions.get(canonical);
   if (session?.closing) { await session.closed; return openEmbeddedFile({ ...options, create: false }); }
   if (!session) {
-    if (sessions.size >= 16) throw new common.ClientError('FDB_LIMIT', 'Embedded database connection limit reached', 'not-sent');
-    session = new Session(canonical);
+    if (sessions.size >= maxOpen) throw openLimit();
+    session = new Session(canonical, options.create === true);
     sessions.set(canonical, session);
   }
   session.references++;
@@ -69,6 +72,10 @@ async function openEmbeddedFile(options) {
   } catch (error) { await releaseSession(session, canonical); throw error; }
 }
 
+function openLimit() {
+  return new common.ClientError('FDB_LIMIT', `Embedded database limit reached: ${sessions.size} files are open; close one or raise maxOpen`, 'not-sent');
+}
+
 class EmbeddedDatabase {
   #client; #session; #path; #closing;
   constructor(client, session, file, key) {
@@ -77,6 +84,7 @@ class EmbeddedDatabase {
   }
   get url() { return this.#client.url; }
   get sequence() { return this.#client.sequence; }
+  get sequenceKnown() { return this.#client.sequenceKnown; }
   get databaseId() { return this.#client.databaseId; }
   get path() { return this.#path; }
   info(options) { return this.#client.info(options); }
@@ -94,9 +102,9 @@ class EmbeddedDatabase {
 class Session {
   #worker; #pending = new Map(); #bytes = 0; #next = 0; #failure;
   references = 0; closing = false; ready; closed;
-  constructor(file) {
+  constructor(file, create) {
     this.url = pathToFileURL(file).href;
-    this.#worker = new Worker(require.resolve('./embedded-worker.cjs'), { workerData: { path: file, url: this.url, databaseId: randomUUID() } });
+    this.#worker = new Worker(require.resolve('./embedded-worker.cjs'), { workerData: { path: file, url: this.url, databaseId: randomUUID(), create } });
     let resolveReady, rejectReady, resolveExit;
     this.ready = new Promise((resolve, reject) => { resolveReady = resolve; rejectReady = reject; });
     this.closed = new Promise(resolve => { resolveExit = resolve; });

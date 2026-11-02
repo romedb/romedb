@@ -7,6 +7,23 @@ below tracks upstream replacement candidates; no patch is removed from the
 existing pinned engine merely because a newer upstream revision contains a fix.
 No automatic removal or periodic monitoring is configured.
 
+## MVCC savepoint commit resume (2026-11-02)
+
+Found while making MVCC the only embedded journal mode. `RELEASE` of the savepoint
+that opened a transaction commits it. On MVCC files the commit that passes the
+automatic checkpoint threshold (about 4 MB of log) waits on checkpoint I/O; the VM
+then runs the `RELEASE` instruction again, which looked up the already released
+savepoint and failed with `no such savepoint`, although the data was committed.
+Every RomeDB atomic request opens its outer scope with a savepoint, so an embedded
+MVCC file failed and fenced itself at its first automatic checkpoint (native repro:
+batch 84 of 200 with a 4,152,026-byte log; WAL files and `BEGIN`/`COMMIT` were not
+affected). `romedb serve` commits with `COMMIT` and Cloud disables automatic
+checkpoints, so neither was exposed. The patch makes `SavepointOp::Release` resume
+a commit already in progress through `op_auto_commit`, the same re-entry rule
+`AutoCommit` uses. Upstream main `36da5b2e4` (2026-11-02) has the same release code.
+Both regressions below fail without the patch and pass with it; the core
+`savepoint` filter (13) and `mvcc` filter (300) pass.
+
 ## FTS analyzer inspection (2026-10-02)
 
 The 2.2.0 roadmap authorizes engine changes needed for missing RomeQL features.
@@ -135,6 +152,7 @@ first-FULL-commit exception and must not be silently included in it.
 | Scalar read errors `f26014f04` | `scalar_read_error_preserves_transactions_and_named_savepoints`, RomeDB user-function tests and Node cancellation/transaction tests. [Review](proposals/udf-error-transaction.md). | Upstream read-only extension failures preserve caller transactions, savepoints and changes(), while autocommit cleanup and writer rollback controls pass. |
 | Checkpoint WAL barrier `5f4133d73` | `checkpoint_barrier` and `checkpoint_crash_atomicity`: NORMAL backfill follows successful WAL sync; failed returned/immediate/deferred completions cannot skip the barrier; automatic failures preserve published writes; FULL recovery preserves acknowledged writes. [Review](proposals/checkpoint-wal-sync.md). | Upstream includes the barrier from `cc26d08508cbe045472fa3015e2bce4a389b5e06` and equivalent pending-completion, retry and automatic-checkpoint cleanup. Retain all regressions and recheck checkpoint/VACUUM callers before removing the local companion. |
 | Named-savepoint cancellation recovery `3ae0065e5` | `cancelled_plain_native_writes_undo_rows_and_preserve_caller_work` plus five core lifecycle regressions: rollback restores the selected prior poison state, allowing COMMIT/root RELEASE after canceled rows are undone; pre-existing poison and unrecovered abandonment still reject commit. [Review](proposals/cancellation-savepoint-poison.md). | Upstream restores transaction safety state after successful named-savepoint rollback, including prior poison, nested/same-name boundaries and mirrored rollback. Remove only when the frontend, lifecycle and savepoint regressions pass without this local patch. |
+| MVCC savepoint commit resume (2026-11-02) | A resumed `RELEASE` that is committing finishes the commit instead of releasing again. Regressions: core `mvcc::test_named_savepoint_release_resumes_commit_after_auto_checkpoint` and `romedb-tests --test transactions atomic_requests_on_mvcc_files_survive_automatic_checkpoints`. | Upstream resumes `SavepointOp::Release` commits from `ProgramState::commit_state` and both regressions pass without the local patch. |
 | Execution counters and budgets (2026-09-26, approved Cloud 0.3.0 dependency) | Successful rowid/index seeks, initial index-method positioning after completed query_start, and executed deferred table reads count exactly once; missing rows do not count. `index_method_meter` covers first/subsequent/empty FTS results, deferred payload reads, managed materialization, sticky limits and queued I/O; extension-internal traversal remains unqualified. Optional retained per-execution physical-work counters, VM-step budgets and read budgets with bounded overshoot; metered Count advances incrementally; HashBuild does not duplicate its source cursor visit; read/mutation-budget interrupts use cooperative cleanup to preserve caller transactions. Retained ordinary row mutation events distinguish replacement deletions, exclude CDC maintenance and survive rollback; active writers prevent scope replacement. Maintenance views share all work/budgets while suppressing only logical mutation events. Opt-in schema visits and an independent schema budget preserve default all-row counters; `schema_meter` qualifies DDL source/schema separation, rollback and queued I/O. `romedb-tests --test profile --test execution_meter --test mutation_meter --test schema_meter` includes failure, rollback, boundaries and queued I/O. [Review](proposals/execution-metering.md). | Upstream includes equivalent completed-position counters and retained execution/budget APIs, and all listed regressions pass without these patches. Known gap: reads inside an index-method extension's own traversal (FTS, ANN) have no qualification test, so their count may be incomplete. Cloud bills rows read and written from these counters and accepts that gap. |
 
 The canceled-write recovery fix was separately approved on 2026-09-25 after the

@@ -279,6 +279,8 @@ struct Collection {
     edge_dependents: Vec<String>,
 }
 
+const WAL_REFUSAL: &str = "this is a WAL database and RomeDB opens only MVCC files; stop its owner, then run romedb migrate-to-mvcc SOURCE OUTPUT_DIRECTORY --backup BACKUP_DIRECTORY";
+
 pub struct Database {
     engine: Arc<EngineDatabase>,
     manual_wal: bool,
@@ -286,6 +288,53 @@ pub struct Database {
 impl Database {
     pub fn open(path: &str) -> Result<Self> {
         Self::open_internal(path, false)
+    }
+    /// Open an existing MVCC database. A WAL database is refused before
+    /// RomeDB writes to it; `romedb migrate-to-mvcc` converts one.
+    pub fn open_mvcc(path: &str) -> Result<Self> {
+        if !std::path::Path::new(path).is_file() {
+            return Err(Error::NotFound(
+                "open an existing database file or create one".into(),
+            ));
+        }
+        match_sidecar_permissions(path, header_says_mvcc(path))?;
+        let io = Arc::new(turso_core::io::PlatformIO::new()?);
+        let engine = EngineDatabase::open_file_with_flags(
+            io,
+            path,
+            turso_core::OpenFlags::default(),
+            turso_core::DatabaseOpts::new().with_index_method(true),
+            None,
+            Arc::new(turso_core::SqliteDialect),
+        )?;
+        let conn = engine.connect()?;
+        let mut statement = conn.prepare("PRAGMA journal_mode")?;
+        let rows = collect_rows(&mut statement)?;
+        if !matches!(rows.as_slice(), [row] if matches!(row.as_slice(), [EngineValue::Text(mode)] if mode.as_str().eq_ignore_ascii_case("mvcc")))
+        {
+            return Err(Error::Unsupported(WAL_REFUSAL.into()));
+        }
+        drop(statement);
+        drop(conn);
+        Self::initialize(engine, false)
+    }
+    /// Turn a new, empty file into an MVCC database.
+    pub fn create_mvcc(path: &str) -> Result<Self> {
+        if std::fs::metadata(path)
+            .map_err(|error| Error::Storage(error.to_string()))?
+            .len()
+            != 0
+        {
+            return Err(Error::Validation(
+                "MVCC creation requires a new empty file".into(),
+            ));
+        }
+        match_sidecar_permissions(path, true)?;
+        let database = Self::open(path)?;
+        database
+            .connect()?
+            .execute("PRAGMA journal_mode=mvcc", &Parameters::new())?;
+        Ok(database)
     }
     /// Open with caller-provided storage and ordinary automatic WAL management.
     ///
@@ -308,6 +357,7 @@ impl Database {
         Self::open_internal(path, true)
     }
     fn open_internal(path: &str, manual_wal: bool) -> Result<Self> {
+        match_sidecar_permissions(path, false)?;
         let io = EngineDatabase::io_for_path(path)?;
         Self::open_internal_io(path, manual_wal, io)
     }
@@ -396,6 +446,82 @@ impl Database {
         Ok(connection)
     }
 }
+
+/// The engine creates its WAL and MVCC log files with the process umask, so a
+/// private database file could get world-readable logs. Like SQLite, give them
+/// the database file's permissions: create missing ones before the engine opens
+/// them, and remove extra permission bits from existing ones that this user owns.
+/// The MVCC log is created only for MVCC opens, so WAL databases get no extra file.
+#[cfg(unix)]
+fn match_sidecar_permissions(path: &str, create_log: bool) -> Result<()> {
+    use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+    let Ok(database) = std::fs::metadata(path) else {
+        return Ok(());
+    };
+    if !database.is_file() {
+        return Ok(());
+    }
+    let allowed = database.permissions().mode() & 0o777 | 0o600;
+    let storage = |error: std::io::Error| Error::Storage(error.to_string());
+    let sidecars = [
+        (std::path::PathBuf::from(format!("{path}-wal")), true),
+        (
+            std::path::Path::new(path).with_extension("db-log"),
+            create_log,
+        ),
+    ];
+    for (sidecar, create) in sidecars {
+        match std::fs::symlink_metadata(&sidecar) {
+            Ok(existing) => {
+                let mode = existing.permissions().mode() & 0o777;
+                if existing.is_file() && mode & !allowed != 0 {
+                    match std::fs::set_permissions(
+                        &sidecar,
+                        std::fs::Permissions::from_mode(mode & allowed),
+                    ) {
+                        Err(error) if error.kind() != std::io::ErrorKind::PermissionDenied => {
+                            return Err(storage(error))
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound && create => {
+                match std::fs::OpenOptions::new()
+                    .write(true)
+                    .create_new(true)
+                    .mode(allowed)
+                    .open(&sidecar)
+                {
+                    Ok(file) => file
+                        .set_permissions(std::fs::Permissions::from_mode(allowed))
+                        .map_err(storage)?,
+                    Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+                    Err(error) => return Err(storage(error)),
+                }
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(storage(error)),
+        }
+    }
+    Ok(())
+}
+
+#[cfg(not(unix))]
+fn match_sidecar_permissions(_path: &str, _create_log: bool) -> Result<()> {
+    Ok(())
+}
+
+/// Byte 19 of the database header is the read version; the engine opens an
+/// MVCC log only when it is 255.
+fn header_says_mvcc(path: &str) -> bool {
+    use std::io::Read;
+    let mut header = [0u8; 20];
+    std::fs::File::open(path)
+        .and_then(|mut file| file.read_exact(&mut header))
+        .is_ok_and(|()| header[19] == 255)
+}
+
 /// Connections expose only checked frontend operations, never raw engine handles.
 pub struct Connection {
     engine: Arc<EngineConnection>,

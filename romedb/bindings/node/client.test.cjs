@@ -142,7 +142,7 @@ test('URLs map local origins and Cloud query URLs without credential redirects',
 test('read-v2 keeps duplicate columns, bigint affected counts, and monotonic confirmed sequence', async () => {
   const requests = [];
   const db = await connect({ url: 'http://localhost:4321', token: 'test-secret', fetch: async (url, options) => {
-    assert.equal(options.redirect, 'error');
+    assert.equal(options.redirect, 'manual');
     assert.equal(options.headers.authorization, 'Bearer test-secret');
     if (options.body !== undefined) assert.equal(options.headers['x-romedb-database-id'], 'local-test');
     if (options.method === 'GET') return json({ ...details(3), engineVersion: '2.7.0' });
@@ -575,4 +575,25 @@ test('a Cloud queue refusal is retried once; other 503 responses are not', async
   await assert.rejects(db.read([{ sql: 'SELECT 1' }]), error => error.status === 503);
   assert.equal(posts, 1, 'an ordinary 503 is not retried');
   await db.close();
+});
+
+test('a loopback organization URL negotiates a local service and keeps Cloud running locally as Cloud', async () => {
+  const id = '22222222-2222-4222-8222-222222222222';
+  const local = `http://127.0.0.1:4321/v1/organizations/11111111-1111-4111-8111-111111111111/databases/${id}`;
+  for (const [reply, provenance, queryVersion] of [[{ ...details(3), id }, 'negotiated', null], [{ id, sequence: 3 }, 'documented', '3']]) {
+    const requests = [];
+    const db = await connect({ url: local, token: 'test-token', deferInfo: true, fetch: async (url, options) => {
+      requests.push({ url, method: options.method, version: options.headers['x-romedb-query-version'] ?? null });
+      if (options.method === 'GET') return json(reply);
+      const body = JSON.parse(options.body);
+      return json({ requestId: body.requestId, sequence: 4, results: [result()] });
+    } });
+    assert.equal(db.deferred, false);
+    assert.equal((await db.info()).capabilities.provenance, provenance);
+    await db.writeAtomic([{ sql: 'SELECT 1' }]);
+    assert.deepEqual(requests.map(request => request.method), ['GET', 'GET', 'POST']);
+    assert.equal(requests[2].url, `${local}/query`);
+    assert.equal(requests[2].version, queryVersion);
+    await db.close();
+  }
 });

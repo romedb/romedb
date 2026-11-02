@@ -7,6 +7,14 @@ const { spawn } = require('node:child_process');
 const { once } = require('node:events');
 const { openEmbedded, ClientError, Float64, Record, Vector, encodeValue, saveRequest, loadRequest } = require('./embedded-client.cjs');
 
+async function openInChild(file) {
+  const child = spawn(process.execPath, ['-e', `require(${JSON.stringify(require.resolve('./embedded-client.cjs'))}).openEmbedded({path:process.argv[1]}).then(db=>db.close()).then(()=>console.log('opened'),error=>{console.log(error.code);process.exitCode=2})`, file], { stdio: ['ignore', 'pipe', 'pipe'] });
+  let output = '';
+  child.stdout.on('data', chunk => { output += chunk; });
+  const [code] = await once(child, 'exit');
+  return { code, output: output.trim() };
+}
+
 async function fixture(t) {
   const root = path.resolve(__dirname, '../../../..', '.local/tmp');
   await fs.mkdir(root, { recursive: true });
@@ -40,7 +48,7 @@ test('embedded client explicitly creates files and round-trips portable values w
   const info = await db.info();
   assert.equal(info.engineVersion, require('./package.json').version);
   assert.deepEqual((await db.read([{ sql: 'SELECT romedb_version()' }])).results[0].rows, [[info.engineVersion]]);
-  assert.equal(info.journalMode, 'wal');
+  assert.equal(info.journalMode, 'mvcc');
   assert.equal(info.capabilities.sequenceScope, 'adapter');
   assert.equal(info.capabilities.replayDurability, 'adapter-lifetime');
   const value = { id: new Record('docs', 'a'), n: (1n << 63n) - 1n, float: new Float64(-0), binary: new Uint8Array([0, 255]), vector: Vector.float64([1, -0]), present: null, nested: [{ type: 'Number', value: 'ordinary' }] };
@@ -149,13 +157,81 @@ test('embedded files retain single-process ownership and refuse file aliases', a
   await fs.link(file, hardlink);
   await assert.rejects(openEmbedded({ path: hardlink }), error => error.code === 'FDB_VALIDATION');
   await fs.unlink(hardlink);
-  const child = spawn(process.execPath, ['-e', `require(${JSON.stringify(require.resolve('./embedded-client.cjs'))}).openEmbedded({path:process.argv[1]}).then(db=>db.close()).catch(error=>{console.log(error.code);process.exitCode=2})`, file], { stdio: ['ignore', 'pipe', 'pipe'] });
-  let output = '';
-  child.stdout.on('data', chunk => { output += chunk; });
-  const [code] = await once(child, 'exit');
-  assert.equal(code, 2);
-  assert.match(output, /FDB_BUSY/);
+  assert.deepEqual(await openInChild(file), { code: 2, output: 'FDB_BUSY' });
   assert.equal((await db.info()).sequence, 0);
+});
+
+test('embedded opens refuse WAL files without changing them and point to the migration', async t => {
+  const { file } = await fixture(t);
+  const { Database } = require('./index.cjs');
+  const legacy = new Database(file);
+  legacy.execute('CREATE TABLE notes(text)');
+  legacy.execute("INSERT INTO notes VALUES('kept')");
+  legacy.close();
+  const snapshot = async () => Object.fromEntries(await Promise.all((await fs.readdir(path.dirname(file))).map(async name => [name, (await fs.readFile(path.join(path.dirname(file), name))).toString('base64')])));
+  const before = await snapshot();
+  await assert.rejects(openEmbedded({ path: file }), error => error.code === 'FDB_UNSUPPORTED' && error.outcome === 'not-sent' && /migrate-to-mvcc/.test(error.message));
+  assert.deepEqual(await snapshot(), before);
+});
+
+test('every file of a new embedded database is readable only by its owner', async t => {
+  const { directory, file } = await fixture(t);
+  const modes = async () => Object.fromEntries(await Promise.all((await fs.readdir(directory)).map(async name => [name, ((await fs.stat(path.join(directory, name))).mode & 0o777).toString(8)])));
+  const expected = { 'app.romedb': '600', 'app.romedb-wal': '600', 'app.db-log': '600' };
+  const db = await openEmbedded({ path: file, create: true });
+  await db.writeAtomic([{ sql: 'CREATE TABLE notes(text)' }, { sql: "INSERT INTO notes VALUES('private')" }]);
+  assert.deepEqual(await modes(), expected);
+  await db.close();
+  const reopened = await openEmbedded({ path: file });
+  await reopened.close();
+  assert.deepEqual(await modes(), expected);
+});
+
+test('maxOpen bounds the files a process keeps open, and close checkpoints and releases each file', async t => {
+  const { directory } = await fixture(t);
+  const files = ['a', 'b', 'c'].map(name => path.join(directory, `${name}.romedb`));
+  await assert.rejects(openEmbedded({ path: files[0], create: true, maxOpen: 0 }), RangeError);
+  await assert.rejects(openEmbedded({ path: files[0], create: true, maxOpen: 1025 }), RangeError);
+  const first = await openEmbedded({ path: files[0], create: true, maxOpen: 2 });
+  t.after(() => first.close());
+  const second = await openEmbedded({ path: files[1], create: true, maxOpen: 2 });
+  t.after(() => second.close());
+  await assert.rejects(openEmbedded({ path: files[2], create: true, maxOpen: 2 }), error => error.code === 'FDB_LIMIT' && error.outcome === 'not-sent');
+  await assert.rejects(fs.stat(files[2]), { code: 'ENOENT' });
+  const sameFile = await openEmbedded({ path: files[0], maxOpen: 2 });
+  await sameFile.close();
+  await first.writeAtomic([{ sql: 'CREATE TABLE notes(text)' }, { sql: "INSERT INTO notes VALUES('one')" }]);
+  assert.ok((await fs.stat(path.join(directory, 'a.db-log'))).size > 0);
+  await first.close();
+  assert.equal((await fs.stat(path.join(directory, 'a.db-log'))).size, 0);
+  assert.deepEqual(await openInChild(files[0]), { code: 0, output: 'opened' });
+  const third = await openEmbedded({ path: files[2], create: true, maxOpen: 2 });
+  await third.close();
+});
+
+test('a process opens 200 files in turn with at most 32 open', async t => {
+  const { directory } = await fixture(t);
+  const open = new Map();
+  t.after(() => Promise.all([...open.values()].map(database => database.close())));
+  const started = performance.now();
+  for (let index = 0; index < 200; index++) {
+    if (open.size === 32) {
+      const [oldest, database] = open.entries().next().value;
+      open.delete(oldest);
+      await database.close();
+    }
+    const database = await openEmbedded({ path: path.join(directory, `${index}.romedb`), create: true, maxOpen: 32 });
+    await database.writeAtomic([{ sql: 'CREATE TABLE site(id)' }, { sql: 'INSERT INTO site VALUES($id)', params: { $id: BigInt(index) } }]);
+    open.set(index, database);
+  }
+  await Promise.all([...open.values()].map(database => database.close()));
+  open.clear();
+  const reopenStarted = performance.now();
+  const reopened = await openEmbedded({ path: path.join(directory, '0.romedb') });
+  const reopenMs = performance.now() - reopenStarted;
+  assert.deepEqual((await reopened.read([{ sql: 'SELECT id FROM site' }])).results[0].rows, [[0n]]);
+  await reopened.close();
+  t.diagnostic(`200 files in ${Math.round(performance.now() - started)} ms; one reopen in ${reopenMs.toFixed(1)} ms`);
 });
 
 test('an evicted embedded receipt cannot execute its write again', async t => {
@@ -211,9 +287,7 @@ test('a lost acknowledgement recovers the exact write against the real embedded 
 
 test('an embedded startup deadline returns promptly and its abandoned client releases ownership', async t => {
   const { file } = await fixture(t);
-  const { NativeDatabase } = require('./native.cjs');
-  const seed = new NativeDatabase(file);
-  seed.close();
+  await (await openEmbedded({ path: file, create: true })).close();
   await assert.rejects(openEmbedded({ path: file, timeoutMs: 1 }), error => error.code === 'FDB_CANCELLED' && error.outcome === 'not-sent');
   const healthy = await openEmbedded({ path: file });
   assert.equal((await healthy.info()).sequence, 0);

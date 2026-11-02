@@ -529,3 +529,128 @@ fn recursive_sql_returns_depth_errors_on_a_small_caller_stack() {
         .join()
         .unwrap();
 }
+
+#[test]
+fn atomic_requests_on_mvcc_files_survive_automatic_checkpoints() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("site.romedb");
+    std::fs::File::create(&path).unwrap();
+    let database = Database::create_mvcc(path.to_str().unwrap()).unwrap();
+    let connection = database.connect().unwrap();
+    q(&connection, "PRAGMA mvcc_checkpoint_threshold=0");
+    for (index, sql) in [
+        "CREATE TABLE posts",
+        "INSERT INTO posts {title:'one'}",
+        "INSERT INTO posts {title:'two'}",
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let reply = connection
+            .execute_atomic_request(
+                &format!(r#"{{"readOnly":false,"statements":[{{"sql":"{sql}"}}]}}"#),
+                &romedb::CancellationToken::new(),
+            )
+            .unwrap_or_else(|error| panic!("request {index}: {error}"));
+        assert!(reply.contains(r#""results""#), "{reply}");
+        assert_eq!(connection.transaction_state(), State::Autocommit);
+    }
+    assert_eq!(
+        connection
+            .execute("SELECT count() FROM posts", &Parameters::new())
+            .unwrap()
+            .rows,
+        vec![vec![Value::Integer(2)]]
+    );
+}
+
+#[test]
+fn mvcc_opens_refuse_wal_files_before_writing_and_creation_needs_an_empty_file() {
+    let directory = tempfile::tempdir().unwrap();
+    let wal = directory.path().join("legacy.romedb");
+    {
+        let database = Database::open(wal.to_str().unwrap()).unwrap();
+        q(&database.connect().unwrap(), "CREATE TABLE notes");
+    }
+    let before: Vec<_> = ["legacy.romedb", "legacy.romedb-wal"]
+        .iter()
+        .map(|name| std::fs::read(directory.path().join(name)).unwrap_or_default())
+        .collect();
+    let error = Database::open_mvcc(wal.to_str().unwrap()).err().unwrap();
+    assert_eq!(error.code(), "FDB_UNSUPPORTED");
+    assert!(error.to_string().contains("migrate-to-mvcc"), "{error}");
+    let after: Vec<_> = ["legacy.romedb", "legacy.romedb-wal"]
+        .iter()
+        .map(|name| std::fs::read(directory.path().join(name)).unwrap_or_default())
+        .collect();
+    assert_eq!(before, after);
+    assert_eq!(
+        Database::create_mvcc(wal.to_str().unwrap())
+            .err()
+            .unwrap()
+            .code(),
+        "FDB_VALIDATION"
+    );
+    let fresh = directory.path().join("fresh.romedb");
+    std::fs::File::create(&fresh).unwrap();
+    drop(Database::create_mvcc(fresh.to_str().unwrap()).unwrap());
+    let reopened = Database::open_mvcc(fresh.to_str().unwrap()).unwrap();
+    assert_eq!(
+        reopened
+            .connect()
+            .unwrap()
+            .execute("PRAGMA journal_mode", &Parameters::new())
+            .unwrap()
+            .rows,
+        vec![vec![Value::String("mvcc".into())]]
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn log_files_get_the_database_file_permissions() {
+    use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+    let directory = tempfile::tempdir().unwrap();
+    let mode = |name: &str| {
+        std::fs::metadata(directory.path().join(name))
+            .unwrap()
+            .permissions()
+            .mode()
+            & 0o777
+    };
+    let path = directory.path().join("site.romedb");
+    std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(&path)
+        .unwrap();
+    let database = Database::create_mvcc(path.to_str().unwrap()).unwrap();
+    q(&database.connect().unwrap(), "CREATE TABLE notes");
+    q(
+        &database.connect().unwrap(),
+        "INSERT INTO notes { text: 'private' }",
+    );
+    drop(database);
+    for name in ["site.romedb", "site.romedb-wal", "site.db-log"] {
+        assert_eq!(mode(name), 0o600, "{name}");
+    }
+    let log = directory.path().join("site.db-log");
+    std::fs::set_permissions(&log, std::fs::Permissions::from_mode(0o644)).unwrap();
+    std::fs::remove_file(directory.path().join("site.romedb-wal")).unwrap();
+    drop(Database::open_mvcc(path.to_str().unwrap()).unwrap());
+    assert_eq!(mode("site.db-log"), 0o600);
+    assert_eq!(mode("site.romedb-wal"), 0o600);
+
+    let wal = directory.path().join("legacy.romedb");
+    std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o640)
+        .open(&wal)
+        .unwrap();
+    drop(Database::open(wal.to_str().unwrap()).unwrap());
+    assert_eq!(mode("legacy.romedb-wal"), 0o640);
+    assert!(Database::open_mvcc(wal.to_str().unwrap()).is_err());
+    assert!(!directory.path().join("legacy.db-log").exists());
+}
