@@ -20,10 +20,10 @@ test('remote codec values round-trip through the real checked native frontend', 
 
 test('native-free dense and sparse vector constructors match the released native factories', () => {
   for (const values of [[1, -2, 0, -0], [1.25, 3.5], [0, 0], [Number.MIN_VALUE, Math.fround(1e-30)]]) {
-    assert.deepEqual(Vector.float32(values).bytes, native.Vector.float32(values).bytes);
-    assert.deepEqual(Vector.float64(values).bytes, native.Vector.float64(values).bytes);
+    assert.deepEqual(Vector.float32(values).bytes, new Uint8Array(native.Vector.float32(values).bytes));
+    assert.deepEqual(Vector.float64(values).bytes, new Uint8Array(native.Vector.float64(values).bytes));
   }
-  for (const entries of [[], [[0, 1], [3, -1]], [[0, 0], [1, -0], [3, Number.MIN_VALUE]]]) assert.deepEqual(Vector.sparse32Entries(4, entries).bytes, native.Vector.sparse32Entries(4, entries).bytes);
+  for (const entries of [[], [[0, 1], [3, -1]], [[0, 0], [1, -0], [3, Number.MIN_VALUE]]]) assert.deepEqual(Vector.sparse32Entries(4, entries).bytes, new Uint8Array(native.Vector.sparse32Entries(4, entries).bytes));
 });
 
 test('managed native batches bind portable values and restore all writes after failure', () => {

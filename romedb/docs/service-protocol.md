@@ -52,7 +52,8 @@ romedb serve --directory storage/sites --create
 behind one token, with RomeDB Cloud's organization routes on
 `http://127.0.0.1:PORT/v1/organizations/{org}`. Startup prints that organization URL
 and the token-file path; the token file defaults to `DIR/romedb.token`. `--create`
-makes a missing directory (mode 0700); it never creates database files.
+makes a missing directory (mode 0700); it never creates database files. A database
+created through the API is mode 0600, and so are its WAL file and MVCC log.
 `DIR/romedb-directory.json` keeps the local organization ID and each database's
 name and creation time. `DIR/romedb-directory.lock` keeps a second `serve` off the
 same directory. While `serve` runs it owns the directory: do not open its files from

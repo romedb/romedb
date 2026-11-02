@@ -1,7 +1,5 @@
 'use strict';
-const { randomUUID } = require('node:crypto');
-const { Buffer } = require('node:buffer');
-const { addAbortListener } = require('node:events');
+// Web APIs only: this file also runs in Workers and browsers through client.mjs.
 const { Float64, Record, Vector, encodeValue, decodeValue, plainObject, text } = require('./values.cjs');
 
 const MAX_REQUEST = 65_536;
@@ -12,15 +10,16 @@ const MAX_SEQUENCE = Number.MAX_SAFE_INTEGER - 1;
 const construction = Symbol('RemoteDatabase');
 const warmAtConnect = Symbol('warmAtConnect');
 const WARM_STATES = new Set(['ready', 'starting', 'skipped']);
-const { pathToFileURL, fileURLToPath } = require('node:url');
+const encoder = new TextEncoder();
 
 class ClientError extends Error {
   constructor(code, message, outcome, details = {}) {
-    super(message);
+    const { cause, ...fields } = details;
+    super(message, cause === undefined ? undefined : { cause });
     this.name = 'ClientError';
     this.code = code;
     this.outcome = outcome;
-    Object.assign(this, details);
+    Object.assign(this, fields);
   }
 }
 
@@ -42,8 +41,10 @@ class RemoteDatabase {
     this.#transport = transport;
     if (typeof options.token !== 'string' || !/^[\x21-\x7e]{1,4096}$/.test(options.token)) throw new TypeError('token requires a bounded bearer credential');
     this.#token = options.token;
-    this.#fetch = options.fetch ?? globalThis.fetch;
-    if (typeof this.#fetch !== 'function') throw new TypeError('fetch must be a function');
+    const fetch = options.fetch ?? globalThis.fetch;
+    if (typeof fetch !== 'function') throw new TypeError('fetch must be a function');
+    // Workers refuse fetch called on another object, so the default keeps globalThis.
+    this.#fetch = options.fetch ?? fetch.bind(globalThis);
     this.#timeout = timeout(options.timeoutMs ?? 20_000);
     if (options.deferInfo !== undefined && typeof options.deferInfo !== 'boolean') throw new TypeError('deferInfo requires a boolean');
     if (options.warm !== undefined && typeof options.warm !== 'boolean') throw new TypeError('warm requires a boolean');
@@ -66,7 +67,9 @@ class RemoteDatabase {
   }
   get deferred() { return this.#deferred; }
   get url() { return this.#url; }
+  get cloud() { return this.#cloud; }
   get sequence() { return this.#sequence; }
+  get sequenceKnown() { return this.#sequenceKnown; }
   get databaseId() { return this.#id; }
   async info(options = {}) {
     const info = await this.#request('', undefined, options, false);
@@ -96,7 +99,7 @@ class RemoteDatabase {
     checkSequence(afterSequence);
     const workLimits = encodeWorkLimits(options.workLimits);
     const queryVersion = this.#queryVersion();
-    const body = JSON.stringify({ readVersion: 2, requestId: randomUUID(), afterSequence, statements: encodeStatements(statements, queryVersion), ...(workLimits === undefined ? {} : { workLimits }) });
+    const body = JSON.stringify({ readVersion: 2, requestId: crypto.randomUUID(), afterSequence, statements: encodeStatements(statements, queryVersion), ...(workLimits === undefined ? {} : { workLimits }) });
     checkBodySize(body, queryVersion);
     const request = JSON.parse(body);
     const reply = await this.#request('/read', body, options, false, undefined, queryVersion);
@@ -116,7 +119,7 @@ class RemoteDatabase {
       checkSequence(options.ifSequence);
       if (options.ifSequence < afterSequence) throw new RangeError('ifSequence must be at least afterSequence');
     }
-    const requestId = options.requestId ?? randomUUID();
+    const requestId = options.requestId ?? crypto.randomUUID();
     if (typeof requestId !== 'string' || !/^[A-Za-z0-9_-]{1,80}$/.test(requestId)) throw new TypeError('requestId requires 1..80 letters, digits, underscores or hyphens');
     const workLimits = encodeWorkLimits(options.workLimits);
     const queryVersion = this.#queryVersion();
@@ -168,23 +171,26 @@ class RemoteDatabase {
     const duration = timeout(options.timeoutMs ?? this.#timeout);
     if (options.signal !== undefined && !(options.signal instanceof AbortSignal)) throw new TypeError('signal must be an AbortSignal');
     if (options.signal?.aborted) throw new ClientError('FDB_CANCELLED', 'Request cancelled before dispatch', 'not-sent', prepared ? { request: prepared } : {});
-    const bodyBytes = body === undefined ? 0 : Buffer.byteLength(body);
+    const bodyBytes = body === undefined ? 0 : byteLength(body);
     if (this.#active.size >= 32 || this.#inflightBytes + bodyBytes > 2_097_152) throw new ClientError('FDB_LIMIT', 'Client request limit reached', 'not-sent', prepared ? { request: prepared } : {});
     const controller = new AbortController();
-    const listener = options.signal === undefined ? undefined : addAbortListener(options.signal, () => controller.abort());
-    const timer = setTimeout(() => controller.abort(), duration);
+    const abort = () => controller.abort();
+    options.signal?.addEventListener('abort', abort, { once: true });
+    const timer = setTimeout(abort, duration);
     this.#active.add(controller);
     this.#inflightBytes += bodyBytes;
     const credential = this.#token;
+    const fetch = this.#fetch;
     let status;
     try {
       if (this.#transport) return await this.#transport(path, body, controller.signal, duration);
-      const send = () => this.#fetch(this.#url + path, {
+      const send = () => fetch(this.#url + path, {
         method: body === undefined ? 'GET' : 'POST',
         headers: { authorization: `Bearer ${credential}`, accept: 'application/json', ...(body === undefined ? {} : { 'content-type': 'application/json' }), ...(this.#id === undefined ? {} : { 'x-romedb-database-id': prepared?.databaseId ?? this.#id }),
           ...(queryVersion === CLOUD_QUERY_VERSION && (path === '/query' || path === '/read') ? { 'x-romedb-query-version': String(queryVersion) } : {}) },
         ...(body === undefined ? {} : { body }),
-        redirect: 'error', signal: controller.signal,
+        // Workers have no redirect: 'error'; a redirect is refused below, never followed with the credential.
+        redirect: 'manual', signal: controller.signal,
       });
       let response = await send();
       if (await queueRefused(response)) {
@@ -192,6 +198,11 @@ class RemoteDatabase {
         response = await send();
       }
       status = response.status;
+      if (response.type === 'opaqueredirect' || (status >= 300 && status < 400)) {
+        await response.body?.cancel().catch(() => {});
+        throw new ClientError('FDB_PROTOCOL', 'Database URL redirected; redirects are never followed with a credential', writing ? 'unknown' : 'read-failed', { status, ...(prepared ? { request: prepared } : {}) });
+      }
+      const retryAfterMs = retryAfter(response.headers.get('retry-after'));
       const replyVersion = response.headers.get('x-romedb-query-version');
       if ((path === '/query' || path === '/read') && replyVersion !== null && replyVersion !== '2' && replyVersion !== String(queryVersion)) {
         await response.body?.cancel();
@@ -201,7 +212,7 @@ class RemoteDatabase {
       if (plainObject(reply?.error) && typeof reply.error.message === 'string') reply.error.message = redactMessage(reply.error.message, credential);
       if (!response.ok && !(writing && reply?.requestId && reply?.sequence !== undefined)) {
         const code = plainObject(reply?.error) && typeof reply.error.code === 'string' && /^FDB_[A-Z0-9_]{1,80}$/.test(reply.error.code) ? reply.error.code : httpCode(status);
-        throw new ClientError(code, safeMessage(reply, credential), writing ? 'unknown' : 'read-failed', { status, ...(prepared ? { request: prepared } : {}) });
+        throw new ClientError(code, safeMessage(reply, credential), writing ? 'unknown' : 'read-failed', { status, ...(retryAfterMs === undefined ? {} : { retryAfterMs }), ...(prepared ? { request: prepared } : {}) });
       }
       return reply;
     } catch (error) {
@@ -212,14 +223,15 @@ class RemoteDatabase {
         const message = this.#transport ? error.message.slice(0, 2048) : redactMessage(error.message, credential);
         throw new ClientError(error.code, message, outcome, {
           ...(error.status === undefined ? {} : { status: error.status }),
+          ...(error.retryAfterMs === undefined ? {} : { retryAfterMs: error.retryAfterMs }),
           ...(prepared ? { request: prepared } : {}),
         });
       }
       const code = controller.signal.aborted ? 'FDB_CANCELLED' : status === undefined ? 'FDB_TRANSPORT' : 'FDB_PROTOCOL';
-      throw new ClientError(code, writing ? 'Write was not confirmed; recover the saved request' : 'Database request failed', writing ? 'unknown' : 'read-failed', { ...(status === undefined ? {} : { status }), ...(prepared ? { request: prepared } : {}) });
+      throw new ClientError(code, writing ? 'Write was not confirmed; recover the saved request' : 'Database request failed', writing ? 'unknown' : 'read-failed', { ...(status === undefined ? {} : { status }), ...(prepared ? { request: prepared } : {}), cause: error });
     } finally {
       clearTimeout(timer);
-      listener?.[Symbol.dispose]();
+      options.signal?.removeEventListener('abort', abort);
       this.#active.delete(controller);
       this.#inflightBytes -= bodyBytes;
     }
@@ -235,8 +247,8 @@ require('./client-internal.cjs').createEmbeddedClient = async (options, transpor
 function normalizeFileUrl(input) {
   if (typeof input !== 'string' || input.length > 4096) throw new TypeError('file URL requires a bounded local path');
   const url = new URL(input);
-  if (url.protocol !== 'file:' || url.hostname || url.search || url.hash) throw new TypeError('use a local file URL without a query or fragment');
-  return pathToFileURL(fileURLToPath(url)).href;
+  if (url.protocol !== 'file:' || url.hostname || url.search || url.hash || url.pathname === '/' || /%2f|%5c|%00/i.test(url.pathname)) throw new TypeError('use a local file URL without a query or fragment');
+  return url.href;
 }
 
 function normalizeUrl(input) {
@@ -288,7 +300,7 @@ function confirmReply(reply, request, reading, prepared) {
   const invalid = () => new ClientError('FDB_PROTOCOL', reading ? 'Read response identity or results differ' : 'Write response could not be confirmed; recover the saved request', reading ? 'read-failed' : 'unknown', prepared ? { request: prepared } : {});
   if (!plainObject(reply) || reply.requestId !== request.requestId || !sequence(reply.sequence, true) || (reading ? reply.readVersion !== 2 || reply.sequence < request.afterSequence : reply.readVersion !== undefined || reply.sequence <= request.afterSequence || reply.sequence - request.afterSequence > 64)) throw invalid();
   if (plainObject(reply.error) && typeof reply.error.code === 'string' && /^FDB_[A-Z0-9_]+$/.test(reply.error.code) && typeof reply.error.message === 'string' && reply.results === undefined) throw new ClientError(reply.error.code, reply.error.message.slice(0, 2048), reading ? 'read-failed' : 'rolled-back', { sequence: reply.sequence, request: prepared });
-  if (!Array.isArray(reply.results) || reply.results.length !== request.statements.length || reply.error !== undefined || Buffer.byteLength(JSON.stringify(reply.results)) > 262_144) throw invalid();
+  if (!Array.isArray(reply.results) || reply.results.length !== request.statements.length || reply.error !== undefined || byteLength(JSON.stringify(reply.results)) > 262_144) throw invalid();
   try {
     const results = reply.results.map(result => {
       if (!plainObject(result) || !Array.isArray(result.columns) || result.columns.some(name => typeof name !== 'string') || !Array.isArray(result.rows) || result.rows.length > 1000 || typeof result.affected !== 'string' || !/^(?:0|[1-9][0-9]{0,19})$/.test(result.affected) || BigInt(result.affected) > (1n << 64n) - 1n) throw invalid();
@@ -315,7 +327,10 @@ async function boundedJson(response, limit) {
       if (length > limit) throw new RangeError('response exceeds client byte limit');
       chunks.push(value);
     }
-    return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks)));
+    const bytes = new Uint8Array(length);
+    let offset = 0;
+    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+    return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
   } finally { await reader.cancel().catch(() => {}); }
 }
 
@@ -341,8 +356,9 @@ function encodeWorkLimits(value) {
 }
 function checkSequence(value) { if (!sequence(value)) throw new RangeError('sequence requires a nonnegative safe integer below Number.MAX_SAFE_INTEGER'); }
 function timeout(value) { if (!Number.isInteger(value) || value < 1 || value > 120_000) throw new RangeError('timeoutMs must be 1..120000'); return value; }
+function byteLength(text) { return encoder.encode(text).byteLength; }
 function checkBodySize(body, queryVersion = 2) {
-  if (queryVersion === CLOUD_QUERY_VERSION ? Buffer.byteLength(body) > MAX_CLOUD_REQUEST : Buffer.byteLength(body) > MAX_REQUEST)
+  if (byteLength(body) > (queryVersion === CLOUD_QUERY_VERSION ? MAX_CLOUD_REQUEST : MAX_REQUEST))
     throw new RangeError(queryVersion === CLOUD_QUERY_VERSION ? 'request exceeds 1 MiB' : 'request exceeds 64 KiB');
 }
 function preparedQueryVersion(prepared) { return prepared.version === 1 ? 2 : prepared.queryVersion; }
@@ -353,8 +369,15 @@ async function queueRefused(response) {
   try { return /^query_queue_[a-z_]{1,40}$/.test((await response.clone().json())?.code ?? ''); } catch { return false; }
 }
 function queueRetryDelay(response) {
-  const seconds = Number(response.headers.get('retry-after'));
-  return Number.isFinite(seconds) && seconds >= 0 ? Math.min(seconds * 1000, 2000) : 1000;
+  const header = response.headers.get('retry-after');
+  return header === null ? 0 : Math.min(retryAfter(header) ?? 1000, 2000);
+}
+// Retry-After holds delay seconds or an HTTP date.
+function retryAfter(value) {
+  if (value === null) return undefined;
+  if (/^\s*\d{1,9}(?:\.\d+)?\s*$/.test(value)) return Math.round(Number(value) * 1000);
+  const date = /GMT\s*$/.test(value) ? Date.parse(value) : NaN;
+  return Number.isNaN(date) ? undefined : Math.max(0, date - Date.now());
 }
 function pause(ms, signal) {
   return new Promise((resolve, reject) => {

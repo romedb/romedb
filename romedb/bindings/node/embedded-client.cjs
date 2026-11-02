@@ -84,6 +84,7 @@ class EmbeddedDatabase {
   }
   get url() { return this.#client.url; }
   get sequence() { return this.#client.sequence; }
+  get sequenceKnown() { return this.#client.sequenceKnown; }
   get databaseId() { return this.#client.databaseId; }
   get path() { return this.#path; }
   info(options) { return this.#client.info(options); }

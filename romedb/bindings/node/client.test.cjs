@@ -142,7 +142,7 @@ test('URLs map local origins and Cloud query URLs without credential redirects',
 test('read-v2 keeps duplicate columns, bigint affected counts, and monotonic confirmed sequence', async () => {
   const requests = [];
   const db = await connect({ url: 'http://localhost:4321', token: 'test-secret', fetch: async (url, options) => {
-    assert.equal(options.redirect, 'error');
+    assert.equal(options.redirect, 'manual');
     assert.equal(options.headers.authorization, 'Bearer test-secret');
     if (options.body !== undefined) assert.equal(options.headers['x-romedb-database-id'], 'local-test');
     if (options.method === 'GET') return json({ ...details(3), engineVersion: '2.7.0' });

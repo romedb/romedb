@@ -6,6 +6,7 @@ export class EmbeddedDatabase implements Client {
   readonly path: string;
   readonly url: string;
   readonly sequence: number;
+  readonly sequenceKnown: boolean;
   readonly databaseId: string;
   info(options?: RequestOptions): Promise<DatabaseInfo>;
   read(statements: Statement[], options?: ReadOptions): Promise<BatchResult>;

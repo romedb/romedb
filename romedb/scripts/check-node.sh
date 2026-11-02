@@ -32,7 +32,8 @@ if $strip_debug; then
   # Strip only the package copy; retain the full Cargo artifact for diagnostics.
   strip --strip-debug romedb/bindings/node/romedb.node
 fi
-node --test --test-concurrency=2 romedb/bindings/node/test.cjs romedb/bindings/node/ownership.test.cjs romedb/bindings/node/client.test.cjs romedb/bindings/node/client-native.test.cjs romedb/bindings/node/embedded-client.test.cjs romedb/examples/node-task-tracker/test.cjs
+node romedb/bindings/node/build-esm.cjs --check
+node --test --test-concurrency=2 romedb/bindings/node/test.cjs romedb/bindings/node/ownership.test.cjs romedb/bindings/node/client.test.cjs romedb/bindings/node/client-web.test.mjs romedb/bindings/node/client-native.test.cjs romedb/bindings/node/embedded-client.test.cjs romedb/examples/node-task-tracker/test.cjs
 if [[ "${ROMEDB_SKIP_TYPECHECK:-}" != 1 ]]; then
   pnpm --dir romedb/bindings/node run typecheck
 fi

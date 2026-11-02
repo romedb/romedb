@@ -2,6 +2,13 @@
 
 This package provides a native N-API addon backed by the RomeDB Rust frontend. It does not expose the raw Turso connection. Linux x64 prebuilds are distributed in the GitHub release bundle. Node 22 and 24 are the tested runtime majors; other operating systems and architectures are outside this release. See [deployment](../../docs/deployment.md) for the single-owner process contract.
 
+The package is not on npm. From 0.2.12 each GitHub release also has the package as
+its own asset, so a project can depend on it by URL:
+
+```sh
+pnpm add https://github.com/romedb/romedb/releases/download/romedb-v0.2.12/romedb-node-0.2.12.tgz
+```
+
 Use this package in your Node.js backend. A browser UI calls your backend API;
 RomeDB runs inside the server process and stores the database there. For request
 handlers, prefer [AsyncDatabase](#asynchronous-database) to keep database work off
@@ -420,8 +427,9 @@ local URL is `http://127.0.0.1:4321`. Use HTTPS for other hosts. `romedb://` is 
 alias for `https://`: the client replaces the scheme and applies the same checks,
 so `romedb://cloud.romedb.com/v1/organizations/{org}/databases/{db}` and the
 `https://` form are the same database. It changes no transport or protocol.
-Redirects are rejected, and the bearer token must be passed separately from the
-URL; a token in the URL is refused.
+Requests use `redirect: 'manual'`, and any redirect reply fails with
+`FDB_PROTOCOL`, so the token is never sent on to another URL. The bearer token
+must be passed separately from the URL; a token in the URL is refused.
 
 For Cloud database URLs, `connect()` returns without a network round trip: the
 database id comes from the URL and Cloud capabilities are documented. Reads start
@@ -460,11 +468,53 @@ sparse-entry factories work without native code. Null is a present field;
 undefined and array holes are rejected instead of silently removing data.
 
 Requests and responses have finite byte/row limits. Each call defaults to a
-20-second timeout and accepts `signal`/`timeoutMs`. Cancellation after dispatch
+20-second timeout and accepts `signal`/`timeoutMs`. An HTTP error reply with a
+`Retry-After` header sets `ClientError.retryAfterMs`. A transport or response
+failure without a database reply keeps the underlying error as `ClientError.cause`
+(for example a `fetch failed` TypeError with `ECONNREFUSED`). `db.sequenceKnown`
+is true once a reply has given the current sequence, and `db.cloud` tells a Cloud
+database from a local service. Cancellation after dispatch
 leaves a write unknown until a receipt confirms it. Cloud capabilities are marked
 as documented, because its API currently does not negotiate the local capability
 object. See the [service contract](../../docs/service-protocol.md) for limits,
 receipt rules and compatibility gaps.
+
+### Workers, browsers and other runtimes
+
+From 0.2.12, `@romedb/node/client` and `@romedb/node/values` use only Web APIs
+(`fetch`, `crypto.randomUUID`, `TextEncoder`, `AbortSignal`, `atob` and `btoa`).
+Node.js resolves them to the CommonJS files through the `node` export condition.
+Every other runtime and bundler (Cloudflare Workers, browsers, Deno with a
+bundler) gets the ES modules `client.mjs` and `values.mjs`, which run the same
+code: `build-esm.cjs` writes them from `client.cjs` and `values.cjs`, and the
+package tests fail when they are out of date. Workers need no `nodejs_compat`.
+The client calls `fetch` without a `this` value, so `globalThis.fetch` and your
+own `fetch` both work in Workers.
+
+```js
+import { connect, Float64 } from '@romedb/node/client';
+
+export default {
+  async fetch(request, env) {
+    const db = await connect({ url: env.ROMEDB_URL, token: env.ROMEDB_TOKEN });
+    const { results } = await db.read([{ sql: 'SELECT $x AS x', params: { $x: new Float64(1) } }]);
+    return Response.json({ rows: results[0].rows.length });
+  },
+};
+```
+
+`@romedb/node/values` exports only the value types and codec (`Float64`, `Record`,
+`Vector`, `encodeValue`, `decodeValue`) for code that never connects, such as a
+browser bundle. Both entries share one set of value classes.
+
+Binary values and `Vector.bytes` are plain `Uint8Array` objects in every runtime;
+before 0.2.12 Node returned `Buffer`. Use `Buffer.from(bytes)` where Buffer
+methods are needed. `saveRequest` and `loadRequest` need Node.js file access and
+reject elsewhere; store the `PreparedWrite` object yourself there, for example in
+a Durable Object.
+
+The package still contains the native addon, so installing it for a Workers app
+also downloads the addon, which the Workers bundle never includes.
 
 ### Embedded client for the same asynchronous interface
 
@@ -496,6 +546,14 @@ Cloud, so a file moves between these modes without conversion and sees the same
 write conflicts. Opening a WAL file fails with `FDB_UNSUPPORTED` and leaves the file
 unchanged; stop its owner and convert it with `romedb migrate-to-mvcc`. The managed
 connection enables SQL foreign keys without changing the legacy APIs.
+
+`create: true` makes the database file with mode 0600. The WAL file
+(`NAME-wal`) and the MVCC log (`STEM.db-log`, which holds row data until a
+checkpoint) get the database file's permissions, as in SQLite: RomeDB creates
+them before the engine does, and on each open it removes permission bits that the
+database file does not have from existing ones. So every file of a new database is
+0600, and a database made by 0.2.11 or earlier gets private journal files at its
+next open.
 
 One process keeps at most `maxOpen` different files open (1 to 1024, default 16).
 An open that would pass this number fails with `FDB_LIMIT`; clients of a file that

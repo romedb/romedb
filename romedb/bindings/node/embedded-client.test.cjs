@@ -174,6 +174,19 @@ test('embedded opens refuse WAL files without changing them and point to the mig
   assert.deepEqual(await snapshot(), before);
 });
 
+test('every file of a new embedded database is readable only by its owner', async t => {
+  const { directory, file } = await fixture(t);
+  const modes = async () => Object.fromEntries(await Promise.all((await fs.readdir(directory)).map(async name => [name, ((await fs.stat(path.join(directory, name))).mode & 0o777).toString(8)])));
+  const expected = { 'app.romedb': '600', 'app.romedb-wal': '600', 'app.db-log': '600' };
+  const db = await openEmbedded({ path: file, create: true });
+  await db.writeAtomic([{ sql: 'CREATE TABLE notes(text)' }, { sql: "INSERT INTO notes VALUES('private')" }]);
+  assert.deepEqual(await modes(), expected);
+  await db.close();
+  const reopened = await openEmbedded({ path: file });
+  await reopened.close();
+  assert.deepEqual(await modes(), expected);
+});
+
 test('maxOpen bounds the files a process keeps open, and close checkpoints and releases each file', async t => {
   const { directory } = await fixture(t);
   const files = ['a', 'b', 'c'].map(name => path.join(directory, `${name}.romedb`));

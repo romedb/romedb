@@ -1,5 +1,5 @@
 'use strict';
-const { Buffer } = require('node:buffer');
+// Web APIs only: this file also runs in Workers and browsers through values.mjs.
 
 class Float64 {
   constructor(value) {
@@ -24,10 +24,10 @@ class Vector {
   #bytes;
   constructor(bytes) {
     if (!(bytes instanceof Uint8Array) || bytes.byteLength < 1 || bytes.byteLength > 524_289) throw new TypeError('Vector requires bounded encoded bytes');
-    this.#bytes = Buffer.from(bytes);
+    this.#bytes = new Uint8Array(bytes);
     Object.freeze(this);
   }
-  get bytes() { return Buffer.from(this.#bytes); }
+  get bytes() { return new Uint8Array(this.#bytes); }
   static float32(values) { return denseVector(values, 4); }
   static float64(values) { return denseVector(values, 8); }
   static sparse32Entries(dimensions, entries) {
@@ -44,12 +44,13 @@ class Vector {
       if (rounded !== 0) nonzero.push([index, rounded]);
       previous = index;
     }
-    const bytes = Buffer.alloc(nonzero.length * 8 + 5);
+    const bytes = new Uint8Array(nonzero.length * 8 + 5);
+    const view = new DataView(bytes.buffer);
     nonzero.forEach(([index, value], i) => {
-      bytes.writeFloatLE(value, i * 4);
-      bytes.writeUInt32LE(index, nonzero.length * 4 + i * 4);
+      view.setFloat32(i * 4, value, true);
+      view.setUint32(nonzero.length * 4 + i * 4, index, true);
     });
-    bytes.writeUInt32LE(dimensions, nonzero.length * 8);
+    view.setUint32(nonzero.length * 8, dimensions, true);
     bytes[bytes.length - 1] = 9;
     return new Vector(bytes);
   }
@@ -58,11 +59,12 @@ class Vector {
 function denseVector(values, width) {
   if (!Array.isArray(values) && !(values instanceof Float32Array) && !(values instanceof Float64Array)) throw new TypeError('vector components require a number array');
   checkDimensions(values.length);
-  const bytes = Buffer.alloc(values.length * width + (width === 8 ? 1 : 0));
+  const bytes = new Uint8Array(values.length * width + (width === 8 ? 1 : 0));
+  const view = new DataView(bytes.buffer);
   for (let i = 0; i < values.length; i++) {
     checkComponent(values[i], width);
-    if (width === 4) bytes.writeFloatLE(values[i], i * width);
-    else bytes.writeDoubleLE(values[i], i * width);
+    if (width === 4) view.setFloat32(i * width, values[i], true);
+    else view.setFloat64(i * width, values[i], true);
   }
   if (width === 8) bytes[bytes.length - 1] = 2;
   return new Vector(bytes);
@@ -94,8 +96,8 @@ function encodeValue(value, depth = 0, base64 = false) {
     return encodeFloat(value);
   }
   if (value instanceof Record) return tagged('Record', { table: text(value.table), key: encodeValue(value.key) });
-  if (value instanceof Vector) return tagged('Vector', base64 ? Buffer.from(value.bytes).toString('base64') : [...value.bytes]);
-  if (value instanceof Uint8Array) return tagged('Binary', base64 ? Buffer.from(value).toString('base64') : [...value]);
+  if (value instanceof Vector) return tagged('Vector', base64 ? toBase64(value.bytes) : [...value.bytes]);
+  if (value instanceof Uint8Array) return tagged('Binary', base64 ? toBase64(value) : [...value]);
   if (Array.isArray(value)) {
     const entries = [];
     for (let i = 0; i < value.length; i++) {
@@ -110,20 +112,30 @@ function encodeValue(value, depth = 0, base64 = false) {
 
 function byteArray(payload) {
   if (!Array.isArray(payload) || payload.length > 524_289 || payload.some(n => !Number.isInteger(n) || n < 0 || n > 255)) throw new TypeError('invalid byte array');
-  return Buffer.from(payload);
+  return Uint8Array.from(payload);
 }
 
 function base64Bytes(payload) {
   if (payload.length > 1_048_576 || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(payload)) throw new TypeError('invalid base64 bytes');
-  const bytes = Buffer.from(payload, 'base64');
-  if (bytes.toString('base64') !== payload) throw new TypeError('invalid base64 bytes');
+  const binary = atob(payload);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  if (toBase64(bytes) !== payload) throw new TypeError('invalid base64 bytes');
   return bytes;
 }
 
+function toBase64(bytes) {
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += 32_768) binary += String.fromCharCode(...bytes.subarray(i, i + 32_768));
+  return btoa(binary);
+}
+
 function encodeFloat(value) {
-  const bytes = Buffer.alloc(8);
-  bytes.writeDoubleBE(value);
-  return { type: 'Number', value: bytes.toString('hex') };
+  const view = new DataView(new ArrayBuffer(8));
+  view.setFloat64(0, value);
+  let hex = '';
+  for (let i = 0; i < 8; i++) hex += view.getUint8(i).toString(16).padStart(2, '0');
+  return { type: 'Number', value: hex };
 }
 
 function decodeValue(value, depth = 0) {
@@ -151,7 +163,9 @@ function decodeValue(value, depth = 0) {
     }
     case 'Number': {
       if (typeof payload !== 'string' || !/^[0-9a-f]{16}$/.test(payload)) throw new TypeError('invalid float64 bits');
-      return new Float64(Buffer.from(payload, 'hex').readDoubleBE());
+      const view = new DataView(new ArrayBuffer(8));
+      for (let i = 0; i < 8; i++) view.setUint8(i, parseInt(payload.slice(i * 2, i * 2 + 2), 16));
+      return new Float64(view.getFloat64(0));
     }
     case 'Binary': case 'Vector': {
       const bytes = typeof payload === 'string' ? base64Bytes(payload) : byteArray(payload);

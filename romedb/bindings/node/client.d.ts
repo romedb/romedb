@@ -1,14 +1,5 @@
-export class Float64 { constructor(value: number); readonly value: number; }
-export class Record { constructor(table: string, key: string | bigint); readonly table: string; readonly key: string | bigint; }
-export class Vector {
-  constructor(bytes: Uint8Array);
-  readonly bytes: Uint8Array;
-  static float32(values: readonly number[] | Float32Array | Float64Array): Vector;
-  static float64(values: readonly number[] | Float32Array | Float64Array): Vector;
-  static sparse32Entries(dimensions: number, entries: readonly (readonly [number, number])[]): Vector;
-}
-export type Value = null | boolean | bigint | number | string | Float64 | Record | Vector | Uint8Array | Value[] | { [key: string]: Value };
-export type PortableValue = { type: 'Null' } | { type: 'Boolean'; value: boolean } | { type: 'Integer' | 'Number' | 'String'; value: string } | { type: 'Binary' | 'Vector'; value: number[] | string } | { type: 'Record'; value: { table: string; key: { type: 'Integer' | 'String'; value: string } } } | { type: 'Array'; value: PortableValue[] } | { type: 'Object'; value: { [key: string]: PortableValue } };
+import type { Value } from './values';
+export { Float64, Record, Vector, Value, PortableValue, encodeValue, decodeValue } from './values';
 export interface Statement { sql: string; params?: { [key: string]: Value }; }
 export interface RequestOptions { signal?: AbortSignal; timeoutMs?: number; }
 export interface WorkLimits { rowsRead?: number; rowMutations?: number; vmSteps?: number; }
@@ -41,7 +32,11 @@ export class ClientError extends Error {
   readonly request?: PreparedWrite;
   readonly status?: number;
   readonly sequence?: number;
-  constructor(code: string, message: string, outcome: Outcome, details?: { request?: PreparedWrite; status?: number; sequence?: number });
+  /** The server's Retry-After delay in milliseconds, on HTTP error replies that send one. */
+  readonly retryAfterMs?: number;
+  /** For FDB_TRANSPORT, FDB_PROTOCOL and FDB_CANCELLED without a reply: the fetch or parse error underneath. */
+  readonly cause?: unknown;
+  constructor(code: string, message: string, outcome: Outcome, details?: { request?: PreparedWrite; status?: number; sequence?: number; retryAfterMs?: number; cause?: unknown });
 }
 export interface Client {
   readonly sequence: number;
@@ -57,6 +52,10 @@ export interface Client {
 export class RemoteDatabase implements Client {
   private constructor();
   readonly url: string;
+  /** True for a Cloud database. A loopback organization URL (romedb serve --directory) is not Cloud once info() has run. */
+  readonly cloud: boolean;
+  /** True once a reply has given the database's current sequence. */
+  readonly sequenceKnown: boolean;
   /** True when connect() skipped the details request (the default for Cloud URLs). */
   readonly deferred: boolean;
   /** Ask Cloud to start the database's container and open the database without running a query. */
@@ -72,9 +71,9 @@ export class RemoteDatabase implements Client {
   close(): Promise<void>;
 }
 export function connect(options: ConnectOptions): Promise<RemoteDatabase>;
-export function encodeValue(value: Value): PortableValue;
-export function decodeValue(value: unknown): Value;
 export function normalizeUrl(url: string): string;
 export function validatePrepared(request: unknown): { requestId: string; afterSequence: number; ifSequence?: number; statements: unknown[] };
+/** Node.js only. Elsewhere it rejects; store the PreparedWrite yourself. */
 export function saveRequest(path: string, request: PreparedWrite): Promise<void>;
+/** Node.js only. Elsewhere it rejects. */
 export function loadRequest(path: string): Promise<PreparedWrite>;

@@ -605,3 +605,52 @@ fn mvcc_opens_refuse_wal_files_before_writing_and_creation_needs_an_empty_file()
         vec![vec![Value::String("mvcc".into())]]
     );
 }
+
+#[cfg(unix)]
+#[test]
+fn log_files_get_the_database_file_permissions() {
+    use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+    let directory = tempfile::tempdir().unwrap();
+    let mode = |name: &str| {
+        std::fs::metadata(directory.path().join(name))
+            .unwrap()
+            .permissions()
+            .mode()
+            & 0o777
+    };
+    let path = directory.path().join("site.romedb");
+    std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(&path)
+        .unwrap();
+    let database = Database::create_mvcc(path.to_str().unwrap()).unwrap();
+    q(&database.connect().unwrap(), "CREATE TABLE notes");
+    q(
+        &database.connect().unwrap(),
+        "INSERT INTO notes { text: 'private' }",
+    );
+    drop(database);
+    for name in ["site.romedb", "site.romedb-wal", "site.db-log"] {
+        assert_eq!(mode(name), 0o600, "{name}");
+    }
+    let log = directory.path().join("site.db-log");
+    std::fs::set_permissions(&log, std::fs::Permissions::from_mode(0o644)).unwrap();
+    std::fs::remove_file(directory.path().join("site.romedb-wal")).unwrap();
+    drop(Database::open_mvcc(path.to_str().unwrap()).unwrap());
+    assert_eq!(mode("site.db-log"), 0o600);
+    assert_eq!(mode("site.romedb-wal"), 0o600);
+
+    let wal = directory.path().join("legacy.romedb");
+    std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o640)
+        .open(&wal)
+        .unwrap();
+    drop(Database::open(wal.to_str().unwrap()).unwrap());
+    assert_eq!(mode("legacy.romedb-wal"), 0o640);
+    assert!(Database::open_mvcc(wal.to_str().unwrap()).is_err());
+    assert!(!directory.path().join("legacy.db-log").exists());
+}

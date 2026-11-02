@@ -19,10 +19,13 @@ try {
   const packed = JSON.parse(run(pnpm, ['pack', '--json', '--pack-destination', temporary], packageDir));
   assert.deepEqual(packed.files.map(file => file.path).sort(), [
     'LICENSE.md', 'THIRD_PARTY_NOTICES.md', 'THIRD_PARTY_CRATE_NOTICES.md', 'RUST-LIBRARY-NOTICES.html', 'README.md', 'romedb.node', 'index.cjs', 'index.d.ts', 'package.json', 'worker.cjs', 'native.cjs',
-    'client.cjs', 'client.d.ts', 'values.cjs', 'request-journal.cjs',
+    'client.cjs', 'client.mjs', 'client.d.ts', 'values.cjs', 'values.mjs', 'values.d.ts', 'request-journal.cjs',
     'client-internal.cjs', 'embedded-client.cjs', 'embedded-client.d.ts', 'embedded-worker.cjs',
   ].sort());
   assert(fs.statSync(path.join(packageDir, 'romedb.node')).size > 0);
+  for (const file of ['client.mjs', 'values.mjs']) {
+    assert.doesNotMatch(fs.readFileSync(path.join(packageDir, file), 'utf8'), /node:|\bBuffer\b|\bprocess\./, `${file} must use Web APIs only`);
+  }
   const generated = path.resolve(temporary, packed.filename);
   const supplied = process.env.ROMEDB_PACKAGE_TARBALL;
   if (supplied) assert(fs.readFileSync(supplied).equals(fs.readFileSync(generated)), 'Supplied candidate differs from current package');
