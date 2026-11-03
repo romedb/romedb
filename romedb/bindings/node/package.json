@@ -1,7 +1,7 @@
 {
   "name": "@romedb/node",
   "version": "0.2.12",
-  "private": true,
+  "description": "RomeDB for Node.js: the embedded database (Linux x64 native addon) and a Web-API client for romedb serve and RomeDB Cloud",
   "main": "index.cjs",
   "types": "index.d.ts",
   "exports": {
@@ -23,6 +23,15 @@
     "typescript": "5.8.3"
   },
   "license": "MIT",
+  "homepage": "https://github.com/romedb/romedb/tree/main/romedb/bindings/node#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/romedb/romedb.git",
+    "directory": "romedb/bindings/node"
+  },
+  "bugs": {
+    "url": "https://github.com/romedb/romedb/issues"
+  },
   "files": [
     "index.cjs",
     "client.cjs",

@@ -2,8 +2,15 @@
 
 This package provides a native N-API addon backed by the RomeDB Rust frontend. It does not expose the raw Turso connection. Linux x64 prebuilds are distributed in the GitHub release bundle. Node 22 and 24 are the tested runtime majors; other operating systems and architectures are outside this release. See [deployment](../../docs/deployment.md) for the single-owner process contract.
 
-The package is not on npm. From 0.2.12 each GitHub release also has the package as
-its own asset, so a project can depend on it by URL:
+Install it from npm:
+
+```sh
+npm install @romedb/node
+```
+
+Each release publishes its Node package asset to npm unchanged. (0.2.12, the first
+npm version, differs from its asset only in `package.json` and this README.) A project
+can also depend on the asset by URL:
 
 ```sh
 pnpm add https://github.com/romedb/romedb/releases/download/romedb-v0.2.12/romedb-node-0.2.12.tgz
