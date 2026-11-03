@@ -16,7 +16,7 @@ use sha2::{Digest, Sha256};
 use std::{
     fmt,
     fs::OpenOptions,
-    path::Path,
+    path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc, Mutex, RwLock, TryLockError,
@@ -72,6 +72,17 @@ pub struct DatabaseService {
     schema: RwLock<()>,
     admission: Arc<Admission>,
     fenced: Arc<AtomicBool>,
+    folder: PathBuf,
+    export: Mutex<()>,
+    stopping: CancellationToken,
+}
+
+/// A database file copied at one sequence, open for reading and without a name.
+pub struct FileDownload {
+    pub file: std::fs::File,
+    pub bytes: u64,
+    pub sequence: u64,
+    pub database_id: String,
 }
 
 struct Publication {
@@ -122,7 +133,7 @@ impl DatabaseService {
             path.to_str()
                 .ok_or_else(|| Error::new("FDB_VALIDATION", "database path must be UTF-8"))?,
         )?;
-        let service = Self::initialize(database, database_id)?;
+        let service = Self::initialize(database, database_id, path)?;
         #[cfg(unix)]
         std::fs::File::open(path.parent().ok_or_else(|| {
             Error::new(
@@ -138,11 +149,12 @@ impl DatabaseService {
         Self::initialize(
             Self::open_database(path)?,
             &uuid::Uuid::new_v4().to_string(),
+            path,
         )
     }
 
     pub fn open_with_id(path: &Path, database_id: &str) -> Result<Self> {
-        let service = Self::initialize(Self::open_database(path)?, database_id)?;
+        let service = Self::initialize(Self::open_database(path)?, database_id, path)?;
         if service.database_id != database_id {
             return Err(Error::new(
                 "FDB_CONFLICT",
@@ -178,7 +190,16 @@ impl DatabaseService {
         })?)?)
     }
 
-    fn initialize(database: Database, database_id: &str) -> Result<Self> {
+    fn initialize(database: Database, database_id: &str, path: &Path) -> Result<Self> {
+        let folder = std::path::absolute(path)?
+            .parent()
+            .ok_or_else(|| {
+                Error::new(
+                    "FDB_VALIDATION",
+                    "database path requires a parent directory",
+                )
+            })?
+            .to_path_buf();
         let connection = database.connect()?;
         let catalog = connection.initialize_service_catalog(database_id)?;
         Ok(Self {
@@ -191,6 +212,9 @@ impl DatabaseService {
             schema: RwLock::new(()),
             admission: Arc::default(),
             fenced: Arc::default(),
+            folder,
+            export: Mutex::new(()),
+            stopping: CancellationToken::new(),
         })
     }
 
@@ -237,6 +261,41 @@ impl DatabaseService {
         })();
         scope.rollback()?;
         operation
+    }
+
+    /// Copy the database into a new file at the current sequence. Reads,
+    /// writes and schema changes continue. The copy is built beside the
+    /// database file and has no name when returned.
+    pub fn export_file(&self) -> Result<FileDownload> {
+        let started = deadline();
+        self.check_fence()?;
+        if self.stopping.is_cancelled() {
+            return Err(Error::new("FDB_CLOSED", "service is stopping"));
+        }
+        let _export = match self.export.try_lock() {
+            Ok(guard) => guard,
+            Err(TryLockError::WouldBlock) => {
+                return Err(Error::new(
+                    "FDB_BUSY",
+                    "this database is already being exported; retry when it finishes",
+                ))
+            }
+            Err(TryLockError::Poisoned(poisoned)) => poisoned.into_inner(),
+        };
+        let (pending, sequence) = {
+            let publication = self.lock_before(started, || self.publication.try_lock())?;
+            let pending = self
+                .database
+                .start_file_snapshot(&self.folder, &self.stopping)?;
+            (pending, publication.sequence)
+        };
+        let export = pending.finish()?;
+        Ok(FileDownload {
+            file: export.file,
+            bytes: export.bytes,
+            sequence,
+            database_id: self.database_id.clone(),
+        })
     }
 
     pub fn query(&self, body: &str) -> Result<String> {
@@ -517,6 +576,7 @@ impl DatabaseService {
     }
     pub fn begin_shutdown(&self) {
         self.admission.stop();
+        self.stopping.cancel();
     }
 
     pub fn checkpoint_for_shutdown(&self) -> Result<()> {

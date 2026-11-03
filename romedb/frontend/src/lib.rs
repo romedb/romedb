@@ -15,6 +15,8 @@ mod computed;
 mod deferred;
 mod expression;
 mod fetch_clause;
+mod file_export;
+pub use file_export::{FileExport, PendingFileExport};
 mod field_rules;
 mod scalar_index;
 mod schema_rules;

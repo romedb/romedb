@@ -25,6 +25,15 @@ export interface ConnectOptions {
   warm?: boolean;
 }
 export interface WarmResult { state: 'ready' | 'starting' | 'skipped'; }
+/** A copy of the database at one sequence: a complete .romedb file that opens without a log beside it. */
+export interface DatabaseFile {
+  /** Every write up to and including this sequence is in the file, and none after it. */
+  sequence: number;
+  /** File size in bytes; the body fails unless exactly this many arrive. */
+  size: number;
+  /** Read it to the end or cancel it, so the copy's storage is freed. */
+  body: ReadableStream<Uint8Array>;
+}
 export type Outcome = 'not-sent' | 'read-failed' | 'unknown' | 'rolled-back';
 export class ClientError extends Error {
   readonly code: string;
@@ -60,6 +69,11 @@ export class RemoteDatabase implements Client {
   readonly deferred: boolean;
   /** Ask Cloud to start the database's container and open the database without running a query. */
   warm(options?: RequestOptions): Promise<WarmResult>;
+  /**
+   * Download the database as a .romedb file (romedb serve and serve --directory; not Cloud yet).
+   * timeoutMs covers building the copy, until the file starts arriving; signal also stops the download.
+   */
+  exportFile(options?: RequestOptions): Promise<DatabaseFile>;
   readonly sequence: number;
   readonly databaseId: string;
   info(options?: RequestOptions): Promise<DatabaseInfo>;

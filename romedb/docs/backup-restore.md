@@ -1,8 +1,13 @@
 # Offline backup and restore rehearsal
 
+To copy an MVCC database while it stays open, use a file export instead: `exportFile`
+in Node, `GET /v1/database/file` on `romedb serve`, or `Database::start_file_export`
+in Rust. See [Database files](service-protocol.md#database-files). The procedure below
+covers WAL databases and stopped applications.
+
 The embedded engine has a tested offline, checkpointed file-copy procedure on the pinned engine. This preserves the whole database: relational schema/data, collection metadata/documents, managed indexes, and migration history. Collection JSON/NDJSON export is a data transfer format and does not contain all of those objects.
 
-This procedure requires exclusive maintenance access. It does not provide an online backup API or coordinate other processes for you.
+This procedure requires exclusive maintenance access. It does not coordinate other processes for you.
 
 1. Stop application access, including other processes, workers and connections. Resolve outstanding transactions explicitly. Keep access stopped until the copy has completed.
 2. Open one maintenance connection to the source database and execute `PRAGMA wal_checkpoint(TRUNCATE)`. Check that it succeeds and returns `busy=0`, `log=0`, `checkpointed=0`. A busy/error result is not a completed checkpoint. Do not copy only the main file after such a result.

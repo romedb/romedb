@@ -33,6 +33,8 @@ Back up before upgrading. Legacy full-text indexes require `REINDEX`.
   `openEmbedded` with a `maxOpen` limit, private journal files, and a
   [Node.js client for Workers and browsers](../bindings/node/README.md#workers-browsers-and-other-runtimes),
   from 0.2.12.
+- [Copies of an open database as new `.romedb` files](service-protocol.md#database-files)
+  (`exportFile`, `GET .../file`) while reads and writes continue; not yet released.
 
 ## Release verification
 

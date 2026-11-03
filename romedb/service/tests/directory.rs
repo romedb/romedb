@@ -81,6 +81,30 @@ impl Server {
         .unwrap()
     }
 
+    async fn download(&self, path: &str) -> (u16, String, Vec<u8>) {
+        let request = format!("GET {path} HTTP/1.1\r\nHost: {}\r\nAuthorization: Bearer {}\r\nConnection: close\r\n\r\n", self.address, self.token);
+        let address = self.address;
+        tokio::task::spawn_blocking(move || {
+            let mut stream = TcpStream::connect(address).unwrap();
+            stream
+                .set_read_timeout(Some(Duration::from_secs(20)))
+                .unwrap();
+            stream.write_all(request.as_bytes()).unwrap();
+            let mut response = Vec::new();
+            stream.read_to_end(&mut response).unwrap();
+            let split = response.windows(4).position(|w| w == b"\r\n\r\n").unwrap();
+            let head = String::from_utf8(response[..split].to_vec()).unwrap();
+            let status = head.split_whitespace().nth(1).unwrap().parse().unwrap();
+            (
+                status,
+                head.to_ascii_lowercase(),
+                response[split + 4..].to_vec(),
+            )
+        })
+        .await
+        .unwrap()
+    }
+
     async fn create(&self, name: &str) -> (u16, Value) {
         self.send(
             "POST",
@@ -295,4 +319,72 @@ async fn a_directory_adopts_new_files_and_refuses_copies_and_wal_files() {
         .unwrap()
         .contains("another database's identity"));
     server.stop().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_directory_database_downloads_as_a_file_that_serves_alone() {
+    let root = tempfile::tempdir().unwrap();
+    let elsewhere = tempfile::tempdir().unwrap();
+    let server = Server::start(root.path(), 2).await;
+    let (_, created) = server.create("site-one").await;
+    let id = created["id"].as_str().unwrap().to_owned();
+    for (index, sql) in ["CREATE TABLE posts", "INSERT INTO posts {title:'kept'}"]
+        .into_iter()
+        .enumerate()
+    {
+        let body = json!({"requestId":format!("w{index}"),"afterSequence":index,"statements":[{"sql":sql}]}).to_string();
+        let (status, reply) = server
+            .send("POST", &server.path(&format!("/{id}/query")), "", &body)
+            .await;
+        assert_eq!(status, 200, "{reply}");
+    }
+    let (status, head, body) = server.download(&server.path(&format!("/{id}/file"))).await;
+    assert_eq!(status, 200, "{}", String::from_utf8_lossy(&body));
+    assert!(head.contains("\r\nx-romedb-sequence: 2\r\n"), "{head}");
+    assert!(
+        head.contains(&format!("\r\nx-romedb-database-id: {id}\r\n")),
+        "{head}"
+    );
+    assert!(
+        head.contains(&format!("\r\ncontent-length: {}\r\n", body.len())),
+        "{head}"
+    );
+    let missing = "00000000-0000-4000-8000-000000000000";
+    let (status, reply) = server
+        .send("GET", &server.path(&format!("/{missing}/file")), "", "")
+        .await;
+    assert_eq!(status, 404);
+    assert_eq!(reply["error"]["code"], "FDB_NOT_FOUND", "{reply}");
+    assert_eq!(
+        server
+            .send("POST", &server.path(&format!("/{id}/file")), "", "{}")
+            .await
+            .0,
+        405
+    );
+    let mut names: Vec<_> = std::fs::read_dir(root.path())
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+        .collect();
+    names.sort();
+    assert_eq!(
+        names,
+        [
+            format!("{id}.db-log"),
+            format!("{id}.romedb"),
+            format!("{id}.romedb-wal"),
+            "romedb-directory.json".into(),
+            "romedb-directory.lock".into(),
+            "romedb.token".into()
+        ]
+    );
+    server.stop().await;
+
+    let copy = elsewhere.path().join("site.romedb");
+    std::fs::write(&copy, &body).unwrap();
+    let served = romedb_service::DatabaseService::open(&copy).unwrap();
+    assert_eq!(served.info().unwrap()["id"], id.as_str());
+    let read = json!({"readVersion":2,"requestId":"r","afterSequence":2,"statements":[{"sql":"SELECT title FROM posts"}]}).to_string();
+    let reply: Value = serde_json::from_str(&served.read(&read).unwrap()).unwrap();
+    assert_eq!(reply["results"][0]["rows"][0][0]["value"], "kept");
 }

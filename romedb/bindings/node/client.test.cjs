@@ -597,3 +597,46 @@ test('a loopback organization URL negotiates a local service and keeps Cloud run
     await db.close();
   }
 });
+
+test('exportFile downloads the database file with its sequence and checks the size and identity', async () => {
+  const bytes = new Uint8Array(4096).map((_, i) => i % 251);
+  const file = (headers = {}, body = bytes) => new Response(body, { headers: { 'content-type': 'application/vnd.romedb.database', 'content-length': String(bytes.byteLength), 'x-romedb-sequence': '7', 'x-romedb-database-id': 'local-test', ...headers } });
+  let reply = () => file();
+  const requests = [];
+  const db = await connect({ url: 'http://127.0.0.1:4321', token: 'test-token', fetch: async (url, options) => {
+    if (url.endsWith('/file')) { requests.push({ url, options }); return reply(); }
+    return json(details(2));
+  } });
+  try {
+    const exported = await db.exportFile({ timeoutMs: 5000 });
+    assert.equal(exported.sequence, 7);
+    assert.equal(exported.size, bytes.byteLength);
+    assert.deepEqual(new Uint8Array(await new Response(exported.body).arrayBuffer()), bytes);
+    assert.equal(db.sequence, 7);
+    assert.equal(requests[0].url, 'http://127.0.0.1:4321/v1/database/file');
+    assert.equal(requests[0].options.method, 'GET');
+    assert.equal(requests[0].options.redirect, 'manual');
+    assert.equal(requests[0].options.headers.authorization, 'Bearer test-token');
+    assert.equal(requests[0].options.headers['x-romedb-database-id'], 'local-test');
+    reply = () => file({}, bytes.subarray(0, 100));
+    const short = await db.exportFile();
+    await assert.rejects(new Response(short.body).arrayBuffer(), error => error.code === 'FDB_TRANSPORT' && error.outcome === 'read-failed');
+    reply = () => file({ 'content-length': '10' });
+    await assert.rejects(new Response((await db.exportFile()).body).arrayBuffer(), error => error.code === 'FDB_PROTOCOL');
+    reply = () => file({ 'x-romedb-database-id': 'other' });
+    await assert.rejects(db.exportFile(), error => error.code === 'FDB_REQUEST_IDENTITY');
+    reply = () => file({ 'content-type': 'application/octet-stream' });
+    await assert.rejects(db.exportFile(), error => error.code === 'FDB_PROTOCOL');
+    reply = () => Response.json({ error: { code: 'FDB_BUSY', message: 'already exporting, test-token' } }, { status: 503, headers: { 'retry-after': '2' } });
+    await assert.rejects(db.exportFile(), error => error.code === 'FDB_BUSY' && error.retryAfterMs === 2000 && error.status === 503 && !error.message.includes('test-token'));
+    reply = () => new Response(null, { status: 302, headers: { location: 'https://elsewhere.example' } });
+    await assert.rejects(db.exportFile(), error => error.code === 'FDB_PROTOCOL');
+    await assert.rejects(db.exportFile({ afterSequence: 1 }), TypeError);
+    const aborted = new AbortController();
+    aborted.abort();
+    await assert.rejects(db.exportFile({ signal: aborted.signal }), error => error.code === 'FDB_CANCELLED' && error.outcome === 'not-sent');
+  } finally { await db.close(); }
+  const remote = await connect({ url: cloud, token: 'test-token', warm: false, fetch: async () => { throw new Error('Cloud exports must not be sent'); } });
+  try { await assert.rejects(remote.exportFile(), error => error.code === 'FDB_UNSUPPORTED' && error.outcome === 'not-sent'); }
+  finally { await remote.close(); }
+});

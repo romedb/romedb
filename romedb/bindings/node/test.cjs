@@ -4226,3 +4226,25 @@ test('edge tables, RELATE and GRAPH sources keep typed records in both clients',
     } finally { await db.close(); }
   }
 });
+test('AsyncDatabase exports an MVCC file while queries continue and refuses WAL files', async t => {
+  const { AsyncDatabase } = require('./index.cjs');
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'romedb-async-export-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const db = await AsyncDatabase.open(path.join(directory, 'app.romedb'));
+  try {
+    await db.execute('PRAGMA journal_mode=mvcc');
+    await db.execute('CREATE TABLE posts');
+    for (let n = 0; n < 50; n++) await db.execute(`INSERT INTO posts {n:${n}}`);
+    const exporting = db.exportFile(path.join(directory, 'copy.romedb'));
+    assert.equal((await db.exactlyOne('SELECT count() FROM posts'))[0], 50n);
+    const { bytes } = await exporting;
+    assert.equal(bytes, fs.statSync(path.join(directory, 'copy.romedb')).size);
+    await assert.rejects(db.exportFile(path.join(directory, 'copy.romedb')), { code: 'FDB_ALREADY_EXISTS' });
+  } finally { await db.close(); }
+  const copy = new Database(path.join(directory, 'copy.romedb'));
+  try { assert.equal(copy.exactlyOne('SELECT count() FROM posts')[0], 50n); }
+  finally { copy.close(); }
+  const wal = await AsyncDatabase.open(path.join(directory, 'wal.romedb'));
+  try { await assert.rejects(wal.exportFile(path.join(directory, 'wal-copy.romedb')), { code: 'FDB_UNSUPPORTED' }); }
+  finally { await wal.close(); }
+});

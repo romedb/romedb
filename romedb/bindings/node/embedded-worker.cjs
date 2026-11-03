@@ -1,12 +1,13 @@
 'use strict';
 const { parentPort, workerData } = require('node:worker_threads');
 const { createHash } = require('node:crypto');
-const { NativeDatabase } = require('./native.cjs');
+const { NativeDatabase, cancelOperation } = require('./native.cjs');
 const { validatePrepared } = require('./client.cjs');
 let database;
 let sequence = 0;
 let fenced = false;
 const receipts = new Map();
+const copies = new Map();
 try {
   database = new NativeDatabase(workerData.path, '10000', '67108864', workerData.create ? 'create-mvcc' : 'mvcc');
   const foreignKeys = JSON.parse(database.execute('PRAGMA foreign_keys=ON', '{}'));
@@ -22,13 +23,30 @@ try {
 if (database) parentPort.on('message', ({ id, operation, body, cancellationKey }) => {
   try {
     if (operation === 'close') {
-      if (!fenced) try { database.execute('PRAGMA wal_checkpoint(TRUNCATE)', '{}'); } catch {}
-      database.close();
-      parentPort.postMessage({ id });
-      parentPort.close();
+      for (const key of copies.keys()) cancelOperation(key);
+      void Promise.allSettled(copies.values()).then(() => {
+        if (!fenced) try { database.execute('PRAGMA wal_checkpoint(TRUNCATE)', '{}'); } catch {}
+        database.close();
+        parentPort.postMessage({ id });
+        parentPort.close();
+      });
       return;
     }
     if (fenced) fail('FDB_STORAGE', 'Embedded outcome is uncertain; close and reconcile the database', 'unknown');
+    if (operation === 'export') {
+      // Writes run on this thread, so none commits between the start of the copy's snapshot and reading the sequence.
+      const pending = database.startFileExport(JSON.parse(body).destination, cancellationKey);
+      const snapshot = sequence;
+      const finished = pending.finish().then(
+        bytes => parentPort.postMessage({ id, result: { sequence: snapshot, bytes: Number(bytes) } }),
+        error => {
+          const coded = /^(FDB_[A-Z0-9_]+): (.*)$/s.exec(error.message);
+          parentPort.postMessage({ id, error: { code: coded?.[1] ?? 'FDB_STORAGE', message: (coded?.[2] ?? error.message).slice(0, 2048), outcome: 'read-failed' } });
+        },
+      ).finally(() => copies.delete(cancellationKey));
+      copies.set(cancellationKey, finished);
+      return;
+    }
     if (operation === 'info') {
       const mode = JSON.parse(database.execute('PRAGMA journal_mode', '{}'));
       if (mode.execution.error) fail('FDB_STORAGE', 'Cannot inspect embedded journal mode', 'read-failed');
@@ -85,7 +103,8 @@ if (database) parentPort.on('message', ({ id, operation, body, cancellationKey }
     }
     parentPort.postMessage({ id, result });
   } catch (error) {
-    parentPort.postMessage({ id, error: { code: error.code ?? 'FDB_VALIDATION', message: String(error.message).slice(0, 2048), outcome: error.outcome ?? (operation === 'read' ? 'read-failed' : 'unknown') } });
+    const coded = operation === 'export' ? /^(FDB_[A-Z0-9_]+): (.*)$/s.exec(error.message) : null;
+    parentPort.postMessage({ id, error: { code: coded?.[1] ?? error.code ?? 'FDB_VALIDATION', message: String(coded?.[2] ?? error.message).slice(0, 2048), outcome: error.outcome ?? (operation === 'read' || operation === 'export' ? 'read-failed' : 'unknown') } });
   }
 });
 

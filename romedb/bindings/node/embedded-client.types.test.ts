@@ -7,6 +7,13 @@ async function fixture(): Promise<void> {
   const result = await client.submit(request);
   const affected: bigint = result.results[0].affected;
   void affected;
+  const saved: { sequence: number; bytes: number } = await database.exportFile('/tmp/copy.romedb', { signal: new AbortController().signal });
+  const streamed = await database.exportFile({ timeoutMs: 60000 });
+  const body: ReadableStream<Uint8Array> = streamed.body;
+  const size: number = streamed.size;
+  void saved; void body; void size;
+  // @ts-expect-error exports take only a signal and a timeout
+  await database.exportFile({ afterSequence: 1 });
   await client.close();
 }
 void fixture;

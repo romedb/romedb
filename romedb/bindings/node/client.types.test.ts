@@ -10,6 +10,11 @@ async function clientTypes() {
   await db.submit(write, { signal: new AbortController().signal });
   await db.recover(await loadRequest('/private/request.json'));
   const engineVersion: string | undefined = (await db.info()).engineVersion;
+  const remote = await connect({ url: 'http://127.0.0.1:4321', token: 'test' });
+  const file = await remote.exportFile({ signal: new AbortController().signal });
+  const exported: number = file.sequence + file.size;
+  const reader = file.body.getReader();
+  void exported; void reader;
   await db.close();
   void count; void value;
   // @ts-expect-error ifSequence is a write condition

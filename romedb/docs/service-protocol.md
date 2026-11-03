@@ -66,12 +66,13 @@ another process.
 | `GET .../databases/{id}` | 200 `entry` plus the service details (`sequence`, `serviceVersion`, `engineVersion`, `journalMode`, `capabilities`, `limits`) |
 | `DELETE .../databases/{id}` | 204; closes the database and removes its file and journal files |
 | `POST .../databases/{id}/read` and `/query` | the service protocol below, per database |
+| `GET .../databases/{id}/file` | 200 with the database as a `.romedb` file; see [Database files](#database-files) |
 
 An entry is `{id, name, organizationId, status: "active", createdAt, updatedAt,
 nameRevision: 0, url}`, the same fields as Cloud; `url` ends in `/query`. Names
 follow Cloud's rule: 1 to 48 characters of `a-z`, `0-9` and `-`, starting with a
-letter. Management errors use Cloud's `{"error": "message"}` body; `/read` and
-`/query` errors keep the service body. A deletion with requests in progress gets
+letter. Management errors use Cloud's `{"error": "message"}` body; `/read`,
+`/query` and `/file` errors keep the service body. A deletion with requests in progress gets
 503 and can be retried.
 
 At most `--max-open` databases (1 to 1024, default 32) stay open. Opening one more
@@ -194,6 +195,68 @@ and revision. Other native handles do not advance that revision. Capabilities
 state `sequenceScope: 'adapter'` and `replayDurability: 'adapter-lifetime'`.
 The last client's close ends the replay lifetime. Reopening creates a new
 identity and rejects old prepared requests before executing SQL.
+
+## Database files
+
+A database can be copied into a new `.romedb` file while it stays open. The copy
+is one snapshot: it holds every write up to a sequence and none after it. Reads,
+writes and schema changes continue while it is built. The file is a complete MVCC
+database. `openEmbedded` and `romedb serve FILE` open it with no `-wal` or
+`.db-log` file beside it. It keeps the database's ID, sequence and recent receipts.
+
+| Where | Call | Result |
+| --- | --- | --- |
+| `romedb serve DATABASE` | `GET /v1/database/file` | 200 with the file as the body |
+| `romedb serve --directory` | `GET .../databases/{id}/file` | the same, for one database |
+| Node, URL client | `db.exportFile({ signal, timeoutMs })` | `{ sequence, size, body }` |
+| Node, `openEmbedded` | `db.exportFile(destination, { signal, timeoutMs })` | `{ sequence, bytes }` |
+| Node, `openEmbedded` | `db.exportFile({ signal, timeoutMs })` | `{ sequence, size, body }` |
+| Node, `AsyncDatabase` | `db.exportFile(destination, { signal, timeoutMs })` | `{ bytes }` |
+| Rust | `Database::start_file_export(destination, token)`, then `finish()` | `FileExport { file, bytes }` |
+
+`body` is a `ReadableStream<Uint8Array>` and uses Web APIs only, so the URL client
+also downloads files in Workers and browsers. It fails unless exactly `size` bytes
+arrive. Read it to the end or cancel it.
+
+The reply to `GET .../file` has these headers: `content-type:
+application/vnd.romedb.database`, `content-length`, `x-romedb-sequence` (the
+sequence of the copy), `x-romedb-database-id` and `cache-control: no-store`. It
+needs the same token as the other routes. A `X-RomeDB-Database-ID` request header
+is checked as for reads and writes. Errors use the service body
+`{"error": {"code", "message"}}`, also on directory routes. One copy of a database
+is built at a time; a second request gets 503 `FDB_BUSY` and can be retried.
+
+How a copy is made:
+
+- The engine's `VACUUM INTO` runs on a separate connection, inside one read
+  transaction. Commits wait only until that transaction has started; the reported
+  sequence is read at that moment. On `openEmbedded`, writes run on the adapter's
+  worker thread, which waits the same way.
+- The copy is built in a new folder with mode 0700. For `GET .../file` and the
+  streaming `exportFile`, the folder is beside the database file. The finished copy
+  is opened and its name is removed before it is sent, so a stopped download leaves
+  nothing behind. That disk needs room for one more copy of the database while it
+  is built and sent.
+- `exportFile(destination)` refuses a destination that exists, or whose `-wal`,
+  `-shm`, `-log`, `-journal` or `.db-log` file exists, with `FDB_ALREADY_EXISTS`.
+  It builds the copy in a folder beside the destination, then links the finished
+  file into place with mode 0600, so the destination never holds a partial file.
+- Checkpoints wait while a copy is built, so the MVCC log grows during a long
+  export. The first checkpoint after the export merges it.
+- `signal`, `timeoutMs` and closing the database cancel the copy and remove its
+  folder. An embedded export settles with `FDB_CANCELLED`, or with the file if the
+  copy finished first. For the URL client, `timeoutMs` (default: the client's
+  timeout) covers building the copy, until the file starts arriving; `signal`
+  also stops the download.
+- Only MVCC databases are copied. A WAL file gets `FDB_UNSUPPORTED`.
+- An `openEmbedded` sequence counts writes through that adapter and starts at 0 on
+  each open. A file that only `openEmbedded` has written has no service sequence,
+  so `romedb serve FILE` starts it at 0.
+- The copy keeps the database's ID. `serve --directory` refuses it under another
+  file name (409, a copied database); serve it alone or under its own ID.
+- Not yet available: `exportFile` on a Cloud URL fails with `FDB_UNSUPPORTED`
+  before sending (Cloud exports remain the archives of `PUT .../exports/{uuid}`),
+  and a Cloud database cannot be created from a file.
 
 ## Values and results
 

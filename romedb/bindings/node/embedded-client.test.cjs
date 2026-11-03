@@ -313,3 +313,86 @@ test('the embedded adapter preserves an existing MVCC file and its atomic rollba
   try { assert.equal((await reopened.info()).journalMode, 'mvcc'); }
   finally { await reopened.close(); }
 });
+
+async function fillPosts(db, count) {
+  await db.writeAtomic([{ sql: 'CREATE TABLE posts' }, { sql: 'CREATE TABLE marks' }]);
+  const body = 'x'.repeat(2000);
+  for (let start = 0; start < count; start += 25) {
+    const rows = Array.from({ length: 25 }, (_, i) => `{n:${start + i},body:'${body}'}`);
+    await db.writeAtomic(rows.map(row => ({ sql: `INSERT INTO posts ${row}` })));
+  }
+}
+
+async function names(directory) { return (await fs.readdir(directory)).sort(); }
+
+test('exportFile copies the database at the sequence it reports while writes continue', async t => {
+  const { directory, file } = await fixture(t);
+  const db = await openEmbedded({ path: file, create: true });
+  t.after(() => db.close());
+  await fillPosts(db, 2500);
+  const destination = path.join(directory, 'copy.romedb');
+  const mark = async n => [n, (await db.writeAtomic([{ sql: `INSERT INTO marks {n:${n}}` }])).sequence];
+  const written = [await mark(1), await mark(2), await mark(3)];
+  let exported;
+  const exporting = db.exportFile(destination).then(result => { exported = result; });
+  let during = 0;
+  for (let n = 4; exported === undefined; n++) {
+    written.push(await mark(n));
+    if (exported === undefined) during++;
+  }
+  await exporting;
+  assert.ok(during > 0, 'no write finished during the export');
+  assert.equal(exported.sequence, written[2][1]);
+  const stats = await fs.stat(destination);
+  assert.equal(stats.size, exported.bytes);
+  assert.equal(stats.mode & 0o777, 0o600);
+  const copy = await openEmbedded({ path: destination });
+  try {
+    const marks = (await copy.read([{ sql: 'SELECT n FROM marks ORDER BY n' }])).results[0].rows.map(([n]) => n);
+    assert.deepEqual(marks, written.filter(([, sequence]) => sequence <= exported.sequence).map(([n]) => BigInt(n)));
+    assert.deepEqual((await copy.read([{ sql: 'SELECT count() FROM posts' }])).results[0].rows, [[2500n]]);
+  } finally { await copy.close(); }
+  await assert.rejects(db.exportFile(destination), error => error instanceof ClientError && error.code === 'FDB_ALREADY_EXISTS' && error.outcome === 'read-failed');
+  await assert.rejects(db.exportFile(destination, { afterSequence: 1 }), TypeError);
+});
+
+test('exportFile streams a copy that leaves nothing on disk and stops when cancelled', async t => {
+  const { directory, file } = await fixture(t);
+  const db = await openEmbedded({ path: file, create: true });
+  t.after(() => db.close());
+  await fillPosts(db, 100);
+  const before = await names(directory);
+  const { sequence, size, body } = await db.exportFile();
+  assert.equal(sequence, db.sequence);
+  assert.deepEqual(await names(directory), before);
+  const bytes = new Uint8Array(await new Response(body).arrayBuffer());
+  assert.equal(bytes.byteLength, size);
+  const restored = path.join(directory, 'restored.romedb');
+  await fs.writeFile(restored, bytes, { mode: 0o600 });
+  const copy = await openEmbedded({ path: restored });
+  try { assert.deepEqual((await copy.read([{ sql: 'SELECT count() FROM posts' }])).results[0].rows, [[100n]]); }
+  finally { await copy.close(); }
+  for (const name of await names(directory)) if (name.startsWith('restored.')) await fs.rm(path.join(directory, name));
+  const cancelled = new AbortController();
+  const pending = db.exportFile(path.join(directory, 'cancelled.romedb'), { signal: cancelled.signal });
+  cancelled.abort();
+  await assert.rejects(pending, error => error.code === 'FDB_CANCELLED');
+  const late = await db.exportFile({ signal: cancelled.signal }).catch(error => error);
+  assert.equal(late.code, 'FDB_CANCELLED');
+  const drained = await db.exportFile();
+  await drained.body.cancel();
+  assert.deepEqual((await names(directory)).filter(name => !name.startsWith('app.')), []);
+});
+
+test('closing an embedded database cancels its running exports first', async t => {
+  const { directory, file } = await fixture(t);
+  const db = await openEmbedded({ path: file, create: true });
+  await fillPosts(db, 2500);
+  const destination = path.join(directory, 'copy.romedb');
+  const exporting = db.exportFile(destination).then(() => 'finished', error => error.code);
+  await db.close();
+  await assert.rejects(db.exportFile(), error => error.code === 'FDB_CLOSED' && error.outcome === 'not-sent');
+  const outcome = await exporting;
+  assert.ok(['FDB_CANCELLED', 'finished'].includes(outcome), outcome);
+  assert.deepEqual((await names(directory)).filter(name => !name.startsWith('app.')), outcome === 'finished' ? ['copy.romedb'] : []);
+});

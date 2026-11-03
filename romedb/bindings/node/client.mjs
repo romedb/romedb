@@ -12,6 +12,7 @@ const MAX_CLOUD_REQUEST = 1_048_576;
 const CLOUD_QUERY_VERSION = 3;
 const MAX_RESPONSE = 524_288;
 const MAX_SEQUENCE = Number.MAX_SAFE_INTEGER - 1;
+const DATABASE_FILE_TYPE = 'application/vnd.romedb.database';
 const construction = Symbol('RemoteDatabase');
 const warmAtConnect = Symbol('warmAtConnect');
 const WARM_STATES = new Set(['ready', 'starting', 'skipped']);
@@ -161,6 +162,63 @@ class RemoteDatabase {
   async writeAtomic(statements, options = {}) {
     if (!this.#sequenceKnown && this.#deferred && options.afterSequence === undefined) await this.info(options);
     return this.submit(this.prepareWrite(statements, options), options);
+  }
+  async exportFile(options = {}) {
+    this.#assertOpen();
+    if (this.#transport) throw new ClientError('FDB_UNSUPPORTED', 'Export embedded databases through EmbeddedDatabase.exportFile', 'not-sent');
+    if (this.#cloud) throw new ClientError('FDB_UNSUPPORTED', 'Cloud databases do not export database files yet', 'not-sent');
+    if (!plainObject(options) || Object.keys(options).some(key => !['signal', 'timeoutMs'].includes(key))) throw new TypeError('export options take signal and timeoutMs');
+    const duration = timeout(options.timeoutMs ?? this.#timeout);
+    if (options.signal !== undefined && !(options.signal instanceof AbortSignal)) throw new TypeError('signal must be an AbortSignal');
+    if (options.signal?.aborted) throw new ClientError('FDB_CANCELLED', 'Request cancelled before dispatch', 'not-sent');
+    if (this.#active.size >= 32) throw new ClientError('FDB_LIMIT', 'Client request limit reached', 'not-sent');
+    const controller = new AbortController();
+    const abort = () => controller.abort();
+    options.signal?.addEventListener('abort', abort, { once: true });
+    const timer = setTimeout(abort, duration);
+    this.#active.add(controller);
+    let open = true;
+    const finish = () => {
+      if (!open) return;
+      open = false;
+      clearTimeout(timer);
+      options.signal?.removeEventListener('abort', abort);
+      this.#active.delete(controller);
+    };
+    const credential = this.#token;
+    let status;
+    try {
+      const response = await this.#fetch(this.#url + '/file', {
+        method: 'GET',
+        headers: { authorization: `Bearer ${credential}`, accept: `${DATABASE_FILE_TYPE}, application/json`, ...(this.#id === undefined ? {} : { 'x-romedb-database-id': this.#id }) },
+        redirect: 'manual', signal: controller.signal,
+      });
+      // The deadline covers building the copy; the caller's signal still stops the download.
+      clearTimeout(timer);
+      status = response.status;
+      if (response.type === 'opaqueredirect' || (status >= 300 && status < 400)) throw new ClientError('FDB_PROTOCOL', 'Database URL redirected; redirects are never followed with a credential', 'read-failed', { status });
+      if (!response.ok) {
+        const retryAfterMs = retryAfter(response.headers.get('retry-after'));
+        const reply = await boundedJson(response, MAX_RESPONSE).catch(() => undefined);
+        const code = plainObject(reply?.error) && typeof reply.error.code === 'string' && /^FDB_[A-Z0-9_]{1,80}$/.test(reply.error.code) ? reply.error.code : httpCode(status);
+        throw new ClientError(code, safeMessage(reply, credential), 'read-failed', { status, ...(retryAfterMs === undefined ? {} : { retryAfterMs }) });
+      }
+      const size = Number(/^\d{1,16}$/.exec(response.headers.get('content-length') ?? '')?.[0] ?? NaN);
+      const exported = Number(/^\d{1,16}$/.exec(response.headers.get('x-romedb-sequence') ?? '')?.[0] ?? NaN);
+      const identity = response.headers.get('x-romedb-database-id');
+      if ((response.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase() !== DATABASE_FILE_TYPE || !Number.isSafeInteger(size) || !sequence(exported, true) || !response.body) {
+        throw new ClientError('FDB_PROTOCOL', 'Invalid database file response', 'read-failed', { status });
+      }
+      if (identity === null || (this.#id !== undefined && identity !== this.#id)) throw new ClientError('FDB_REQUEST_IDENTITY', 'Database file belongs to another database', 'read-failed', { status });
+      this.#id ??= identity;
+      this.#sequence = Math.max(this.#sequence, exported);
+      this.#sequenceKnown = true;
+      return { sequence: exported, size, body: countedBody(response.body, size, controller, finish) };
+    } catch (error) {
+      finish();
+      if (error instanceof ClientError) throw new ClientError(error.code, redactMessage(error.message, credential), error.outcome, { ...(error.status === undefined ? {} : { status: error.status }), ...(error.retryAfterMs === undefined ? {} : { retryAfterMs: error.retryAfterMs }) });
+      throw new ClientError(controller.signal.aborted ? 'FDB_CANCELLED' : status === undefined ? 'FDB_TRANSPORT' : 'FDB_PROTOCOL', 'Database file request failed', 'read-failed', { ...(status === undefined ? {} : { status }), cause: error });
+    }
   }
   async close() {
     this.#closed = true;
@@ -337,6 +395,34 @@ async function boundedJson(response, limit) {
     for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
     return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
   } finally { await reader.cancel().catch(() => {}); }
+}
+
+// Passes the download through and fails it unless exactly `size` bytes arrive.
+function countedBody(body, size, controller, finish) {
+  const reader = body.getReader();
+  let received = 0;
+  const failure = (message, cause) => new ClientError(controller.signal.aborted ? 'FDB_CANCELLED' : 'FDB_TRANSPORT', message, 'read-failed', cause === undefined ? {} : { cause });
+  return new ReadableStream({
+    async pull(stream) {
+      let chunk;
+      try { chunk = await reader.read(); }
+      catch (error) { finish(); stream.error(failure('Database file download failed', error)); return; }
+      if (chunk.done) {
+        finish();
+        if (received === size) stream.close();
+        else stream.error(failure('Database file ended before its declared size'));
+        return;
+      }
+      received += chunk.value.byteLength;
+      if (received > size) {
+        finish(); controller.abort();
+        stream.error(new ClientError('FDB_PROTOCOL', 'Database file is larger than its declared size', 'read-failed'));
+        return;
+      }
+      stream.enqueue(chunk.value);
+    },
+    cancel(reason) { finish(); controller.abort(); return reader.cancel(reason).catch(() => {}); },
+  }, { highWaterMark: 0 });
 }
 
 function loopbackHost(hostname) { return ['127.0.0.1', 'localhost', '[::1]'].includes(hostname); }

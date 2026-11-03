@@ -72,6 +72,37 @@ async function openEmbeddedFile(options) {
   } catch (error) { await releaseSession(session, canonical); throw error; }
 }
 
+function checkExportOptions(options) {
+  if (!plainObject(options) || Object.keys(options).some(key => !['signal', 'timeoutMs'].includes(key))) throw new TypeError('export options take signal and timeoutMs');
+  if (options.signal !== undefined && !(options.signal instanceof AbortSignal)) throw new TypeError('signal must be an AbortSignal');
+  if (options.timeoutMs !== undefined && (!Number.isInteger(options.timeoutMs) || options.timeoutMs < 1 || options.timeoutMs > 4294967295)) throw new RangeError('timeoutMs must be 1..4294967295');
+}
+
+// The file has no name any more; the handle keeps it until the stream ends or is cancelled.
+function fileStream(handle, size, signal) {
+  let offset = 0;
+  const fail = async (controller, error) => {
+    await handle.close().catch(() => {});
+    controller.error(error);
+  };
+  return new ReadableStream({
+    async pull(controller) {
+      if (signal?.aborted) return fail(controller, new common.ClientError('FDB_CANCELLED', 'Embedded export download cancelled', 'read-failed'));
+      try {
+        if (offset === size) { await handle.close(); controller.close(); return; }
+        const chunk = new Uint8Array(Math.min(262144, size - offset));
+        const { bytesRead } = await handle.read(chunk, 0, chunk.byteLength, offset);
+        if (bytesRead === 0) throw new Error('exported file ended early');
+        offset += bytesRead;
+        controller.enqueue(bytesRead === chunk.byteLength ? chunk : chunk.slice(0, bytesRead));
+      } catch (error) {
+        await fail(controller, new common.ClientError('FDB_STORAGE', 'Exported database file could not be read', 'read-failed', { cause: error }));
+      }
+    },
+    cancel() { return handle.close().catch(() => {}); },
+  }, { highWaterMark: 0 });
+}
+
 function openLimit() {
   return new common.ClientError('FDB_LIMIT', `Embedded database limit reached: ${sessions.size} files are open; close one or raise maxOpen`, 'not-sent');
 }
@@ -93,6 +124,32 @@ class EmbeddedDatabase {
   submit(request, options) { return this.#client.submit(request, options); }
   recover(request, options) { return this.#client.recover(request, options); }
   writeAtomic(statements, options) { return this.#client.writeAtomic(statements, options); }
+  exportFile(destination, options) {
+    if (this.#closing) return Promise.reject(new common.ClientError('FDB_CLOSED', 'Database client is closed', 'not-sent'));
+    return typeof destination === 'string' ? this.#exportTo(destination, options ?? {}) : this.#exportStream(destination ?? {});
+  }
+  async #exportTo(destination, options) {
+    checkExportOptions(options);
+    if (!destination || destination.length > 4096 || destination.includes('\0')) throw new TypeError('exportFile requires a bounded destination path');
+    const { sequence, bytes } = await this.#session.request('export', JSON.stringify({ destination: path.resolve(destination) }), options.signal, options.timeoutMs);
+    return { sequence, bytes };
+  }
+  async #exportStream(options) {
+    checkExportOptions(options);
+    let folder;
+    try {
+      folder = await fs.mkdtemp(path.join(path.dirname(this.#path), '.romedb-download-'));
+      const file = path.join(folder, 'export.romedb');
+      const { sequence, bytes } = await this.#exportTo(file, options);
+      const handle = await fs.open(file, 'r');
+      await fs.rm(folder, { recursive: true });
+      return { sequence, size: bytes, body: fileStream(handle, bytes, options.signal) };
+    } catch (error) {
+      if (folder !== undefined) await fs.rm(folder, { recursive: true, force: true }).catch(() => {});
+      if (error instanceof common.ClientError || error instanceof TypeError || error instanceof RangeError) throw error;
+      throw new common.ClientError(['EACCES', 'EPERM'].includes(error.code) ? 'FDB_FORBIDDEN' : error.code === 'ENOENT' ? 'FDB_NOT_FOUND' : 'FDB_STORAGE', 'Embedded export file operation failed', 'read-failed', { cause: error });
+    }
+  }
   close() {
     this.#closing ??= (async () => { await this.#client.close(); await releaseSession(this.#session, this.#path); })();
     return this.#closing;
@@ -152,7 +209,8 @@ class Session {
       const id = ++this.#next;
       const listener = signal === undefined ? undefined : addAbortListener(signal, () => {
         native.cancelOperation(token);
-        reject(new common.ClientError('FDB_CANCELLED', operation === 'write' ? 'Write was not confirmed; recover the saved request' : 'Embedded request cancelled', operation === 'write' ? 'unknown' : 'read-failed'));
+        // An export settles when the worker reports it, so a late cancellation cannot hide a finished file.
+        if (operation !== 'export') reject(new common.ClientError('FDB_CANCELLED', operation === 'write' ? 'Write was not confirmed; recover the saved request' : 'Embedded request cancelled', operation === 'write' ? 'unknown' : 'read-failed'));
       });
       this.#pending.set(id, { resolve, reject, token, listener, bytes }); this.#bytes += bytes;
       try { this.#worker.postMessage({ id, operation, body, cancellationKey: token }); }

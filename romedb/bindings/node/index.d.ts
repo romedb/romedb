@@ -66,6 +66,7 @@ export class Database {
 }
 
 export interface ExecuteOptions { signal?: AbortSignal; timeoutMs?: number; }
+export interface FileExport { bytes: number; }
 export class AsyncDatabase {
   collection<T extends object = Document>(name: string): AsyncCollection<T>;
   private constructor();
@@ -75,6 +76,8 @@ export class AsyncDatabase {
   migrate(migrations: Migration[], options?: ExecuteOptions): Promise<MigrationReport>;
   exportDocuments(table: string, format?: TransferFormat, options?: ExecuteOptions): Promise<string>;
   importDocuments(table: string, input: string, format?: TransferFormat, options?: ExecuteOptions): Promise<ImportReport>;
+  /** Copy an MVCC database into a new private file while queries continue; the destination and its log files must not exist. */
+  exportFile(destination: string, options?: ExecuteOptions): Promise<FileExport>;
   execute(sql: string, parameters?: Parameters, options?: ExecuteOptions): Promise<QueryResult>;
   profileSelect(sql: string, parameters?: Parameters, options?: ExecuteOptions): Promise<ProfiledQuery>;
   /** Checks write results atomically; does not bound engine or logical materialization memory. */

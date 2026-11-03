@@ -412,6 +412,17 @@ class AsyncDatabase {
     return { alreadyApplied: report.execution.result.alreadyApplied,
       applied: report.execution.result.applied.map(BigInt), transaction: report.transaction };
   }
+  async exportFile(destination, options = {}) {
+    if (typeof destination !== 'string' || !destination || destination.length > 4096 || destination.includes('\0')) throw new TypeError('exportFile requires a bounded destination path');
+    try { return await this.#request('exportFile', [require('node:path').resolve(destination)], false, options.signal, options.timeoutMs); }
+    catch (error) {
+      const coded = /^(FDB_[A-Z0-9_]+): (.*)$/s.exec(error.message);
+      if (!coded) throw error;
+      const failure = new Error(coded[2]);
+      failure.code = coded[1];
+      throw failure;
+    }
+  }
   async all(sql, parameters, options) { return (await this.execute(sql, parameters, options)).rows; }
   async first(sql, parameters, options) { return (await this.all(sql, parameters, options))[0]; }
   async exactlyOne(sql, parameters, options) {

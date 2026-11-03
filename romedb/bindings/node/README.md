@@ -87,7 +87,7 @@ try {
 }
 ```
 
-AsyncDatabase provides Promise-returning execute/all/first/exactlyOne, migrate, importDocuments and exportDocuments methods with the same value and result shapes. Opening waits for native initialization and rejects on failure. One dedicated [Node worker](https://nodejs.org/api/worker_threads.html) owns the native connection; submissions execute sequentially in send order. Separate AsyncDatabase instances have separate workers and connections. Native database execution occurs off the calling event loop; argument encoding, message copying and result decoding still consume time and memory on the caller.
+AsyncDatabase provides Promise-returning execute/all/first/exactlyOne, migrate, importDocuments and exportDocuments methods with the same value and result shapes. `exportFile(destination, options)` copies an MVCC database into a new file while queries continue and resolves to `{ bytes }`. Opening waits for native initialization and rejects on failure. One dedicated [Node worker](https://nodejs.org/api/worker_threads.html) owns the native connection; submissions execute sequentially in send order. Separate AsyncDatabase instances have separate workers and connections. Native database execution occurs off the calling event loop; argument encoding, message copying and result decoding still consume time and memory on the caller.
 
 The initial queue permits 256 outstanding operations and 128 MiB of encoded argument strings, including the active operation. Excess requests reject with FDB_LIMIT before submission. These are queue limits, not total-memory or query-time guarantees. Close stops new submissions, drains previously accepted operations, closes the native connection and waits for worker exit. Repeated close calls share the same Promise. Closing an active transaction uses native rollback-on-drop behavior, covered by reopen tests. Applications must await close to release the worker; no automatic idle shutdown or force-termination API is provided.
 
@@ -596,5 +596,30 @@ startup returns. Filesystem work and native cleanup are not hard preempted.
 Close stops requests from that client and cancels its outstanding work. The last
 client drains the worker queue, closes the native handle, and waits for worker
 exit. Await every client's `close()` to release ownership.
+
+#### Copying a database into a file
+
+`exportFile` copies the open database into a new `.romedb` file while reads and
+writes continue. The file is one snapshot and opens by itself in `openEmbedded`
+and `romedb serve FILE`.
+
+```js
+const { sequence, bytes } = await db.exportFile('backups/site-2026-11-03.romedb');
+// Or stream the copy, for example as a download; nothing stays on disk afterwards.
+const { size, body } = await db.exportFile({ signal });
+```
+
+The file holds every write up to and including `sequence` and none after it. The
+destination and its `-wal`, `-shm`, `-log`, `-journal` and `.db-log` files must not
+exist (`FDB_ALREADY_EXISTS`); the new file has mode 0600 and appears only when it
+is complete. The streaming form builds its copy in a private folder beside the
+database file and removes its name before it returns, so read `body` to the end or
+cancel it. Exports have no deadline unless you pass `timeoutMs`. `signal`,
+`timeoutMs` and `close()` cancel a running export; it then rejects with
+`FDB_CANCELLED`, unless it finished first. The URL client has the streaming form,
+`db.exportFile({ signal, timeoutMs })`, for `romedb serve` and `serve --directory`
+(not Cloud yet), and `AsyncDatabase` has `exportFile(destination, options)`. See
+[Database files](https://github.com/romedb/romedb/blob/main/romedb/docs/service-protocol.md#database-files)
+for how the copy is made.
 
 For typed collection CRUD helpers, see the [document SDK guide](https://github.com/romedb/romedb/blob/main/romedb/docs/node-sdk.md).

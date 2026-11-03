@@ -1,12 +1,15 @@
 use crate::{
     directory::{valid_id, DirectoryService},
-    DatabaseService, Error, Result,
+    DatabaseService, Error, FileDownload, Result,
 };
 use bytes::Bytes;
-use http_body_util::{BodyExt, Full};
+use http_body_util::{BodyExt, Either, Full};
 use hyper::{
-    body::Incoming, header, server::conn::http1, service::service_fn, Method, Request, Response,
-    StatusCode,
+    body::{Frame, Incoming, SizeHint},
+    header,
+    server::conn::http1,
+    service::service_fn,
+    Method, Request, Response, StatusCode,
 };
 use hyper_util::rt::{TokioIo, TokioTimer};
 use sha2::{Digest, Sha256};
@@ -17,17 +20,23 @@ use std::{
     io::{Read, Write},
     os::unix::fs::{MetadataExt, OpenOptionsExt},
     path::Path,
+    pin::Pin,
     sync::Arc,
+    task::{Context as TaskContext, Poll},
     time::Duration,
 };
 use tokio::{
     net::TcpListener,
-    sync::{watch, Semaphore},
+    sync::{mpsc, watch, OwnedSemaphorePermit, Semaphore},
     task::JoinSet,
     time::timeout,
 };
 
 const MAX_DATABASE_JOBS: u32 = 36;
+const FILE_CHUNK_BYTES: usize = 256 * 1024;
+const DATABASE_FILE_TYPE: &str = "application/vnd.romedb.database";
+
+type Body = Either<Full<Bytes>, FileBody>;
 
 pub struct Token {
     hash: [u8; 32],
@@ -141,12 +150,19 @@ enum Route {
     Info,
     Read,
     Query,
+    File,
     List,
     Create,
     Details(String),
     Delete(String),
     DatabaseRead(String),
     DatabaseQuery(String),
+    DatabaseFile(String),
+}
+
+enum Reply {
+    Json(StatusCode, String),
+    File(FileDownload, OwnedSemaphorePermit),
 }
 
 pub async fn serve(
@@ -241,10 +257,11 @@ struct Context {
 async fn dispatch(
     context: Context,
     request: Request<Incoming>,
-) -> std::result::Result<Response<Full<Bytes>>, Infallible> {
+) -> std::result::Result<Response<Body>, Infallible> {
     let management = request.uri().path().starts_with("/v1/organizations/")
         && !request.uri().path().ends_with("/read")
-        && !request.uri().path().ends_with("/query");
+        && !request.uri().path().ends_with("/query")
+        && !request.uri().path().ends_with("/file");
     let response = match process(context, request).await {
         Ok(response) => response,
         Err(error) => {
@@ -274,7 +291,7 @@ async fn dispatch(
     Ok(response)
 }
 
-async fn process(context: Context, request: Request<Incoming>) -> Result<Response<Full<Bytes>>> {
+async fn process(context: Context, request: Request<Incoming>) -> Result<Response<Body>> {
     let route = validate_request(&context, &request)?;
     let origin = format!("http://{}", host(&request).unwrap_or_default());
     let body = if request.method() == Method::POST {
@@ -330,8 +347,17 @@ async fn process(context: Context, request: Request<Incoming>) -> Result<Respons
         .try_acquire_owned()
         .map_err(|_| Error::new("FDB_BUSY", "service request capacity is full"))?;
     let operation = tokio::task::spawn_blocking(move || {
-        let _permit = permit;
         let body = body.unwrap_or_default();
+        match (&context.target, &route) {
+            (Target::Database(database), Route::File) => {
+                return Ok(Reply::File(database.export_file()?, permit))
+            }
+            (Target::Directory(directory), Route::DatabaseFile(id)) => {
+                return Ok(Reply::File(directory.database(id)?.export_file()?, permit))
+            }
+            _ => {}
+        }
+        let _permit = permit;
         match (&context.target, route) {
             (Target::Database(database), Route::Info) => {
                 Ok((StatusCode::OK, database.info()?.to_string()))
@@ -367,11 +393,15 @@ async fn process(context: Context, request: Request<Incoming>) -> Result<Respons
                 "database endpoint does not exist",
             )),
         }
+        .map(|(status, body)| Reply::Json(status, body))
     });
-    let (status, body) = operation
+    match operation
         .await
-        .map_err(|_| Error::new("FDB_STORAGE", "database request task failed"))??;
-    Ok(response(status, body))
+        .map_err(|_| Error::new("FDB_STORAGE", "database request task failed"))??
+    {
+        Reply::Json(status, body) => Ok(response(status, body)),
+        Reply::File(download, permit) => Ok(file_response(download, permit)),
+    }
 }
 
 fn validate_request(context: &Context, request: &Request<Incoming>) -> Result<Route> {
@@ -436,7 +466,8 @@ fn validate_request(context: &Context, request: &Request<Incoming>) -> Result<Ro
             Route::Details(id)
             | Route::Delete(id)
             | Route::DatabaseRead(id)
-            | Route::DatabaseQuery(id),
+            | Route::DatabaseQuery(id)
+            | Route::DatabaseFile(id),
         ) => Some(id.as_str()),
         (Target::Directory(_), _) => None,
     };
@@ -464,7 +495,8 @@ fn database_route(method: &Method, path: &str) -> Result<Route> {
         (&Method::GET, "/v1/database") => Ok(Route::Info),
         (&Method::POST, "/v1/database/read") => Ok(Route::Read),
         (&Method::POST, "/v1/database/query") => Ok(Route::Query),
-        (_, "/v1/database" | "/v1/database/read" | "/v1/database/query") => {
+        (&Method::GET, "/v1/database/file") => Ok(Route::File),
+        (_, "/v1/database" | "/v1/database/read" | "/v1/database/query" | "/v1/database/file") => {
             Err(Error::new("FDB_METHOD", "method is not supported"))
         }
         _ => Err(Error::new(
@@ -495,7 +527,8 @@ fn directory_route(method: &Method, path: &str, organization_id: &str) -> Result
         (&Method::DELETE, [id]) => Ok(Route::Delete((*id).to_owned())),
         (&Method::POST, [id, "read"]) => Ok(Route::DatabaseRead((*id).to_owned())),
         (&Method::POST, [id, "query"]) => Ok(Route::DatabaseQuery((*id).to_owned())),
-        (_, [_] | [_, "read" | "query"]) => {
+        (&Method::GET, [id, "file"]) => Ok(Route::DatabaseFile((*id).to_owned())),
+        (_, [_] | [_, "read" | "query" | "file"]) => {
             Err(Error::new("FDB_METHOD", "method is not supported"))
         }
         _ => Err(not_found()),
@@ -509,7 +542,7 @@ fn host(request: &Request<Incoming>) -> Option<&str> {
         .and_then(|v| v.to_str().ok())
 }
 
-fn response(status: StatusCode, body: String) -> Response<Full<Bytes>> {
+fn response(status: StatusCode, body: String) -> Response<Body> {
     let mut builder = Response::builder().status(status);
     if status != StatusCode::NO_CONTENT {
         builder = builder.header(header::CONTENT_TYPE, "application/json");
@@ -518,6 +551,86 @@ fn response(status: StatusCode, body: String) -> Response<Full<Bytes>> {
         .header(header::CACHE_CONTROL, "no-store")
         .header(header::CONNECTION, "close")
         .header("x-content-type-options", "nosniff")
-        .body(Full::new(Bytes::from(body)))
+        .body(Either::Left(Full::new(Bytes::from(body))))
         .expect("fixed HTTP response")
+}
+
+fn file_response(download: FileDownload, permit: OwnedSemaphorePermit) -> Response<Body> {
+    let FileDownload {
+        mut file,
+        bytes,
+        sequence,
+        database_id,
+    } = download;
+    let (sender, chunks) = mpsc::channel(4);
+    tokio::task::spawn_blocking(move || {
+        let _permit = permit;
+        loop {
+            let mut chunk = vec![0; FILE_CHUNK_BYTES];
+            let read = match file.read(&mut chunk) {
+                Ok(0) => return,
+                Ok(read) => read,
+                Err(error) => {
+                    let _ = sender.blocking_send(Err(error));
+                    return;
+                }
+            };
+            chunk.truncate(read);
+            if sender.blocking_send(Ok(Bytes::from(chunk))).is_err() {
+                return;
+            }
+        }
+    });
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, DATABASE_FILE_TYPE)
+        .header(header::CONTENT_LENGTH, bytes)
+        .header("x-romedb-sequence", sequence)
+        .header("x-romedb-database-id", database_id)
+        .header(header::CACHE_CONTROL, "no-store")
+        .header(header::CONNECTION, "close")
+        .header("x-content-type-options", "nosniff")
+        .body(Either::Right(FileBody {
+            chunks,
+            remaining: bytes,
+        }))
+        .expect("fixed HTTP response")
+}
+
+struct FileBody {
+    chunks: mpsc::Receiver<std::io::Result<Bytes>>,
+    remaining: u64,
+}
+
+impl hyper::body::Body for FileBody {
+    type Data = Bytes;
+    type Error = std::io::Error;
+
+    fn poll_frame(
+        mut self: Pin<&mut Self>,
+        context: &mut TaskContext<'_>,
+    ) -> Poll<Option<std::result::Result<Frame<Bytes>, std::io::Error>>> {
+        if self.remaining == 0 {
+            return Poll::Ready(None);
+        }
+        match self.chunks.poll_recv(context) {
+            Poll::Pending => Poll::Pending,
+            Poll::Ready(Some(Ok(chunk))) if chunk.len() as u64 <= self.remaining => {
+                self.remaining -= chunk.len() as u64;
+                Poll::Ready(Some(Ok(Frame::data(chunk))))
+            }
+            Poll::Ready(Some(Err(error))) => Poll::Ready(Some(Err(error))),
+            Poll::Ready(_) => Poll::Ready(Some(Err(std::io::Error::other(
+                "database file size changed while it was sent",
+            )))),
+        }
+    }
+
+    fn is_end_stream(&self) -> bool {
+        self.remaining == 0
+    }
+
+    fn size_hint(&self) -> SizeHint {
+        SizeHint::with_exact(self.remaining)
+    }
 }
