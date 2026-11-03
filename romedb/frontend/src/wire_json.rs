@@ -65,7 +65,7 @@ mod tests {
             decode_wire_json::<serde_json::Value>(&excessive)
                 .unwrap_err()
                 .code(),
-            "FDB_LIMIT"
+            "RDB_LIMIT"
         );
         for malformed in [
             "[}",
@@ -79,7 +79,7 @@ mod tests {
                 decode_wire_json::<serde_json::Value>(malformed)
                     .unwrap_err()
                     .code(),
-                "FDB_STORAGE",
+                "RDB_STORAGE",
                 "{malformed}"
             );
         }

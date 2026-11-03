@@ -38,8 +38,8 @@ test('tracker initialization retains migration and cleanup failures',async()=>{
   const originalOpen=AsyncDatabase.open;
   try {
     for(const failClose of [false,true]) {
-      const migrationError=Object.assign(new Error('migration failed'),{code:'FDB_MIGRATION'});
-      const closeError=Object.assign(new Error('close failed'),{code:'FDB_WORKER'});
+      const migrationError=Object.assign(new Error('migration failed'),{code:'RDB_MIGRATION'});
+      const closeError=Object.assign(new Error('close failed'),{code:'RDB_WORKER'});
       let closed=0;
       AsyncDatabase.open=async()=>({
         migrate:async migrations=>{assert.equal(migrations[0].version,1n);throw migrationError;},

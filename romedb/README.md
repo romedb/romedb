@@ -69,7 +69,7 @@ in line/interactive mode. In interactive mode, the SQL following the command and
 multiple lines; finish it with a semicolon. `.clear` discards the pending command.
 Piped standalone input can also contain multiline SQL. They use the same
 result accounting as the Rust/Node APIs: column names count even for empty results,
-FETCH output counts after expansion, and overflow emits `FDB_LIMIT` without partial
+FETCH output counts after expansion, and overflow emits `RDB_LIMIT` without partial
 rows or profile counters. Write-result rejection rolls back the operation through
 its savepoint, with transaction observations in the error report. `.write-limit`
 accepts data writes; transaction control and DDL use ordinary SQL commands.

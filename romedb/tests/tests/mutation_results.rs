@@ -165,7 +165,7 @@ fn parameters_aliases_and_snapshot_helpers_remain_scoped() {
     ] {
         assert_eq!(
             c.execute(sql, &Parameters::new()).unwrap_err().code(),
-            "FDB_VALIDATION",
+            "RDB_VALIDATION",
             "{sql}"
         );
     }
@@ -173,7 +173,7 @@ fn parameters_aliases_and_snapshot_helpers_remain_scoped() {
         c.profile_select("SELECT doc::diff() FROM docs WHERE 0", &Parameters::new())
             .unwrap_err()
             .code(),
-        "FDB_VALIDATION"
+        "RDB_VALIDATION"
     );
     q(&c, "CREATE TABLE native(n INTEGER)");
     assert!(c
@@ -211,7 +211,7 @@ fn result_and_diff_bounds_roll_back_mutations_and_preserve_prior_work() {
             )
             .unwrap_err()
             .code(),
-            "FDB_LIMIT"
+            "RDB_LIMIT"
         );
         assert_eq!(c.transaction_state(), TransactionState::Active);
         assert_eq!(
@@ -227,7 +227,7 @@ fn result_and_diff_bounds_roll_back_mutations_and_preserve_prior_work() {
         c.execute("UPDATE docs:a MERGE $body RETURNING doc::diff()", &params)
             .unwrap_err()
             .code(),
-        "FDB_LIMIT"
+        "RDB_LIMIT"
     );
     assert_eq!(q(&c, "SELECT n FROM docs ORDER BY n").rows.len(), 2);
     let lazy = c
@@ -282,7 +282,7 @@ fn snapshots_survive_reader_isolation_reopen_and_all_index_rollback() {
             )
             .unwrap_err()
             .code(),
-            "FDB_LIMIT"
+            "RDB_LIMIT"
         );
         assert_eq!(
             q(&c, "SELECT * FROM docs WHERE id=docs:a").rows,
@@ -349,7 +349,7 @@ fn retained_before_images_consume_write_payload_without_extra_row_counts() {
         )
         .unwrap_err()
         .code(),
-        "FDB_LIMIT"
+        "RDB_LIMIT"
     );
     assert_eq!(c.transaction_state(), TransactionState::Active);
     assert_eq!(

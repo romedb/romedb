@@ -61,7 +61,7 @@ fn recursive_sql_returns_errors_instead_of_aborting_the_process() {
         .collect();
     assert_eq!(reports.len(), commands.len());
     for report in &reports[4..16] {
-        assert_eq!(report["error"]["code"], "FDB_ENGINE");
+        assert_eq!(report["error"]["code"], "RDB_ENGINE");
         assert!(report["error"]["message"]
             .as_str()
             .unwrap()

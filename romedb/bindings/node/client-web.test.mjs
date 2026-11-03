@@ -69,20 +69,20 @@ test('a redirect is refused without following it or sending the credential on', 
     return new Response(null, { status: 307, headers: { location: 'https://elsewhere.example/v1/database/query' } });
   } });
   try {
-    await assert.rejects(db.read([{ sql: 'SELECT 1' }]), error => error instanceof ClientError && error.code === 'FDB_PROTOCOL' && error.status === 307 && error.outcome === 'read-failed');
+    await assert.rejects(db.read([{ sql: 'SELECT 1' }]), error => error instanceof ClientError && error.code === 'RDB_PROTOCOL' && error.status === 307 && error.outcome === 'read-failed');
     const write = db.prepareWrite([{ sql: 'INSERT INTO t VALUES(1)' }]);
-    await assert.rejects(db.submit(write), error => error.code === 'FDB_PROTOCOL' && error.outcome === 'unknown' && error.request === write);
+    await assert.rejects(db.submit(write), error => error.code === 'RDB_PROTOCOL' && error.outcome === 'unknown' && error.request === write);
     assert.equal(posts, 2);
   } finally { await db.close(); }
   const opaque = await connect({ url: local, token: 'test', fetch: async (_url, init) => init.method === 'GET' ? json(details(0)) : Object.defineProperty(new Response(null, { status: 200 }), 'type', { value: 'opaqueredirect' }) });
-  try { await assert.rejects(opaque.read([{ sql: 'SELECT 1' }]), error => error.code === 'FDB_PROTOCOL' && /redirect/.test(error.message)); }
+  try { await assert.rejects(opaque.read([{ sql: 'SELECT 1' }]), error => error.code === 'RDB_PROTOCOL' && /redirect/.test(error.message)); }
   finally { await opaque.close(); }
 });
 
 test('HTTP errors report Retry-After as retryAfterMs, and transport errors keep their cause', async () => {
   const date = new Date(Date.now() + 60_000).toUTCString();
   for (const [header, expected] of [['3', 3000], ['0.5', 500], [date, ms => ms > 50_000 && ms <= 60_000], ['soon', undefined], [null, undefined]]) {
-    const db = await connect({ url: local, token: 'test', fetch: async (_url, init) => init.method === 'GET' ? json(details(0)) : json({ error: { code: 'FDB_LIMIT', message: 'busy' } }, 429, header === null ? {} : { 'retry-after': header }) });
+    const db = await connect({ url: local, token: 'test', fetch: async (_url, init) => init.method === 'GET' ? json(details(0)) : json({ error: { code: 'RDB_LIMIT', message: 'busy' } }, 429, header === null ? {} : { 'retry-after': header }) });
     try {
       await assert.rejects(db.read([{ sql: 'SELECT 1' }]), error => {
         assert.equal(error.status, 429);
@@ -95,7 +95,7 @@ test('HTTP errors report Retry-After as retryAfterMs, and transport errors keep 
   const refused = new TypeError('fetch failed', { cause: { code: 'ECONNREFUSED' } });
   const db = await connect({ url: local, token: 'test', fetch: async (_url, init) => { if (init.method === 'GET') return json(details(0)); throw refused; } });
   try {
-    await assert.rejects(db.read([{ sql: 'SELECT 1' }]), error => error.code === 'FDB_TRANSPORT' && error.cause === refused && !Object.keys(error).includes('cause'));
+    await assert.rejects(db.read([{ sql: 'SELECT 1' }]), error => error.code === 'RDB_TRANSPORT' && error.cause === refused && !Object.keys(error).includes('cause'));
   } finally { await db.close(); }
 });
 

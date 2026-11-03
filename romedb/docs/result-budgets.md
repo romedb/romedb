@@ -3,7 +3,7 @@
 Rust `Connection::select_with_limits(sql, params, ResultLimits)` and
 `profile_select_with_limits` now enforce explicit `max_rows` and
 `max_payload_bytes` on native and typed SELECT results. Existing APIs retain
-unbounded result behavior. Overflow returns `FDB_LIMIT`, discards the result,
+unbounded result behavior. Overflow returns `RDB_LIMIT`, discards the result,
 and stops collection at the first rejected row. Column metadata is charged even
 for empty results. Non-SELECT statements are rejected by these APIs.
 
@@ -53,7 +53,7 @@ Document snapshot buffers count document keys/values before retaining the next
 snapshot. SQL UPDATE checks its completed next snapshot before field validation
 and storage mutation; earlier updated rows still rely on the operation savepoint.
 Object single-record SQL writes check their snapshot within the operation
-savepoint. Overflow returns `FDB_LIMIT`, discards the buffer, and uses existing
+savepoint. Overflow returns `RDB_LIMIT`, discards the buffer, and uses existing
 write rollback. Candidate queries stop at the first rejected row. Ordinary reads
 and explicit returned-result budgets keep their separate policies.
 
@@ -78,10 +78,10 @@ romedb-cli --write-buffer-limits 10000 67108864 --script app.db < changes.sql
 ```
 
 The policy also applies to collection writes executed by batches and migrations.
-A batch reports `FDB_LIMIT` for the rejected statement and stops before later
+A batch reports `RDB_LIMIT` for the rejected statement and stops before later
 statements; earlier successful statements keep their normal transaction state.
-The migration runner wraps a rejected statement as `FDB_MIGRATION` with an
-underlying `FDB_LIMIT` source and rolls back every pending script and history row.
+The migration runner wraps a rejected statement as `RDB_MIGRATION` with an
+underlying `RDB_LIMIT` source and rolls back every pending script and history row.
 Previously applied migrations remain intact. Rust callers can increase the policy
 and retry the identical migration plan; Node callers must open a connection with
 the larger policy.
@@ -140,7 +140,7 @@ The common `collect_rows` function is therefore not a sufficient single enforcem
 
 Introduce an explicit bounded SELECT operation using the existing SELECT-only preparation checks in `profile_select_inner`. Share one collector budget between native and logical SELECT execution, and expose the same policy to profiling. Reject non-SELECT statements before running them. Keep existing APIs and their current behavior until the broader policy is decided and implemented.
 
-Define separate maximum returned-row and logical-payload-byte counters. Count column names and recursively count owned value payloads, including object keys, record table/key strings, arrays, binary and vector data. Use checked arithmetic. Document that these counters bound returned logical data, not Rust allocator overhead or the engine's sort/group/CTE working memory. Check the next row before retaining it, and discard the result on overflow with `FDB_LIMIT`; never return a truncated successful rowset.
+Define separate maximum returned-row and logical-payload-byte counters. Count column names and recursively count owned value payloads, including object keys, record table/key strings, arrays, binary and vector data. Use checked arithmetic. Document that these counters bound returned logical data, not Rust allocator overhead or the engine's sort/group/CTE working memory. Check the next row before retaining it, and discard the result on overflow with `RDB_LIMIT`; never return a truncated successful rowset.
 
 Forward FETCH requires the same final-result budget before retaining resolved values. A read-only first step can reject FETCH until this accounting is integrated, but that restriction is unfinished work rather than completion of the V1 link/resource contract.
 
@@ -149,7 +149,7 @@ Forward FETCH requires the same final-result budget before retaining resolved va
 - Native and collection results: zero limits, exact row/byte boundaries, one-over boundaries, empty rows and empty result metadata.
 - Exact payload accounting for multibyte text, nested objects/arrays, records, binary and each vector encoding; overflow-safe arithmetic.
 - A volatile callback confirms collection stops at the first rejected row and no later row executes. Planning executes no callbacks.
-- Error provenance remains `FDB_LIMIT`; engine `Interrupt`, `Busy` and transaction observations retain their own meanings.
+- Error provenance remains `RDB_LIMIT`; engine `Interrupt`, `Busy` and transaction observations retain their own meanings.
 - Rejected read results preserve prior pending writes and allow a valid query retry. Non-SELECT input performs no mutation.
 - Sync and worker clients use the same limits, with cancellation and lifecycle checks, strict TypeScript and installed-package coverage.
 - FETCH, write candidates and RETURNING receive explicit integration and atomicity tests before claiming general query budgeting.
@@ -183,7 +183,7 @@ The CLI exposes `.timeout MILLISECONDS SQL` for one statement in line/interactiv
 mode or as the entire script input. Interactive SQL can span lines until complete.
 Node and CLI milliseconds are nonnegative uint32 values; zero is already expired.
 
-Expiry uses existing cancellation handling and `FDB_CANCELLED`, preserving each
+Expiry uses existing cancellation handling and `RDB_CANCELLED`, preserving each
 operation's transaction contract. Deadlines are cooperative: engine progress checks
 observe them, but parsing, non-engine evaluation, cleanup and response transport
 have no fixed time bound. Completion may win a race. The CLI command does not set

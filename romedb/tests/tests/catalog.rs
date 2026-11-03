@@ -43,13 +43,13 @@ fn caller_storage_preserves_catalog_indexes_and_rollback_across_reopen() {
         )
         .unwrap_err()
         .code(),
-        "FDB_CONSTRAINT"
+        "RDB_CONSTRAINT"
     );
     assert_eq!(
         c.execute("INSERT INTO users {id:users:u2}", &Parameters::new())
             .unwrap_err()
             .code(),
-        "FDB_VALIDATION"
+        "RDB_VALIDATION"
     );
     let audit = c
         .check_collection_integrity("users", Default::default())
@@ -397,7 +397,7 @@ fn separate_connections_keep_document_and_index_snapshots_consistent() {
             ),
             "{error}"
         );
-        assert_eq!(error.code(), "FDB_BUSY_SNAPSHOT");
+        assert_eq!(error.code(), "RDB_BUSY_SNAPSHOT");
         if reader.transaction_state() == romedb::TransactionState::Active {
             q(&reader, "ROLLBACK");
         }
@@ -462,7 +462,7 @@ fn contending_index_builds_leave_no_partial_catalog_or_storage() {
                 ),
                 "{finish}: {error}"
             );
-            assert_eq!(error.code(), "FDB_BUSY");
+            assert_eq!(error.code(), "RDB_BUSY");
             assert_eq!(b.transaction_state(), romedb::TransactionState::Autocommit);
             q(&a, finish);
             q(
@@ -591,7 +591,7 @@ fn reopening_rejects_incompatible_physical_collection_storage() {
         .connect()
         .err()
         .expect("reject changed storage on reopen");
-    assert_eq!(error.code(), "FDB_STORAGE");
+    assert_eq!(error.code(), "RDB_STORAGE");
 }
 
 #[test]
@@ -621,7 +621,7 @@ fn missing_catalog_cannot_hide_persisted_collection_storage() {
         .connect()
         .err()
         .expect("orphan storage must reject reconnect");
-    assert_eq!(error.code(), "FDB_STORAGE");
+    assert_eq!(error.code(), "RDB_STORAGE");
     assert!(error.to_string().contains("orphan managed storage"));
 }
 
@@ -653,6 +653,6 @@ fn reopening_rejects_missing_indexes_and_unexpected_managed_dependencies() {
         }
         let db = Database::open(path).unwrap();
         let error = db.connect().err().expect(mutation);
-        assert_eq!(error.code(), "FDB_STORAGE", "{mutation}");
+        assert_eq!(error.code(), "RDB_STORAGE", "{mutation}");
     }
 }

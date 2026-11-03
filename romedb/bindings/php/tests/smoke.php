@@ -26,7 +26,7 @@ try {
         if (isset($step->reopen)) {
             $db->close(); $db->close();
             try { $db->execute('SELECT 1'); throw new RuntimeException('closed call succeeded'); }
-            catch (RomeDBException $e) { check($e->diagnostic['code'] === 'FDB_VALIDATION', 'closed code'); }
+            catch (RomeDBException $e) { check($e->diagnostic['code'] === 'RDB_VALIDATION', 'closed code'); }
             $db = new Database($path, $library); continue;
         }
         try {

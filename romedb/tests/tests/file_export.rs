@@ -167,7 +167,7 @@ fn export_refuses_an_existing_destination_or_sidecar_and_leaves_nothing_behind()
             .start_file_export(&directory.path().join(name), &CancellationToken::new())
             .err()
             .unwrap();
-        assert_eq!(error.code(), "FDB_ALREADY_EXISTS", "{name}: {error}");
+        assert_eq!(error.code(), "RDB_ALREADY_EXISTS", "{name}: {error}");
     }
     let error = database
         .start_file_export(
@@ -176,7 +176,7 @@ fn export_refuses_an_existing_destination_or_sidecar_and_leaves_nothing_behind()
         )
         .err()
         .unwrap();
-    assert_eq!(error.code(), "FDB_NOT_FOUND", "{error}");
+    assert_eq!(error.code(), "RDB_NOT_FOUND", "{error}");
     let error = database
         .start_file_export(
             &directory.path().join("it's.romedb"),
@@ -249,7 +249,7 @@ fn writers_keep_committing_during_an_export_and_the_file_holds_the_commits_befor
                 ]);
                 match w.insert("posts", row) {
                     Ok(_) => {}
-                    Err(error) if error.code() == "FDB_BUSY" => continue,
+                    Err(error) if error.code() == "RDB_BUSY" => continue,
                     Err(error) => panic!("{error}"),
                 }
                 *committed += 1;
@@ -281,7 +281,7 @@ fn writers_keep_committing_during_an_export_and_the_file_holds_the_commits_befor
     while !watcher.is_finished() {
         match reader.execute("SELECT n FROM posts WHERE n=7", &Parameters::new()) {
             Ok(result) => assert_eq!(result.rows, vec![vec![Value::Integer(7)]]),
-            Err(error) if error.code() == "FDB_BUSY" => continue,
+            Err(error) if error.code() == "RDB_BUSY" => continue,
             Err(error) => panic!("{error}"),
         }
         reads += 1;
@@ -389,7 +389,7 @@ fn cancelled_export_stops_and_removes_its_folder() {
         .unwrap();
     token.cancel();
     let error = pending.finish().err().unwrap();
-    assert_eq!(error.code(), "FDB_CANCELLED", "{error}");
+    assert_eq!(error.code(), "RDB_CANCELLED", "{error}");
     assert_eq!(names(directory.path()), before);
     let token = CancellationToken::new();
     token.cancel();
@@ -397,7 +397,7 @@ fn cancelled_export_stops_and_removes_its_folder() {
         .start_file_export(&directory.path().join("copy.romedb"), &token)
         .err()
         .unwrap();
-    assert_eq!(error.code(), "FDB_CANCELLED");
+    assert_eq!(error.code(), "RDB_CANCELLED");
     assert_eq!(names(directory.path()), before);
 }
 
@@ -413,6 +413,6 @@ fn export_needs_an_mvcc_database() {
         )
         .err()
         .unwrap();
-    assert_eq!(error.code(), "FDB_UNSUPPORTED");
+    assert_eq!(error.code(), "RDB_UNSUPPORTED");
     assert!(error.to_string().contains("migrate-to-mvcc"), "{error}");
 }

@@ -43,7 +43,7 @@ export class ClientError extends Error {
   readonly sequence?: number;
   /** The server's Retry-After delay in milliseconds, on HTTP error replies that send one. */
   readonly retryAfterMs?: number;
-  /** For FDB_TRANSPORT, FDB_PROTOCOL and FDB_CANCELLED without a reply: the fetch or parse error underneath. */
+  /** For RDB_TRANSPORT, RDB_PROTOCOL and RDB_CANCELLED without a reply: the fetch or parse error underneath. */
   readonly cause?: unknown;
   constructor(code: string, message: string, outcome: Outcome, details?: { request?: PreparedWrite; status?: number; sequence?: number; retryAfterMs?: number; cause?: unknown });
 }

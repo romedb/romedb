@@ -90,7 +90,7 @@ fn calculation_definitions_reject_cycles_unsafe_functions_and_incompatible_exist
     ] {
         assert_eq!(
             c.execute(sql, &Parameters::new()).expect_err(sql).code(),
-            "FDB_VALIDATION",
+            "RDB_VALIDATION",
             "{sql}"
         );
     }
@@ -224,7 +224,7 @@ fn computed_index_values_are_atomic_with_snapshots_import_and_reopen() {
             c.execute("UPDATE docs SET n=1", &Parameters::new())
                 .unwrap_err()
                 .code(),
-            "FDB_CONSTRAINT"
+            "RDB_CONSTRAINT"
         );
         let report = c.write_metered(
             "UPDATE docs SET title_input='changed'",
@@ -307,10 +307,10 @@ fn calculation_limits_cancellation_and_write_buffers_preserve_prior_work() {
     let c = Database::open(":memory:").unwrap().connect().unwrap();
     query(&c, "CREATE TABLE docs");
     for (expression, code) in [
-        (format!("'{}'", "x".repeat(16384)), "FDB_LIMIT"),
+        (format!("'{}'", "x".repeat(16384)), "RDB_LIMIT"),
         (
             format!("array::new({})", vec!["1"; 257].join(",")),
-            "FDB_LIMIT",
+            "RDB_LIMIT",
         ),
     ] {
         assert_eq!(
@@ -349,7 +349,7 @@ fn calculation_limits_cancellation_and_write_buffers_preserve_prior_work() {
         c.execute_cancellable("UPDATE docs SET n=n+1", &Parameters::new(), &token)
             .unwrap_err()
             .code(),
-        "FDB_CANCELLED"
+        "RDB_CANCELLED"
     );
     assert_eq!(query(&c, "SELECT * FROM docs").rows, before);
     query(&c, "COMMIT");
@@ -367,7 +367,7 @@ fn calculation_limits_cancellation_and_write_buffers_preserve_prior_work() {
             ]),
         )
         .unwrap_err();
-    assert_eq!(error.code(), "FDB_LIMIT");
+    assert_eq!(error.code(), "RDB_LIMIT");
     assert!(error.to_string().contains("computed replace output"));
     assert_eq!(
         query(&c, "SELECT count(*) FROM expansion").rows,
@@ -451,12 +451,12 @@ fn computed_metadata_and_integrity_reject_corruption_while_reads_use_stored_valu
             c.execute("INFO FOR TABLE docs", &Parameters::new())
                 .expect_err(expression)
                 .code(),
-            "FDB_STORAGE"
+            "RDB_STORAGE"
         );
         raw.execute("UPDATE __romedb_catalog SET metadata=(SELECT metadata FROM metadata_backup)")
             .unwrap();
     }
-    raw.execute("UPDATE __romedb_c_646f6373 SET doc=CAST('FDB'||char(1)||json_set(CAST(substr(doc,5) AS TEXT),'$.value.total.value',999) AS BLOB)").unwrap();
+    raw.execute("UPDATE __romedb_c_646f6373 SET doc=CAST('RDB'||char(1)||json_set(CAST(substr(doc,5) AS TEXT),'$.value.total.value',999) AS BLOB)").unwrap();
     assert_eq!(
         query(&c, "SELECT total FROM docs").rows,
         vec![vec![Value::Integer(999)]]
@@ -510,7 +510,7 @@ fn computed_budgets_are_stable_for_rewrites_and_bound_definition_counts() {
         )
         .unwrap_err()
         .code(),
-        "FDB_LIMIT"
+        "RDB_LIMIT"
     );
     query(&c, "INSERT INTO many {id:many:a}");
     assert_eq!(

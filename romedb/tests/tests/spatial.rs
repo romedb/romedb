@@ -745,18 +745,18 @@ fn invalid_regions_and_pairs_report_validation_and_limit_errors() {
     for (text, code) in [
         (
             r#"{"type":"Polygon","coordinates":[[[0,0],[2,2],[2,0],[0,2],[0,0]]]}"#,
-            "FDB_VALIDATION",
+            "RDB_VALIDATION",
         ),
-        (r#"{"type":"Feature","geometry":null}"#, "FDB_VALIDATION"),
+        (r#"{"type":"Feature","geometry":null}"#, "RDB_VALIDATION"),
         (
             r#"{"type":"Point","coordinates":[1,2],"crs":null}"#,
-            "FDB_VALIDATION",
+            "RDB_VALIDATION",
         ),
         (
             r#"{"type":"Point","coordinates":[1,2],"type":"Point"}"#,
-            "FDB_VALIDATION",
+            "RDB_VALIDATION",
         ),
-        ("not json", "FDB_VALIDATION"),
+        ("not json", "RDB_VALIDATION"),
     ] {
         let params = Parameters::from([("$g".into(), Value::String(text.into()))]);
         assert_eq!(
@@ -767,7 +767,7 @@ fn invalid_regions_and_pairs_report_validation_and_limit_errors() {
     }
     let huge = format!("[{}]", "0,".repeat(600_000));
     let params = Parameters::from([("$g".into(), Value::String(huge))]);
-    assert_eq!(error("SELECT ST_GeomFromGeoJSON($g)", &params), "FDB_LIMIT");
+    assert_eq!(error("SELECT ST_GeomFromGeoJSON($g)", &params), "RDB_LIMIT");
     for sql in [
         "SELECT ST_Contains(ST_Point(0,0),ST_Point(0,0))",
         "SELECT ST_Intersects(ST_Point(0,0),ST_Point(0,0))",
@@ -778,14 +778,14 @@ fn invalid_regions_and_pairs_report_validation_and_limit_errors() {
         "SELECT ST_DWithin(ST_Point(0,0),ST_Point(0,0),1,true)",
         "SELECT geo::cell_boundary('not a cell')",
     ] {
-        assert_eq!(error(sql, &none), "FDB_VALIDATION", "{sql}");
+        assert_eq!(error(sql, &none), "RDB_VALIDATION", "{sql}");
     }
     assert_eq!(
         error(
             "SELECT geo::cell_disk(geo::cell(geo::point(0,0),9),200)",
             &none
         ),
-        "FDB_LIMIT"
+        "RDB_LIMIT"
     );
 }
 
@@ -1154,7 +1154,7 @@ fn polygon_source_matches_scalar_predicates_and_uses_the_index() {
     ] {
         assert_eq!(
             c.execute(sql, &Parameters::new()).unwrap_err().code(),
-            "FDB_VALIDATION",
+            "RDB_VALIDATION",
             "{sql}"
         );
     }
@@ -1721,7 +1721,7 @@ fn region_index_finds_containing_zones_like_a_scan() {
         )
         .unwrap_err()
         .code(),
-        "FDB_VALIDATION"
+        "RDB_VALIDATION"
     );
     for sql in [
         "SELECT id FROM search::near('zones_shape', ST_Point(0, 0), 10)",
@@ -1882,11 +1882,11 @@ fn nearest_rounds_stop_on_cancellation_deadlines_and_limits() {
     cancelled.cancel();
     for sql in [rare, explicit] {
         let error = c.execute_cancellable(sql, &p, &cancelled).unwrap_err();
-        assert_eq!(error.code(), "FDB_CANCELLED", "{sql}");
+        assert_eq!(error.code(), "RDB_CANCELLED", "{sql}");
         // A deadline that expires during the index rounds and document probes.
         let token = CancellationToken::with_deadline(Instant::now() + Duration::from_millis(5));
         if let Err(error) = c.execute_cancellable(sql, &p, &token) {
-            assert_eq!(error.code(), "FDB_CANCELLED", "{sql}");
+            assert_eq!(error.code(), "RDB_CANCELLED", "{sql}");
         }
         assert_eq!(c.transaction_state(), TransactionState::Active);
     }
@@ -1910,7 +1910,7 @@ fn nearest_rounds_stop_on_cancellation_deadlines_and_limits() {
     };
     for sql in [rare, explicit] {
         let error = c.select_with_limits(sql, &p, limits).unwrap_err();
-        assert_eq!(error.code(), "FDB_LIMIT", "{sql}");
+        assert_eq!(error.code(), "RDB_LIMIT", "{sql}");
     }
     for k in ["0", "10001", "2.5", "-1"] {
         let error = c
@@ -1921,7 +1921,7 @@ fn nearest_rounds_stop_on_cancellation_deadlines_and_limits() {
                 &p,
             )
             .unwrap_err();
-        assert_eq!(error.code(), "FDB_VALIDATION", "{k}");
+        assert_eq!(error.code(), "RDB_VALIDATION", "{k}");
     }
     // Above the nearest limit, the ordinary form keeps ordinary SQL semantics.
     let all = "SELECT id FROM drivers WHERE ST_DistanceSphere(location, ST_Point(10, 10)) IS NOT NULL ORDER BY ST_DistanceSphere(location, ST_Point(10, 10)), id LIMIT 10001";

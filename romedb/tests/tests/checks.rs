@@ -26,7 +26,7 @@ fn every_write_path_checks_evaluated_values_and_preserves_indexes() {
         "UPSERT users:bad {name:''}",
     ] {
         let err = c.execute(sql, &Parameters::new()).expect_err(sql);
-        assert_eq!(err.code(), "FDB_VALIDATION");
+        assert_eq!(err.code(), "RDB_VALIDATION");
     }
     let params = Parameters::from([(
         "$doc".into(),
@@ -289,7 +289,7 @@ fn candidate_record_range_checks_validate_and_reopen_atomically() {
         ] {
             assert_eq!(
                 c.execute(sql, &Parameters::new()).unwrap_err().code(),
-                "FDB_VALIDATION",
+                "RDB_VALIDATION",
                 "{sql}"
             );
             assert_eq!(c.transaction_state(), romedb::TransactionState::Active);
@@ -312,7 +312,7 @@ fn candidate_record_range_checks_validate_and_reopen_atomically() {
         c.execute("UPDATE docs:saved {ref:docs:20}", &Parameters::new())
             .unwrap_err()
             .code(),
-        "FDB_VALIDATION"
+        "RDB_VALIDATION"
     );
     q(&c, "UPDATE docs:saved {ref:docs:3}");
     let old = Value::Record(Record {
@@ -349,7 +349,7 @@ fn deep_candidate_paths_preserve_quoted_segments_and_check_atomicity() {
             )
             .unwrap_err()
             .code(),
-            "FDB_VALIDATION"
+            "RDB_VALIDATION"
         );
         assert_eq!(c.transaction_state(), romedb::TransactionState::Active);
         assert_eq!(
@@ -382,7 +382,7 @@ fn deep_candidate_paths_preserve_quoted_segments_and_check_atomicity() {
     }
     let db = Database::open(path.to_str().unwrap()).unwrap();
     let c = db.connect().unwrap();
-    assert_eq!(c.execute("UPDATE docs:saved {profile:{address:{details:{city:''},\"details.city\":{label:'quoted'}}}}",&Parameters::new()).unwrap_err().code(),"FDB_VALIDATION");
+    assert_eq!(c.execute("UPDATE docs:saved {profile:{address:{details:{city:''},\"details.city\":{label:'quoted'}}}}",&Parameters::new()).unwrap_err().code(),"RDB_VALIDATION");
     q(&c, "UPDATE docs SET profile.address.details.city='Osaka'");
     assert!(c
         .lookup_index("docs", "cities", &Value::String("Paris".into()))
@@ -419,7 +419,7 @@ fn binary_check_arguments_use_candidate_payloads_and_persist_validation() {
         ] {
             assert_eq!(
                 c.execute(sql, &Parameters::new()).unwrap_err().code(),
-                "FDB_VALIDATION",
+                "RDB_VALIDATION",
                 "{sql}"
             );
             assert_eq!(c.transaction_state(), romedb::TransactionState::Active);
@@ -438,7 +438,7 @@ fn binary_check_arguments_use_candidate_payloads_and_persist_validation() {
         c.execute("UPDATE docs SET payload=X'33'", &Parameters::new())
             .unwrap_err()
             .code(),
-        "FDB_VALIDATION"
+        "RDB_VALIDATION"
     );
     q(&c, "UPDATE docs SET payload=X'3132'");
     assert_eq!(
@@ -493,7 +493,7 @@ fn binary_check_operators_validate_payloads_atomically_after_reopen() {
         ] {
             assert_eq!(
                 c.execute(sql, &Parameters::new()).unwrap_err().code(),
-                "FDB_VALIDATION",
+                "RDB_VALIDATION",
                 "{sql}"
             );
             assert_eq!(c.transaction_state(), romedb::TransactionState::Active);
@@ -512,7 +512,7 @@ fn binary_check_operators_validate_payloads_atomically_after_reopen() {
         c.execute("UPDATE docs SET payload=X'3133'", &Parameters::new())
             .unwrap_err()
             .code(),
-        "FDB_VALIDATION"
+        "RDB_VALIDATION"
     );
     q(&c, "UPDATE docs SET payload=X'3132'");
     assert_eq!(
@@ -550,7 +550,7 @@ fn long_check_boolean_chains_prepare_and_validate() {
         c.execute("UPDATE docs SET payload=X'3133'", &Parameters::new())
             .unwrap_err()
             .code(),
-        "FDB_VALIDATION"
+        "RDB_VALIDATION"
     );
     assert_eq!(c.transaction_state(), romedb::TransactionState::Active);
     assert_eq!(
@@ -589,7 +589,7 @@ fn binary_check_truth_conditions_persist_and_reject_false_payloads() {
                 let sql = format!("UPDATE docs SET {assignment}={value}");
                 assert_eq!(
                     c.execute(&sql, &Parameters::new()).unwrap_err().code(),
-                    "FDB_VALIDATION",
+                    "RDB_VALIDATION",
                     "{sql}"
                 );
                 assert_eq!(c.transaction_state(), romedb::TransactionState::Active);
@@ -610,7 +610,7 @@ fn binary_check_truth_conditions_persist_and_reject_false_payloads() {
         c.execute("UPDATE docs SET payload=X'30'", &Parameters::new())
             .unwrap_err()
             .code(),
-        "FDB_VALIDATION"
+        "RDB_VALIDATION"
     );
     assert_eq!(
         c.lookup_index("docs", "docs_payload", &Value::Binary(b"-2".to_vec()))
@@ -639,7 +639,7 @@ fn simple_case_checks_match_binary_values_and_persist() {
             let sql = format!("UPDATE docs SET payload={value}");
             assert_eq!(
                 c.execute(&sql, &Parameters::new()).unwrap_err().code(),
-                "FDB_VALIDATION"
+                "RDB_VALIDATION"
             );
             assert_eq!(c.transaction_state(), romedb::TransactionState::Active);
         }
@@ -676,7 +676,7 @@ fn simple_case_checks_match_binary_values_and_persist() {
         c.execute("UPDATE docs SET payload=X'32'", &Parameters::new())
             .unwrap_err()
             .code(),
-        "FDB_VALIDATION"
+        "RDB_VALIDATION"
     );
     q(&c, "UPDATE docs SET payload=X'31'");
     assert_eq!(
@@ -716,9 +716,9 @@ fn binary_check_equality_and_membership_use_typed_keys() {
             );
         }
         q(&c, "UPDATE docs SET nullable_probe=1");
-        assert_eq!(c.execute("DEFINE FIELD nullable_probe ON docs TYPE integer CHECK(payload NOT IN (X'32',NULL))", &Parameters::new()).unwrap_err().code(), "FDB_VALIDATION");
+        assert_eq!(c.execute("DEFINE FIELD nullable_probe ON docs TYPE integer CHECK(payload NOT IN (X'32',NULL))", &Parameters::new()).unwrap_err().code(), "RDB_VALIDATION");
         q(&c, "CREATE TABLE guards");
-        let bytes = b"FDB\x01{\"type\":\"Record\",\"value\":{\"table\":\"docs\",\"key\":{\"String\":\"saved\"}}}";
+        let bytes = b"RDB\x01{\"type\":\"Record\",\"value\":{\"table\":\"docs\",\"key\":{\"String\":\"saved\"}}}";
         c.execute(
             "INSERT INTO guards (valid,payload,reference) VALUES (1,$bytes,$record)",
             &Parameters::from([
@@ -743,7 +743,7 @@ fn binary_check_equality_and_membership_use_typed_keys() {
         ] {
             assert_eq!(
                 c.execute(sql, &Parameters::new()).unwrap_err().code(),
-                "FDB_VALIDATION"
+                "RDB_VALIDATION"
             );
             assert_eq!(c.transaction_state(), romedb::TransactionState::Active);
         }
@@ -756,7 +756,7 @@ fn binary_check_equality_and_membership_use_typed_keys() {
         c.execute("UPDATE docs SET payload=X'32'", &Parameters::new())
             .unwrap_err()
             .code(),
-        "FDB_VALIDATION"
+        "RDB_VALIDATION"
     );
     assert_eq!(
         c.lookup_index("docs", "docs_payload", &Value::Binary(b"1".to_vec()))
@@ -788,7 +788,7 @@ fn binary_check_literal_ranges_validate_and_reopen() {
             c.execute("UPDATE docs SET number=3", &Parameters::new())
                 .unwrap_err()
                 .code(),
-            "FDB_VALIDATION"
+            "RDB_VALIDATION"
         );
         q(&c, "CREATE INDEX docs_payload ON docs(payload)");
         q(&c, "BEGIN");
@@ -800,7 +800,7 @@ fn binary_check_literal_ranges_validate_and_reopen() {
                 )
                 .unwrap_err()
                 .code(),
-                "FDB_VALIDATION"
+                "RDB_VALIDATION"
             );
             assert_eq!(c.transaction_state(), romedb::TransactionState::Active);
         }
@@ -813,7 +813,7 @@ fn binary_check_literal_ranges_validate_and_reopen() {
         c.execute("UPDATE docs SET payload=X'0B'", &Parameters::new())
             .unwrap_err()
             .code(),
-        "FDB_VALIDATION"
+        "RDB_VALIDATION"
     );
     assert_eq!(
         c.lookup_index("docs", "docs_payload", &Value::Binary(vec![10]))
@@ -843,7 +843,7 @@ fn binary_glob_checks_validate_payloads_after_reopen() {
                 c.execute(&format!("UPDATE docs SET {assignment}"), &Parameters::new())
                     .unwrap_err()
                     .code(),
-                "FDB_VALIDATION"
+                "RDB_VALIDATION"
             );
             assert_eq!(c.transaction_state(), romedb::TransactionState::Active);
         }
@@ -855,7 +855,7 @@ fn binary_glob_checks_validate_payloads_after_reopen() {
         c.execute("UPDATE docs SET payload=X'626364'", &Parameters::new())
             .unwrap_err()
             .code(),
-        "FDB_VALIDATION"
+        "RDB_VALIDATION"
     );
     assert_eq!(
         c.lookup_index("docs", "docs_payload", &Value::Binary(b"abc".to_vec()))
@@ -890,7 +890,7 @@ fn json_arrow_checks_read_candidate_payloads_after_reopen() {
             )
             .unwrap_err()
             .code(),
-            "FDB_VALIDATION"
+            "RDB_VALIDATION"
         );
         assert_eq!(c.transaction_state(), romedb::TransactionState::Active);
         q(&c, "ROLLBACK");
@@ -905,7 +905,7 @@ fn json_arrow_checks_read_candidate_payloads_after_reopen() {
         )
         .unwrap_err()
         .code(),
-        "FDB_VALIDATION"
+        "RDB_VALIDATION"
     );
     assert_eq!(
         c.lookup_index(
@@ -939,7 +939,7 @@ fn direct_rust_check_depth_is_rejected_before_definition_changes() {
         };
         assert_eq!(
             c.define_field("users", field, true).unwrap_err().code(),
-            "FDB_SYNTAX"
+            "RDB_SYNTAX"
         );
         assert_eq!(q(&c, "INFO FOR TABLE users").rows, before);
         assert_eq!(

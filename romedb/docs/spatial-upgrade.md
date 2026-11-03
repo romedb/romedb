@@ -130,8 +130,8 @@ contains is `geo::inside`, because the three-argument radius form already exists
   errors and errors keep their released codes.
 - Every other function, including every `ST_*` alias of a released function,
   returns NULL when any argument is NULL.
-- Non-NULL invalid input reports `FDB_VALIDATION`. A resource limit reports
-  `FDB_LIMIT`.
+- Non-NULL invalid input reports `RDB_VALIDATION`. A resource limit reports
+  `RDB_LIMIT`.
 
 ## 5. Limits
 
@@ -149,7 +149,7 @@ change only with new measurements recorded here.
 | Prepared regions | 4,096 per thread, 32 MiB of encoded regions, least recently used first out |
 
 Validation counts its work; a vertex limit alone does not bound it. Exceeding
-any limit fails the statement with `FDB_LIMIT` and never returns partial output.
+any limit fails the statement with `RDB_LIMIT` and never returns partial output.
 
 A region is validated once and reused while the same encoded value repeats
 within a thread: a constant query region across the rows of one statement, and
@@ -369,7 +369,7 @@ Point location used 100,000 grid points across each shape.
 | Outline with short edges, 99,998 vertices | 45 ms | 174 ns |
 | Star whose edges each span 40% of its height, 1,000 vertices | 2.2 ms | 1.8 µs |
 | Same star, 10,000 vertices | 181 ms | 14 µs |
-| Same star, 99,998 vertices | `FDB_LIMIT` after 94 ms | |
+| Same star, 99,998 vertices | `RDB_LIMIT` after 94 ms | |
 | MultiPolygon of 1,000 squares | 4.6 ms | |
 
 Ordinary outlines are cheap at the position limit. Long overlapping edges defeat

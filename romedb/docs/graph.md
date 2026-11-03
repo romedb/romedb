@@ -38,7 +38,7 @@ self-loops are allowed. Add a unique index, for example
 one edge per ordered pair.
 
 `ON DELETE RESTRICT` is the default. Deleting a node that still has an incident
-restricting edge fails with `FDB_CONSTRAINT`. `ON DELETE CASCADE` deletes the
+restricting edge fails with `RDB_CONSTRAINT`. `ON DELETE CASCADE` deletes the
 incident edges in the same transaction. It never deletes neighboring nodes. When
 several edge tables touch a node, any restricting edge blocks the deletion.
 
@@ -64,7 +64,7 @@ Each endpoint is a record literal, `type::record('table', $key)` or a parameter
 holding a typed record. Parameters carry values only, never table names or SQL.
 Both endpoints must exist in the declared tables, including records written
 earlier in the caller's transaction. A missing endpoint fails with
-`FDB_CONSTRAINT`; a record in the wrong table fails with `FDB_VALIDATION`.
+`RDB_CONSTRAINT`; a record in the wrong table fails with `RDB_VALIDATION`.
 Properties cannot contain `id`, `source` or `target`. Without a key, the edge
 receives a generated UUIDv7 string key. A duplicate edge ID or unique pair fails
 with the normal conflict error.
@@ -73,7 +73,7 @@ Ordinary writes use the same checks:
 
 - `INSERT` into an edge table requires typed `source` and `target` fields.
 - `source` and `target` are immutable. `UPDATE ... SET`, `MERGE`, `UPSERT` and
-  `INSERT OR REPLACE` fail with `FDB_VALIDATION` if they would change them, and
+  `INSERT OR REPLACE` fail with `RDB_VALIDATION` if they would change them, and
   `UNSET` cannot remove them. `CONTENT` and `PATCH` keep the stored endpoints
   when the new document omits them.
 - `DELETE` removes the edge, its adjacency entries and its property indexes.
@@ -120,9 +120,9 @@ FROM GRAPH(people:alice -> follows -> people -> wrote -> articles WITH PATH) AS 
 
 The root is one record literal, `type::record(...)` or a parameter. A missing
 root record yields zero rows. Null or a non-record value fails with
-`FDB_VALIDATION`. An unknown table fails with `FDB_NOT_FOUND`. Each hop must match
+`RDB_VALIDATION`. An unknown table fails with `RDB_NOT_FOUND`. Each hop must match
 its edge table's declared endpoints for the chosen direction; otherwise
-preparation fails with `FDB_VALIDATION`.
+preparation fails with `RDB_VALIDATION`.
 
 A fixed path returns one row per matching sequence of edges. Different edges or
 paths that reach the same node give separate rows; use `DISTINCT g.node` for
@@ -148,7 +148,7 @@ records or other fields, using `=`, `<>`, `!=`, `<`, `<=`, `>`, `>=`, `IS`,
 `IS NOT`, `AND`, `OR`, `NOT` and parentheses. Comparisons follow SQL null rules
 and SQLite's number < text < blob ordering. Fields may be written with the step
 alias, the table name, or bare. Arithmetic or functions over fields fail with
-`FDB_UNSUPPORTED`; join the result instead. Each filter loads the edge or node
+`RDB_UNSUPPORTED`; join the result instead. Each filter loads the edge or node
 document once per statement.
 
 ### Recursion
@@ -182,7 +182,7 @@ graph algorithms and correlated `GRAPH(p.id ...)` sources are not available.
 ### Limits, plans and profiles
 
 One statement's graph work is bounded. Exceeding a limit fails the whole
-statement with `FDB_LIMIT`; a traversal is never returned truncated. An outer
+statement with `RDB_LIMIT`; a traversal is never returned truncated. An outer
 `LIMIT` does not reduce graph work.
 
 | Limit | Default |

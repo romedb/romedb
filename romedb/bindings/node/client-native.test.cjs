@@ -41,14 +41,14 @@ test('managed native batches bind portable values and restore all writes after f
     assert.deepEqual(report.execution.result.results[2].columns, ['same', 'same']);
     for (const value of report.execution.result.results[2].rows[0]) assert.deepEqual(encodeValue(decodeValue(value)), encodeValue(document));
     const failure = call([{ sql: "INSERT INTO docs {id:docs:b,number:2}" }, { sql: 'INSERT INTO docs DOCUMENT $missing' }]);
-    assert.equal(failure.execution.error.code, 'FDB_PARAMETER');
+    assert.equal(failure.execution.error.code, 'RDB_PARAMETER');
     assert.equal(failure.transaction.after, 'autocommit');
     const rows = call([{ sql: 'SELECT number FROM docs' }], true).execution.result.results[0].rows;
     assert.equal(rows.length, 1);
     assert.equal(decodeValue(rows[0][0]), (1n << 63n) - 1n);
-    assert.equal(call([{ sql: 'DELETE FROM docs' }], true).execution.error.code, 'FDB_UNSUPPORTED');
+    assert.equal(call([{ sql: 'DELETE FROM docs' }], true).execution.error.code, 'RDB_UNSUPPORTED');
     const limited = call([{ sql: 'DELETE FROM docs' }], false, { rowMutations: 0 });
-    assert.equal(limited.execution.error.code, 'FDB_LIMIT');
+    assert.equal(limited.execution.error.code, 'RDB_LIMIT');
     assert.equal(limited.transaction.after, 'autocommit');
     assert.equal(call([{ sql: 'SELECT number FROM docs' }], true).execution.result.results[0].rows.length, 1);
   } finally { db.close(); }
@@ -90,7 +90,7 @@ test('native worker executes an atomic batch as one operation and cancels throug
     try {
       binding.cancelOperation(cancellationKey);
       const reply = await call('executeAtomicRequest', [JSON.stringify({ readOnly: false, statements: [{ sql: 'DELETE FROM data' }] })], cancellationKey);
-      assert.equal(reply.execution.error.code, 'FDB_CANCELLED');
+      assert.equal(reply.execution.error.code, 'RDB_CANCELLED');
       assert.equal(reply.transaction.after, 'autocommit');
     } finally { binding.releaseCancellationToken(cancellationKey); }
     const reply = await call('executeAtomicRequest', [JSON.stringify({ readOnly: true, statements: [{ sql: 'SELECT n FROM data ORDER BY n' }] })]);

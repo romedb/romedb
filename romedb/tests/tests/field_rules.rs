@@ -104,7 +104,7 @@ fn readonly_is_enforced_across_mutations_replacements_and_public_rust_methods() 
         "UPDATE docs SET locked=1,counter=counter+1",
     ] {
         let error = c.execute(sql, &Parameters::new()).unwrap_err();
-        assert_eq!(error.code(), "FDB_VALIDATION", "{sql}: {error}");
+        assert_eq!(error.code(), "RDB_VALIDATION", "{sql}: {error}");
         assert_eq!(
             query(&c, "SELECT * FROM docs ORDER BY id").rows,
             before,
@@ -119,7 +119,7 @@ fn readonly_is_enforced_across_mutations_replacements_and_public_rust_methods() 
         c.patch(&id, Document::from([("locked".into(), Value::Integer(9))]))
             .unwrap_err()
             .code(),
-        "FDB_VALIDATION"
+        "RDB_VALIDATION"
     );
     assert_eq!(
         c.upsert(
@@ -131,7 +131,7 @@ fn readonly_is_enforced_across_mutations_replacements_and_public_rust_methods() 
         )
         .unwrap_err()
         .code(),
-        "FDB_VALIDATION"
+        "RDB_VALIDATION"
     );
     query(&c, "UPDATE docs:a SET locked=1,counter=1");
     assert_eq!(
@@ -165,7 +165,7 @@ fn field_rules_reject_invalid_definitions_existing_data_and_excessive_defaults()
         )
         .unwrap_err()
         .code(),
-        "FDB_LIMIT"
+        "RDB_LIMIT"
     );
     query(&c, "DEFINE FIELD n ON docs TYPE integer DEFAULT 2 READONLY");
     query(&c, "BEGIN");
@@ -217,7 +217,7 @@ fn field_rules_persist_with_snapshots_import_defaults_and_atomic_result_failures
             )
             .unwrap_err()
             .code(),
-            "FDB_LIMIT"
+            "RDB_LIMIT"
         );
         let token = romedb::CancellationToken::new();
         token.cancel();
@@ -229,7 +229,7 @@ fn field_rules_persist_with_snapshots_import_defaults_and_atomic_result_failures
             )
             .unwrap_err()
             .code(),
-            "FDB_CANCELLED"
+            "RDB_CANCELLED"
         );
         assert_eq!(
             query(&a, "SELECT count(*) FROM docs").rows,
@@ -311,7 +311,7 @@ fn field_rules_version_metadata_rejects_downgrades_or_corruption_and_stays_monot
         let error = c
             .execute("INFO FOR TABLE docs", &Parameters::new())
             .unwrap_err();
-        assert_eq!(error.code(), "FDB_STORAGE", "{expression}: {error}");
+        assert_eq!(error.code(), "RDB_STORAGE", "{expression}: {error}");
         raw.execute("UPDATE __romedb_catalog SET metadata=(SELECT metadata FROM metadata_backup)")
             .unwrap();
     }
@@ -347,7 +347,7 @@ fn default_values_participate_in_checks_unique_indexes_and_statement_rollback() 
         )
         .unwrap_err()
         .code(),
-        "FDB_CONSTRAINT"
+        "RDB_CONSTRAINT"
     );
     assert_eq!(
         query(&c, "SELECT stamp FROM docs").rows,
@@ -367,7 +367,7 @@ fn default_values_participate_in_checks_unique_indexes_and_statement_rollback() 
         c.execute("INSERT INTO bad {}", &Parameters::new())
             .unwrap_err()
             .code(),
-        "FDB_VALIDATION"
+        "RDB_VALIDATION"
     );
     assert_eq!(
         query(&c, "SELECT count(*) FROM bad").rows,
@@ -475,7 +475,7 @@ fn defaults_and_readonly_keep_all_managed_indexes_consistent_in_strict_collectio
         ] {
             assert_eq!(
                 c.execute(sql, &Parameters::new()).expect_err(sql).code(),
-                "FDB_VALIDATION"
+                "RDB_VALIDATION"
             );
             assert_eq!(query(&c, "SELECT * FROM docs ORDER BY id").rows, before);
             for (probe, expected) in probes.iter().zip(&expected) {

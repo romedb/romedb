@@ -262,7 +262,7 @@ fn membership_subqueries_preserve_record_binary_keys_and_native_affinity() {
     q(&c, "INSERT INTO docs {id:docs:b,link:docs:1,n:'2'}");
     assert_eq!(q(&c, "SELECT docs:a IN (SELECT link FROM docs) AS a,type::record('docs','1') IN (SELECT link FROM docs) AS b").rows, vec![vec![Value::Integer(1), Value::Integer(0)]]);
     let binary = Value::Binary(
-        b"FDB\x01{\"type\":\"Record\",\"value\":{\"table\":\"docs\",\"key\":{\"String\":\"a\"}}}"
+        b"RDB\x01{\"type\":\"Record\",\"value\":{\"table\":\"docs\",\"key\":{\"String\":\"a\"}}}"
             .to_vec(),
     );
     let result = c
@@ -448,7 +448,7 @@ fn source_free_subqueries_and_ctes_preserve_typed_parameters_and_helpers() {
         Value::Boolean(true),
         Value::Array(vec![Value::Integer(1)]),
         Value::Object(Default::default()),
-        Value::Binary(b"FDB\x01payload".to_vec()),
+        Value::Binary(b"RDB\x01payload".to_vec()),
         Value::vector32(&[1.0, 0.0]).unwrap(),
     ] {
         let params = Parameters::from([("$v".into(), value.clone())]);
@@ -516,7 +516,7 @@ fn nested_anonymous_parameters_retain_statement_indices_and_fail_before_writes()
     let db = Database::open(":memory:").unwrap();
     let c = db.connect().unwrap();
     let a = Value::Array(vec![Value::Integer(7)]);
-    let b = Value::Binary(b"FDB\x01not-json".to_vec());
+    let b = Value::Binary(b"RDB\x01not-json".to_vec());
     let params = Parameters::from([
         ("?1".into(), Value::Integer(4)),
         ("?2".into(), a.clone()),
@@ -609,7 +609,7 @@ fn native_source_expression_subqueries_preserve_explicit_logical_values() {
         Value::Boolean(false),
         Value::Array(vec![Value::Integer(8)]),
         Value::Object(Default::default()),
-        Value::Binary(b"FDB\x01not-json".to_vec()),
+        Value::Binary(b"RDB\x01not-json".to_vec()),
         Value::vector32(&[0.0, 1.0]).unwrap(),
     ] {
         let params = Parameters::from([("$v".into(), value.clone())]);
@@ -1152,7 +1152,7 @@ fn native_membership_insert_parameters_and_binary_identity() {
         key: romedb::Key::String("a".into()),
     });
     let bytes = Value::Binary(
-        b"FDB\x01{\"type\":\"Record\",\"value\":{\"table\":\"docs\",\"key\":{\"String\":\"a\"}}}"
+        b"RDB\x01{\"type\":\"Record\",\"value\":{\"table\":\"docs\",\"key\":{\"String\":\"a\"}}}"
             .to_vec(),
     );
     let params = Parameters::from([("$record".into(), record), ("$bytes".into(), bytes)]);
@@ -1180,7 +1180,7 @@ fn native_membership_insert_parameters_and_binary_identity() {
     let sql = "INSERT INTO target(n) SELECT n IN (SELECT n FROM rhs WHERE n>$min) FROM docs";
     assert_eq!(
         c.execute(sql, &Parameters::new()).unwrap_err().code(),
-        "FDB_PARAMETER"
+        "RDB_PARAMETER"
     );
     let result = c.execute(sql, &Parameters::from([("$min".into(), Value::Integer(0))]));
     assert!(result.is_err());
@@ -1271,7 +1271,7 @@ fn cte_membership_compound_inserts_preserve_prior_work_and_retry() {
         let state = c.transaction_state();
         let script="WITH r AS (SELECT n FROM rhs WHERE n>$min) INSERT INTO target(n) SELECT n IN (SELECT n FROM r) FROM docs UNION ALL SELECT 8";
         let missing = c.execute(script, &Parameters::new()).unwrap_err();
-        assert_eq!(missing.code(), "FDB_PARAMETER");
+        assert_eq!(missing.code(), "RDB_PARAMETER");
         let conflict = c.execute(
             script,
             &Parameters::from([("$min".into(), Value::Integer(0))]),
@@ -1471,7 +1471,7 @@ fn correlated_native_scalars_keep_comparisons_parameters_and_atomic_writes() {
             &Parameters::new(),
         )
         .unwrap_err();
-    assert_eq!(error.code(), "FDB_VALIDATION");
+    assert_eq!(error.code(), "RDB_VALIDATION");
     assert_eq!(
         c.check_collection_integrity("docs", Default::default())
             .unwrap()
@@ -1617,7 +1617,7 @@ fn native_having_predicates_correlate_with_collection_candidates() {
             &Parameters::new(),
         )
         .unwrap_err();
-    assert!(matches!(error.code(), "FDB_CONSTRAINT" | "FDB_VALIDATION"));
+    assert!(matches!(error.code(), "RDB_CONSTRAINT" | "RDB_VALIDATION"));
     assert_eq!(
         q(&c, "SELECT n FROM docs ORDER BY n").rows,
         vec![
@@ -1730,7 +1730,7 @@ fn correlated_membership_preserves_native_affinity_and_atomic_writes() {
     let params = Parameters::from([("$delta".into(), Value::Integer(0))]);
     assert_eq!(
         c.execute(sql, &params).unwrap_err().code(),
-        "FDB_CONSTRAINT"
+        "RDB_CONSTRAINT"
     );
     assert_eq!(
         q(&c, "SELECT n FROM target").rows,
@@ -2529,7 +2529,7 @@ fn correlated_bound_pagination_errors_preserve_writes_and_retry() {
         }
         assert_eq!(
             c.execute(sql, &Parameters::new()).unwrap_err().code(),
-            "FDB_PARAMETER"
+            "RDB_PARAMETER"
         );
         assert_eq!(c.transaction_state(), state);
         let result = c
@@ -2657,7 +2657,7 @@ fn correlated_pagination_reused_bindings_preserve_predicates() {
                     );
                     assert_eq!(
                         c.execute(&sql, &Parameters::new()).unwrap_err().code(),
-                        "FDB_PARAMETER"
+                        "RDB_PARAMETER"
                     );
                 }
             }
@@ -3127,7 +3127,7 @@ fn correlated_derived_parameters_preserve_binary_and_atomic_insert_validation() 
     ] {
         q(&c, sql);
     }
-    let value = Value::Binary(b"FDB\x01payload".to_vec());
+    let value = Value::Binary(b"RDB\x01payload".to_vec());
     let params = Parameters::from([("$value".into(), value.clone())]);
     let sql = "SELECT (SELECT d.payload FROM links l WHERE l.owner=d.id) FROM (SELECT id,$value AS payload FROM docs) d";
     assert_eq!(
@@ -3325,19 +3325,19 @@ fn pinned_outer_group_key_rejection_preserves_transaction_work() {
             let sql =
                 format!("SELECT n,(SELECT count(*) FROM {inner} l GROUP BY d.n) FROM {source}");
             let error = c.execute(&sql, &Parameters::new()).unwrap_err();
-            assert_eq!(error.code(), "FDB_ENGINE", "{sql}: {error}");
+            assert_eq!(error.code(), "RDB_ENGINE", "{sql}: {error}");
             assert_eq!(
                 c.profile_select(&sql, &Parameters::new())
                     .unwrap_err()
                     .code(),
-                "FDB_ENGINE"
+                "RDB_ENGINE"
             );
         }
         let sql =
             format!("UPDATE {outer} AS d SET n=(SELECT count(*) FROM {inner} l GROUP BY d.n)");
         assert_eq!(
             c.execute(&sql, &Parameters::new()).unwrap_err().code(),
-            "FDB_ENGINE"
+            "RDB_ENGINE"
         );
         assert_eq!(
             q(&c, &format!("SELECT n FROM {outer} ORDER BY n")).rows,
@@ -4031,7 +4031,7 @@ fn inherited_scalar_binding_preserves_outer_value_types() {
         record,
         Value::Array(vec![Value::Null, Value::Integer(1)]),
         Value::Object(Default::default()),
-        Value::Binary(b"FDB\x01payload".to_vec()),
+        Value::Binary(b"RDB\x01payload".to_vec()),
         Value::vector32(&[1.0, 0.0]).unwrap(),
     ] {
         q(&c, "DELETE FROM docs");
@@ -4194,7 +4194,7 @@ fn scalar_pagination_retains_statement_parameter_positions() {
     q(&c, "CREATE TABLE docs");
     q(&c, "INSERT INTO docs {n:1}");
     q(&c, "INSERT INTO docs {n:2}");
-    let binary = Value::Binary(b"FDB\x01parameter".to_vec());
+    let binary = Value::Binary(b"RDB\x01parameter".to_vec());
     for offset in [0, 1] {
         for (sql, params) in [
             (
@@ -4356,7 +4356,7 @@ fn scalar_pagination_rejects_nonnumeric_values_and_retries() {
             for value in [
                 Value::Null,
                 Value::String("invalid".into()),
-                Value::Binary(b"FDB\x01payload".to_vec()),
+                Value::Binary(b"RDB\x01payload".to_vec()),
             ] {
                 let mut params = valid.clone();
                 params.insert(name.into(), value);

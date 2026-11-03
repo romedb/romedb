@@ -197,7 +197,7 @@ fn conflict_limits_reopen_and_reader_snapshots_preserve_atomic_changes() {
                 ..Default::default()
             },
         );
-        assert_eq!(failure.outcome.unwrap_err().code(), "FDB_CANCELLED");
+        assert_eq!(failure.outcome.unwrap_err().code(), "RDB_CANCELLED");
         assert!(failure.work.mutation_budget_exhausted);
         let failure = c.write_with_result_limits(
             sql,
@@ -207,7 +207,7 @@ fn conflict_limits_reopen_and_reader_snapshots_preserve_atomic_changes() {
                 ..limits
             },
         );
-        assert_eq!(failure.unwrap_err().code(), "FDB_LIMIT");
+        assert_eq!(failure.unwrap_err().code(), "RDB_LIMIT");
         assert_eq!(
             q(&c, "SELECT n FROM docs").rows,
             vec![vec![Value::Integer(1)]]

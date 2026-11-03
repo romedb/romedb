@@ -32,13 +32,13 @@ final class Database {
     public function __construct(string $path, string $library) {
         if (PHP_INT_SIZE !== 8) throw new \RuntimeException('RomeDB requires 64-bit PHP');
         if (str_contains($path, "\0")) throw new \InvalidArgumentException('path contains NUL');
-        $this->ffi = \FFI::cdef('uint32_t fdb_abi_version(void); char *fdb_open(const char *); char *fdb_call(uint64_t, const char *, int64_t); char *fdb_close(uint64_t); char *fdb_interrupt(uint64_t); void fdb_free(char *);', $library);
-        if ($this->ffi->fdb_abi_version() !== 1) throw new \RuntimeException('unsupported RomeDB ABI');
-        $this->handle = (int)$this->receive($this->ffi->fdb_open($path))['execution']['result'];
+        $this->ffi = \FFI::cdef('uint32_t rdb_abi_version(void); char *rdb_open(const char *); char *rdb_call(uint64_t, const char *, int64_t); char *rdb_close(uint64_t); char *rdb_interrupt(uint64_t); void rdb_free(char *);', $library);
+        if ($this->ffi->rdb_abi_version() !== 1) throw new \RuntimeException('unsupported RomeDB ABI');
+        $this->handle = (int)$this->receive($this->ffi->rdb_open($path))['execution']['result'];
     }
     private function receive(\FFI\CData $pointer): array {
         try { $r = json_decode(\FFI::string($pointer), true, 512, JSON_THROW_ON_ERROR); }
-        finally { $this->ffi->fdb_free($pointer); }
+        finally { $this->ffi->rdb_free($pointer); }
         if ($r['version'] !== 1) throw new \RuntimeException('unsupported RomeDB response version');
         if (isset($r['execution']['error'])) throw new RomeDBException($r['execution']['error'], $r['transaction'] ?? null);
         return self::restoreObjects($r);
@@ -51,14 +51,14 @@ final class Database {
     }
     /** Full protocol response, including transaction state; values retain their lossless tags. */
     public function call(array $request, int $timeoutMs = -1): array {
-        return $this->receive($this->ffi->fdb_call($this->handle, json_encode($request, JSON_THROW_ON_ERROR), $timeoutMs));
+        return $this->receive($this->ffi->rdb_call($this->handle, json_encode($request, JSON_THROW_ON_ERROR), $timeoutMs));
     }
     public function execute(string $sql, array $parameters = [], int $timeoutMs = -1): array {
         $r = $this->call(['op'=>'execute', 'sql'=>$sql, 'parameters'=>(object)$parameters], $timeoutMs);
         return $r['execution']['result'] + ['transaction'=>$r['transaction']];
     }
-    public function interrupt(): void { $this->receive($this->ffi->fdb_interrupt($this->handle)); }
-    public function close(): void { $this->receive($this->ffi->fdb_close($this->handle)); }
+    public function interrupt(): void { $this->receive($this->ffi->rdb_interrupt($this->handle)); }
+    public function close(): void { $this->receive($this->ffi->rdb_close($this->handle)); }
     public function __destruct() {
         if (isset($this->handle)) { try { $this->close(); } catch (\Throwable) {} }
     }

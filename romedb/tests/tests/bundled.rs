@@ -61,7 +61,7 @@ fn bundled_arguments_remain_data_and_invalid_arguments_are_rejected() {
         c.execute("INSERT INTO posts {slug:string::slugify($input)}", &params)
             .unwrap_err()
             .code(),
-        "FDB_LIMIT"
+        "RDB_LIMIT"
     );
     assert!(q(&c, "SELECT * FROM posts").rows.is_empty());
 }

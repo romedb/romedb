@@ -46,7 +46,7 @@ unrelated change. The C ABI itself is included in routine scoped formatting and
 Clippy checks.
 
 `romedb/bindings/c/include/romedb.h` defines ABI version 1. All returned strings
-are library-owned until freed exactly once with `fdb_free`; wrappers do this in
+are library-owned until freed exactly once with `rdb_free`; wrappers do this in
 their cleanup paths. Inputs are borrowed UTF-8 C strings. Callers must provide
 valid pointers and must not unload the library while handles remain live.
 Handles are opaque process-local integers, never reused; use each wrapper's

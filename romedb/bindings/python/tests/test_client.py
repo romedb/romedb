@@ -76,7 +76,7 @@ class ClientTests(unittest.TestCase):
                 "tiny": 5e-324,
                 "truth": True,
                 "nothing": None,
-                "binary": b"\x00\xffFDB\x01",
+                "binary": b"\x00\xffRDB\x01",
                 "text": "\"'{}\\\n",
                 "nested": [{"x": False}, [1, 2.0]],
                 "vector": Vector.from_components([1, 2, 3]),
@@ -113,7 +113,7 @@ class ClientTests(unittest.TestCase):
                 self.assertEqual(db.all("SELECT n FROM docs"), [[1]])
                 with self.assertRaises(RomeDBError) as failure:
                     db.write_with_result_limits("UPDATE docs SET n=9 RETURNING n", limits=ResultLimits(0, 100))
-                self.assertEqual(failure.exception.code, "FDB_LIMIT")
+                self.assertEqual(failure.exception.code, "RDB_LIMIT")
                 self.assertEqual(failure.exception.transaction, {"before": "active", "after": "active"})
                 self.assertEqual(db.all("SELECT n FROM docs"), [[1]])
             self.assertEqual(db.transaction_state, "autocommit")
@@ -169,7 +169,7 @@ class ClientTests(unittest.TestCase):
                     with db.transaction():
                         db.execute("INSERT INTO docs {n:2}")
                         db.execute("SELECT app::fail()")
-                self.assertEqual(failure.exception.code, "FDB_VALIDATION")
+                self.assertEqual(failure.exception.code, "RDB_VALIDATION")
                 self.assertEqual(failure.exception.transaction, {"before": "active", "after": "active"})
                 self.assertEqual(db.transaction_state, "active")
                 self.assertEqual(db.all("SELECT n FROM docs"), [[1]])
@@ -181,7 +181,7 @@ class ClientTests(unittest.TestCase):
                 self.assertEqual(db.check_collection_integrity("docs")["index_entries"], 2)
                 with self.assertRaises(RomeDBError) as failure:
                     db.execute("SELECT app::runaway()", timeout_ms=5)
-                self.assertEqual(failure.exception.code, "FDB_CANCELLED")
+                self.assertEqual(failure.exception.code, "RDB_CANCELLED")
                 self.assertEqual(failure.exception.transaction, {"before": "active", "after": "active"})
                 self.assertEqual(db.all("SELECT n FROM docs ORDER BY n"), [[1], [2]])
             self.assertEqual(db.transaction_state, "autocommit")
@@ -204,11 +204,11 @@ class ClientTests(unittest.TestCase):
             reports = failure.exception.reports
             self.assertEqual(len(reports), 2)
             self.assertEqual(reports[0]["result"].affected, 1)
-            self.assertEqual(reports[1]["error"].code, "FDB_CONSTRAINT")
+            self.assertEqual(reports[1]["error"].code, "RDB_CONSTRAINT")
             self.assertEqual(db.all("SELECT n FROM docs ORDER BY n"), [[1], [2]])
             with self.assertRaises(RomeDBError) as failure:
                 db.migrate(plan + [Migration(2, "bad", "INSERT INTO docs {n:3}; INSERT INTO docs {n:1};")])
-            self.assertEqual(failure.exception.code, "FDB_MIGRATION")
+            self.assertEqual(failure.exception.code, "RDB_MIGRATION")
             self.assertEqual(failure.exception.migration["version"], 2)
             self.assertEqual(db.all("SELECT n FROM docs ORDER BY n"), [[1], [2]])
 
@@ -230,7 +230,7 @@ class ClientTests(unittest.TestCase):
                 finally:
                     timer.join()
                 self.assertTrue(token.cancelled)
-                self.assertEqual(failure.exception.code, "FDB_CANCELLED")
+                self.assertEqual(failure.exception.code, "RDB_CANCELLED")
                 self.assertEqual(db.all("SELECT n FROM docs"), [[1]])
                 write_token = CancellationToken()
                 write_timer = threading.Timer(0.03, write_token.cancel)
@@ -244,12 +244,12 @@ class ClientTests(unittest.TestCase):
                         )
                 finally:
                     write_timer.join()
-                self.assertEqual(failure.exception.code, "FDB_CANCELLED")
+                self.assertEqual(failure.exception.code, "RDB_CANCELLED")
                 self.assertEqual(db.all("SELECT count(*) FROM sink"), [[0]])
                 self.assertEqual(db.all("SELECT n FROM docs"), [[1]])
                 with self.assertRaises(RomeDBError) as failure:
                     db.execute(heavy, timeout_ms=1)
-                self.assertEqual(failure.exception.code, "FDB_CANCELLED")
+                self.assertEqual(failure.exception.code, "RDB_CANCELLED")
             self.assertEqual(db.all("SELECT n FROM docs"), [[1]])
             token = CancellationToken()
             token.cancel()
@@ -268,12 +268,12 @@ class ClientTests(unittest.TestCase):
                 db.execute("SELECT $v", {"$v": Vector(b"invalid")})
             with self.assertRaises(RomeDBError) as failure:
                 db.exactly_one("SELECT 1 WHERE 0")
-            self.assertEqual(failure.exception.code, "FDB_CARDINALITY")
+            self.assertEqual(failure.exception.code, "RDB_CARDINALITY")
             self.assertIsNone(db.first("SELECT 1 WHERE 0"))
         db.close()
         with self.assertRaises(RomeDBError) as failure:
             db.execute("SELECT 1")
-        self.assertEqual(failure.exception.code, "FDB_CLOSED")
+        self.assertEqual(failure.exception.code, "RDB_CLOSED")
         with tempfile.TemporaryDirectory() as directory:
             path = pathlib.Path(directory) / "close.db"
             db = Database(path)
@@ -307,7 +307,7 @@ class ClientTests(unittest.TestCase):
                 self.assertEqual(db.all("SELECT n FROM docs"), [[1]])
             worker.join(5)
             self.assertFalse(worker.is_alive())
-            self.assertEqual([error.code for error in errors], ["FDB_CANCELLED"])
+            self.assertEqual([error.code for error in errors], ["RDB_CANCELLED"])
             self.assertEqual(db.all("SELECT n FROM docs"), [[1]])
 
 

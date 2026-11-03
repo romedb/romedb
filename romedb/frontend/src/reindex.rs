@@ -154,7 +154,7 @@ mod failure_tests {
         c.execute("BEGIN", &Parameters::new()).unwrap();
         c.execute("INSERT INTO prior {id:prior:a,n:7}", &Parameters::new())
             .unwrap();
-        assert_eq!(c.reindex("unique_n").unwrap_err().code(), "FDB_CONSTRAINT");
+        assert_eq!(c.reindex("unique_n").unwrap_err().code(), "RDB_CONSTRAINT");
         let rows = c
             .run(
                 &format!(
@@ -212,7 +212,7 @@ mod cancellation_tests {
             })));
             let result=c.reindex(name); c.engine.set_progress_handler(0,None);
             assert!(fired.load(Ordering::SeqCst),"{name}");
-            assert_eq!(result.unwrap_err().code(),"FDB_CANCELLED","{name}");
+            assert_eq!(result.unwrap_err().code(),"RDB_CANCELLED","{name}");
             c.check_collection_integrity("docs",Default::default()).unwrap();
             c.execute("COMMIT",&Parameters::new()).unwrap();
             assert_eq!(c.execute("SELECT n FROM prior",&Parameters::new()).unwrap().rows,vec![vec![Value::Integer(7)]]);

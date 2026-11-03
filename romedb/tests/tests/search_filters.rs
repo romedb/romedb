@@ -131,26 +131,26 @@ fn filter_validation_limits_and_failed_writes_preserve_prior_work() {
             source(kind, ",$ids")
         );
         for (value, code) in [
-            (Value::Null, "FDB_VALIDATION"),
-            (Value::Array(vec![Value::Null]), "FDB_VALIDATION"),
+            (Value::Null, "RDB_VALIDATION"),
+            (Value::Array(vec![Value::Null]), "RDB_VALIDATION"),
             (
                 Value::Array(vec![Value::String("docs:63".into())]),
-                "FDB_VALIDATION",
+                "RDB_VALIDATION",
             ),
             (
                 Value::Array(vec![Value::Record(Record {
                     table: "other".into(),
                     key: Key::Integer(63),
                 })]),
-                "FDB_VALIDATION",
+                "RDB_VALIDATION",
             ),
-            (Value::Array(vec![Value::Record(id(63)); 4097]), "FDB_LIMIT"),
+            (Value::Array(vec![Value::Record(id(63)); 4097]), "RDB_LIMIT"),
             (
                 Value::Array(vec![Value::Record(Record {
                     table: "docs".into(),
                     key: Key::String("x".repeat(1024 * 1024)),
                 })]),
-                "FDB_LIMIT",
+                "RDB_LIMIT",
             ),
         ] {
             let p = Parameters::from([("$ids".into(), value)]);
@@ -178,7 +178,7 @@ fn filter_validation_limits_and_failed_writes_preserve_prior_work() {
             )
             .unwrap_err()
             .code(),
-            "FDB_LIMIT"
+            "RDB_LIMIT"
         );
         assert_eq!(c.transaction_state(), romedb::TransactionState::Active);
     }
@@ -314,7 +314,7 @@ fn filtered_reads_charge_work_cancel_and_preserve_typed_key_identity() {
             c.execute_cancellable(&sql, &params, &token)
                 .unwrap_err()
                 .code(),
-            "FDB_CANCELLED"
+            "RDB_CANCELLED"
         );
         let full = c.select_metered(&sql, &params, limits, Default::default());
         assert_eq!(
@@ -334,7 +334,7 @@ fn filtered_reads_charge_work_cancel_and_preserve_typed_key_identity() {
                     max_vm_steps: None,
                 },
             );
-            assert_eq!(partial.outcome.unwrap_err().code(), "FDB_CANCELLED");
+            assert_eq!(partial.outcome.unwrap_err().code(), "RDB_CANCELLED");
             assert!(partial.work.read_budget_exhausted);
             assert_eq!(partial.work.rows_read, cap + 1);
             assert_eq!(c.transaction_state(), romedb::TransactionState::Active);

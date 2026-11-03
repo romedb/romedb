@@ -56,7 +56,7 @@ mod tests {
                 .initialize_service_catalog("other")
                 .unwrap_err()
                 .code(),
-            "FDB_STORAGE"
+            "RDB_STORAGE"
         );
     }
 
@@ -72,7 +72,7 @@ mod tests {
                 .initialize_service_catalog("other")
                 .unwrap_err()
                 .code(),
-            "FDB_STORAGE"
+            "RDB_STORAGE"
         );
     }
 
@@ -90,7 +90,7 @@ mod tests {
                 .initialize_service_catalog("other")
                 .unwrap_err()
                 .code(),
-            "FDB_STORAGE"
+            "RDB_STORAGE"
         );
     }
 
@@ -103,7 +103,7 @@ mod tests {
                 .publish_service_receipt(0, "request", &"a".repeat(64), body)
                 .unwrap_err()
                 .code(),
-            "FDB_UNSUPPORTED"
+            "RDB_UNSUPPORTED"
         );
         connection
             .execute("BEGIN CONCURRENT", &crate::Parameters::new())

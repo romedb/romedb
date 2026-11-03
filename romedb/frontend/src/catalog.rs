@@ -1098,19 +1098,19 @@ mod metadata_tests {
             .unwrap();
             assert_eq!(
                 c.catalog("docs").unwrap_err().code(),
-                "FDB_STORAGE",
+                "RDB_STORAGE",
                 "{metadata}"
             );
             assert_eq!(
                 c.collections().unwrap_err().code(),
-                "FDB_STORAGE",
+                "RDB_STORAGE",
                 "{metadata}"
             );
             assert_eq!(
                 c.execute("DROP TABLE docs", &Parameters::new())
                     .unwrap_err()
                     .code(),
-                "FDB_STORAGE",
+                "RDB_STORAGE",
                 "{metadata}"
             );
             assert_eq!(
@@ -1157,7 +1157,7 @@ mod metadata_tests {
             c.define_field("docs", reference("__romedb_bad"), false)
                 .unwrap_err()
                 .code(),
-            "FDB_VALIDATION"
+            "RDB_VALIDATION"
         );
         c.define_field("docs", reference("Docs"), false).unwrap();
         assert!(
@@ -1189,7 +1189,7 @@ mod storage_schema_tests {
             drop(db.connect().expect("valid managed schema"));
             c.run(mutation,&[]).unwrap();
             let error=db.connect().err().expect("reject modified schema");
-            assert_eq!(error.code(),"FDB_STORAGE","{mutation}: {error}");
+            assert_eq!(error.code(),"RDB_STORAGE","{mutation}: {error}");
             assert_eq!(c.execute("SELECT * FROM sentinel",&Parameters::new()).unwrap().rows,vec![vec![Value::Integer(99)]]);
         }
     }
@@ -1209,7 +1209,7 @@ mod storage_schema_tests {
             &[],
         )
         .unwrap();
-        assert_eq!(db.connect().err().unwrap().code(), "FDB_STORAGE");
+        assert_eq!(db.connect().err().unwrap().code(), "RDB_STORAGE");
         c.run("DROP INDEX value_idx", &[]).unwrap();
         c.run(
             "CREATE UNIQUE INDEX \"value_idx\" ON \"__romedb_i_76616c75655f696478\" (key)",
@@ -1242,7 +1242,7 @@ mod orphan_schema_tests {
             .connect()
             .err()
             .expect("shared index storage must reject connection");
-        assert_eq!(error.code(), "FDB_STORAGE");
+        assert_eq!(error.code(), "RDB_STORAGE");
         assert!(error.to_string().contains("multiple owners"), "{error}");
         other.indexes.clear();
         c.save_catalog(&other).unwrap();
@@ -1265,7 +1265,7 @@ mod orphan_schema_tests {
             }
             c.run(mutation,&[]).unwrap();
             let error=db.connect().err().expect("orphan must reject connection");
-            assert_eq!(error.code(),"FDB_STORAGE","{error}");
+            assert_eq!(error.code(),"RDB_STORAGE","{error}");
             assert!(error.to_string().contains("orphan managed storage"),"{mutation}: {error}");
             assert_eq!(c.run("SELECT count(*) FROM __romedb_c_646f6373",&[]).unwrap()[0][0], crate::scalar(&Value::Integer(1)).unwrap());
         }

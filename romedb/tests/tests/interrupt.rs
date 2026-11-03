@@ -33,7 +33,7 @@ fn cross_thread_interrupt_rolls_back_write_and_allows_reuse() {
         std::thread::sleep(Duration::from_millis(1));
     }
     let (c, report) = work.join().unwrap();
-    assert_eq!(report.result.unwrap_err().code(), "FDB_CANCELLED");
+    assert_eq!(report.result.unwrap_err().code(), "RDB_CANCELLED");
     assert_eq!(
         c.execute("SELECT count(*) FROM sink", &Parameters::new())
             .unwrap()

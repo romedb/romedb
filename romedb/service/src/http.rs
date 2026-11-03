@@ -75,7 +75,7 @@ impl Token {
             }
             Err(_) => {
                 return Err(Error::new(
-                    "FDB_AUTH",
+                    "RDB_AUTH",
                     "token file cannot be securely opened",
                 ))
             }
@@ -88,7 +88,7 @@ impl Token {
             || metadata.len() > 256
         {
             return Err(Error::new(
-                "FDB_AUTH",
+                "RDB_AUTH",
                 "token file must be an owned regular file with mode 0600 and one link",
             ));
         }
@@ -103,7 +103,7 @@ impl Token {
                 .bytes()
                 .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-'))
         {
-            return Err(Error::new("FDB_AUTH", "token file contents are invalid"));
+            return Err(Error::new("RDB_AUTH", "token file contents are invalid"));
         }
         Ok(Self {
             hash: Sha256::digest(token.as_bytes()).into(),
@@ -192,7 +192,7 @@ async fn serve_target(
     let address = listener.local_addr()?;
     if !address.ip().is_loopback() {
         return Err(Error::new(
-            "FDB_VALIDATION",
+            "RDB_VALIDATION",
             "database service must bind to loopback",
         ));
     }
@@ -206,7 +206,7 @@ async fn serve_target(
         tokio::select! {
             _ = &mut shutdown => break Ok(()),
             completed = tasks.join_next(), if !tasks.is_empty() => {
-                if completed.is_some_and(|result| result.is_err()) { break Err(Error::new("FDB_STORAGE", "HTTP connection task failed")); }
+                if completed.is_some_and(|result| result.is_err()) { break Err(Error::new("RDB_STORAGE", "HTTP connection task failed")); }
             }
             accepted = listener.accept() => {
                 let (stream, _) = match accepted { Ok(accepted) => accepted, Err(error) => break Err(error.into()) };
@@ -235,13 +235,13 @@ async fn serve_target(
     let _ = stopping.send(true);
     while let Some(completed) = tasks.join_next().await {
         if completed.is_err() && outcome.is_ok() {
-            outcome = Err(Error::new("FDB_STORAGE", "HTTP connection task failed"));
+            outcome = Err(Error::new("RDB_STORAGE", "HTTP connection task failed"));
         }
     }
     let _completed_jobs = jobs
         .acquire_many(MAX_DATABASE_JOBS)
         .await
-        .map_err(|_| Error::new("FDB_STORAGE", "database job tracking closed"))?;
+        .map_err(|_| Error::new("RDB_STORAGE", "database job tracking closed"))?;
     target.checkpoint_for_shutdown();
     outcome
 }
@@ -266,15 +266,15 @@ async fn dispatch(
         Ok(response) => response,
         Err(error) => {
             let status = match error.code.as_str() {
-                "FDB_AUTH" => StatusCode::UNAUTHORIZED,
-                "FDB_ORIGIN" => StatusCode::FORBIDDEN,
-                "FDB_NOT_FOUND" => StatusCode::NOT_FOUND,
-                "FDB_METHOD" => StatusCode::METHOD_NOT_ALLOWED,
-                "FDB_BUSY" | "FDB_CLOSED" => StatusCode::SERVICE_UNAVAILABLE,
-                "FDB_CANCELLED" => StatusCode::REQUEST_TIMEOUT,
-                "FDB_LIMIT" => StatusCode::PAYLOAD_TOO_LARGE,
-                "FDB_STORAGE" => StatusCode::SERVICE_UNAVAILABLE,
-                "FDB_CONFLICT" | "FDB_REQUEST_IDENTITY" => StatusCode::CONFLICT,
+                "RDB_AUTH" => StatusCode::UNAUTHORIZED,
+                "RDB_ORIGIN" => StatusCode::FORBIDDEN,
+                "RDB_NOT_FOUND" => StatusCode::NOT_FOUND,
+                "RDB_METHOD" => StatusCode::METHOD_NOT_ALLOWED,
+                "RDB_BUSY" | "RDB_CLOSED" => StatusCode::SERVICE_UNAVAILABLE,
+                "RDB_CANCELLED" => StatusCode::REQUEST_TIMEOUT,
+                "RDB_LIMIT" => StatusCode::PAYLOAD_TOO_LARGE,
+                "RDB_STORAGE" => StatusCode::SERVICE_UNAVAILABLE,
+                "RDB_CONFLICT" | "RDB_REQUEST_IDENTITY" => StatusCode::CONFLICT,
                 _ => StatusCode::BAD_REQUEST,
             };
             response(
@@ -303,7 +303,7 @@ async fn process(context: Context, request: Request<Incoming>) -> Result<Respons
             || request.headers().contains_key(header::CONTENT_ENCODING)
         {
             return Err(Error::new(
-                "FDB_PROTOCOL",
+                "RDB_PROTOCOL",
                 "requests require uncompressed application/json",
             ));
         }
@@ -317,26 +317,26 @@ async fn process(context: Context, request: Request<Incoming>) -> Result<Respons
                     .is_none_or(|length| length > 65536)
             })
         {
-            return Err(Error::new("FDB_LIMIT", "request exceeds 64 KiB"));
+            return Err(Error::new("RDB_LIMIT", "request exceeds 64 KiB"));
         }
         let collected = timeout(Duration::from_secs(5), async {
             let mut bytes = Vec::new();
             let mut body = request.into_body();
             while let Some(frame) = body.frame().await {
                 let frame = frame
-                    .map_err(|_| Error::new("FDB_PROTOCOL", "request body could not be read"))?;
+                    .map_err(|_| Error::new("RDB_PROTOCOL", "request body could not be read"))?;
                 if let Ok(data) = frame.into_data() {
                     if bytes.len() + data.len() > 65536 {
-                        return Err(Error::new("FDB_LIMIT", "request exceeds 64 KiB"));
+                        return Err(Error::new("RDB_LIMIT", "request exceeds 64 KiB"));
                     }
                     bytes.extend_from_slice(&data);
                 }
             }
             String::from_utf8(bytes)
-                .map_err(|_| Error::new("FDB_PROTOCOL", "request JSON must be UTF-8"))
+                .map_err(|_| Error::new("RDB_PROTOCOL", "request JSON must be UTF-8"))
         })
         .await
-        .map_err(|_| Error::new("FDB_CANCELLED", "request body deadline expired"))??;
+        .map_err(|_| Error::new("RDB_CANCELLED", "request body deadline expired"))??;
         Some(collected)
     } else {
         None
@@ -345,7 +345,7 @@ async fn process(context: Context, request: Request<Incoming>) -> Result<Respons
         .jobs
         .clone()
         .try_acquire_owned()
-        .map_err(|_| Error::new("FDB_BUSY", "service request capacity is full"))?;
+        .map_err(|_| Error::new("RDB_BUSY", "service request capacity is full"))?;
     let operation = tokio::task::spawn_blocking(move || {
         let body = body.unwrap_or_default();
         match (&context.target, &route) {
@@ -389,7 +389,7 @@ async fn process(context: Context, request: Request<Incoming>) -> Result<Respons
                 Ok((StatusCode::OK, directory.database(&id)?.query(&body)?))
             }
             _ => Err(Error::new(
-                "FDB_NOT_FOUND",
+                "RDB_NOT_FOUND",
                 "database endpoint does not exist",
             )),
         }
@@ -397,7 +397,7 @@ async fn process(context: Context, request: Request<Incoming>) -> Result<Respons
     });
     match operation
         .await
-        .map_err(|_| Error::new("FDB_STORAGE", "database request task failed"))??
+        .map_err(|_| Error::new("RDB_STORAGE", "database request task failed"))??
     {
         Reply::Json(status, body) => Ok(response(status, body)),
         Reply::File(download, permit) => Ok(file_response(download, permit)),
@@ -410,7 +410,7 @@ fn validate_request(context: &Context, request: &Request<Incoming>) -> Result<Ro
         || request.uri().query().is_some()
     {
         return Err(Error::new(
-            "FDB_PROTOCOL",
+            "RDB_PROTOCOL",
             "request requires a relative database path without a query",
         ));
     }
@@ -426,7 +426,7 @@ fn validate_request(context: &Context, request: &Request<Incoming>) -> Result<Ro
         || request.headers().contains_key("sec-fetch-site")
     {
         return Err(Error::new(
-            "FDB_ORIGIN",
+            "RDB_ORIGIN",
             "database service accepts native loopback clients without browser origins or cookies",
         ));
     }
@@ -439,7 +439,7 @@ fn validate_request(context: &Context, request: &Request<Incoming>) -> Result<Ro
         || request.headers().get_all(header::HOST).iter().count() != 1
     {
         return Err(Error::new(
-            "FDB_AUTH",
+            "RDB_AUTH",
             "exactly one host and authorization header are required",
         ));
     }
@@ -449,7 +449,7 @@ fn validate_request(context: &Context, request: &Request<Incoming>) -> Result<Ro
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.strip_prefix("Bearer "));
     if !authorization.is_some_and(|value| context.token.authorizes(value.as_bytes())) {
-        return Err(Error::new("FDB_AUTH", "database token is required"));
+        return Err(Error::new("RDB_AUTH", "database token is required"));
     }
     let route = match &context.target {
         Target::Database(_) => database_route(request.method(), request.uri().path())?,
@@ -483,7 +483,7 @@ fn validate_request(context: &Context, request: &Request<Incoming>) -> Result<Ro
             .is_some_and(|id| expected.is_none() || id.to_str().ok() != expected)
     {
         return Err(Error::new(
-            "FDB_REQUEST_IDENTITY",
+            "RDB_REQUEST_IDENTITY",
             "database identity changed; connect to the intended database before continuing",
         ));
     }
@@ -497,17 +497,17 @@ fn database_route(method: &Method, path: &str) -> Result<Route> {
         (&Method::POST, "/v1/database/query") => Ok(Route::Query),
         (&Method::GET, "/v1/database/file") => Ok(Route::File),
         (_, "/v1/database" | "/v1/database/read" | "/v1/database/query" | "/v1/database/file") => {
-            Err(Error::new("FDB_METHOD", "method is not supported"))
+            Err(Error::new("RDB_METHOD", "method is not supported"))
         }
         _ => Err(Error::new(
-            "FDB_NOT_FOUND",
+            "RDB_NOT_FOUND",
             "database endpoint does not exist",
         )),
     }
 }
 
 fn directory_route(method: &Method, path: &str, organization_id: &str) -> Result<Route> {
-    let not_found = || Error::new("FDB_NOT_FOUND", "database endpoint does not exist");
+    let not_found = || Error::new("RDB_NOT_FOUND", "database endpoint does not exist");
     let rest = path
         .strip_prefix("/v1/organizations/")
         .and_then(|rest| rest.strip_prefix(organization_id))
@@ -518,7 +518,7 @@ fn directory_route(method: &Method, path: &str, organization_id: &str) -> Result
         return match *method {
             Method::GET => Ok(Route::List),
             Method::POST => Ok(Route::Create),
-            _ => Err(Error::new("FDB_METHOD", "method is not supported")),
+            _ => Err(Error::new("RDB_METHOD", "method is not supported")),
         };
     }
     match (method, segments.as_slice()) {
@@ -529,7 +529,7 @@ fn directory_route(method: &Method, path: &str, organization_id: &str) -> Result
         (&Method::POST, [id, "query"]) => Ok(Route::DatabaseQuery((*id).to_owned())),
         (&Method::GET, [id, "file"]) => Ok(Route::DatabaseFile((*id).to_owned())),
         (_, [_] | [_, "read" | "query" | "file"]) => {
-            Err(Error::new("FDB_METHOD", "method is not supported"))
+            Err(Error::new("RDB_METHOD", "method is not supported"))
         }
         _ => Err(not_found()),
     }

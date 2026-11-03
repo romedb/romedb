@@ -301,7 +301,7 @@ fn helper_queries_use_scalar_index_and_obey_snapshots_and_result_limits() {
             .execute_cancellable(sql, &p, &token)
             .unwrap_err()
             .code(),
-        "FDB_CANCELLED"
+        "RDB_CANCELLED"
     );
     assert_eq!(reader.execute(sql, &p).unwrap().rows.len(), 1);
 }

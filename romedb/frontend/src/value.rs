@@ -50,7 +50,7 @@ impl Value {
     }
     pub(crate) fn encode(&self) -> Result<Vec<u8>> {
         self.validate()?;
-        let mut bytes = b"FDB\x01".to_vec();
+        let mut bytes = b"RDB\x01".to_vec();
         serde_json::to_writer(&mut bytes, self)?;
         Ok(bytes)
     }
@@ -75,7 +75,7 @@ impl Value {
                 }
             }
             let mut counter = Counter { used: 0, limit };
-            std::io::Write::write_all(&mut counter, b"FDB\x01")
+            std::io::Write::write_all(&mut counter, b"RDB\x01")
                 .map_err(|_| Error::Limit("encoded value limit exceeded".into()))?;
             serde_json::to_writer(&mut counter, self)
                 .map_err(|_| Error::Limit("encoded value limit exceeded".into()))?;
@@ -84,7 +84,7 @@ impl Value {
     }
     pub(crate) fn decode(bytes: &[u8]) -> Result<Self> {
         let payload = bytes
-            .strip_prefix(b"FDB\x01")
+            .strip_prefix(b"RDB\x01")
             .ok_or_else(|| Error::Storage("unknown value format".into()))?;
         let input = std::str::from_utf8(payload)
             .map_err(|error| Error::Storage(format!("invalid value UTF-8: {error}")))?;
@@ -107,7 +107,7 @@ pub(crate) fn encode_document(document: &Document) -> Result<Vec<u8>> {
     enum BorrowedValue<'a> {
         Object(&'a Document),
     }
-    let mut bytes = b"FDB\x01".to_vec();
+    let mut bytes = b"RDB\x01".to_vec();
     serde_json::to_writer(&mut bytes, &BorrowedValue::Object(document))?;
     Ok(bytes)
 }
@@ -177,7 +177,7 @@ mod tests {
             for limit in [0, 3, expected.len() - 1] {
                 assert_eq!(
                     value.encode_with_limit(Some(limit)).unwrap_err().code(),
-                    "FDB_LIMIT"
+                    "RDB_LIMIT"
                 );
             }
         }
@@ -251,7 +251,7 @@ mod borrowed_document_tests {
                     ),
                 ]);
                 let bytes = encode_document(&document).unwrap();
-                let mut previous_encoding = b"FDB\x01".to_vec();
+                let mut previous_encoding = b"RDB\x01".to_vec();
                 previous_encoding
                     .extend(serde_json::to_vec(&Value::Object(document.clone())).unwrap());
                 assert_eq!(bytes, previous_encoding);
@@ -328,7 +328,7 @@ pub(crate) enum Field {
 /// Decode common canonical values without the JSON decoder: scalars and
 /// GeoJSON-style points with two number coordinates. Other values return `None`.
 pub(crate) fn decode_simple(bytes: &[u8]) -> Option<Value> {
-    let text = bytes.strip_prefix(b"FDB\x01")?;
+    let text = bytes.strip_prefix(b"RDB\x01")?;
     let value = field::scalar(text).or_else(|| field::point(text))?;
     value.validate().ok().map(|()| value)
 }
@@ -397,7 +397,7 @@ mod field {
         match lookup(bytes, path)? {
             Lookup::Found(text) => {
                 let mut encoded = Vec::with_capacity(text.len() + 4);
-                encoded.extend_from_slice(b"FDB\x01");
+                encoded.extend_from_slice(b"RDB\x01");
                 encoded.extend_from_slice(text);
                 Some(EncodedField::Found(encoded))
             }
@@ -417,7 +417,7 @@ mod field {
     const TAG: &[u8] = b"{\"type\":\"";
 
     fn lookup<'a>(bytes: &'a [u8], path: &[String]) -> Option<Lookup<'a>> {
-        let payload = bytes.strip_prefix(b"FDB\x01")?;
+        let payload = bytes.strip_prefix(b"RDB\x01")?;
         if path.is_empty() {
             return None;
         }
@@ -772,7 +772,7 @@ mod field {
 
         #[test]
         fn noncanonical_encodings_fall_back_to_full_decoding() {
-            let reordered = b"FDB\x01{\"value\":{\"a\":{\"type\":\"Integer\",\"value\":3}},\"type\":\"Object\"}";
+            let reordered = b"RDB\x01{\"value\":{\"a\":{\"type\":\"Integer\",\"value\":3}},\"type\":\"Object\"}";
             assert_eq!(super::read(reordered, &["a".into()]), None);
             assert_eq!(
                 decode_field(reordered, &["a".into()]).unwrap(),
@@ -785,7 +785,7 @@ mod field {
                 Field::RootNotObject
             );
             assert!(decode_field(
-                b"FDB\x01{\"type\":\"Object\",\"value\":{\"a\":",
+                b"RDB\x01{\"type\":\"Object\",\"value\":{\"a\":",
                 &["a".into()]
             )
             .is_err());

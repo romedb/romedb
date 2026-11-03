@@ -149,20 +149,20 @@ fn array_entry_limits_validation_and_late_writes_preserve_transactions() {
     q(&c, "BEGIN");
     q(&c, "INSERT INTO prior {n:7}");
     let cases = vec![
-        (Value::Integer(7), "FDB_VALIDATION"),
-        (Value::Array(vec![Value::Array(vec![])]), "FDB_VALIDATION"),
+        (Value::Integer(7), "RDB_VALIDATION"),
+        (Value::Array(vec![Value::Array(vec![])]), "RDB_VALIDATION"),
         (
             Value::Array(vec![Value::Object(Default::default())]),
-            "FDB_VALIDATION",
+            "RDB_VALIDATION",
         ),
         (
             Value::Array(vec![Value::vector32(&[1.0]).unwrap()]),
-            "FDB_VALIDATION",
+            "RDB_VALIDATION",
         ),
-        (Value::Array(vec![Value::Integer(1); 4097]), "FDB_LIMIT"),
+        (Value::Array(vec![Value::Integer(1); 4097]), "RDB_LIMIT"),
         (
             Value::Array(vec![Value::String("x".repeat(1024)); 4096]),
-            "FDB_LIMIT",
+            "RDB_LIMIT",
         ),
     ];
     for (bad, code) in cases {
@@ -203,7 +203,7 @@ fn array_entry_limits_validation_and_late_writes_preserve_transactions() {
         c.execute("INSERT INTO docs {id:$id,tags:$tags}", &expanded)
             .unwrap_err()
             .code(),
-        "FDB_LIMIT"
+        "RDB_LIMIT"
     );
     q(
         &c,
@@ -237,7 +237,7 @@ fn array_entry_limits_validation_and_late_writes_preserve_transactions() {
         )
         .unwrap_err()
         .code(),
-        "FDB_VALIDATION"
+        "RDB_VALIDATION"
     );
     c.check_collection_integrity("docs", Default::default())
         .unwrap();
@@ -320,7 +320,7 @@ fn indexed_membership_limits_and_cancellation_preserve_prior_work() {
             max_vm_steps: None,
         },
     );
-    assert_eq!(partial.outcome.unwrap_err().code(), "FDB_CANCELLED");
+    assert_eq!(partial.outcome.unwrap_err().code(), "RDB_CANCELLED");
     assert!(partial.work.read_budget_exhausted);
     let token = romedb::CancellationToken::new();
     token.cancel();
@@ -328,7 +328,7 @@ fn indexed_membership_limits_and_cancellation_preserve_prior_work() {
         c.execute_cancellable(sql, &params, &token)
             .unwrap_err()
             .code(),
-        "FDB_CANCELLED"
+        "RDB_CANCELLED"
     );
     assert_eq!(
         c.select_with_limits(
@@ -341,7 +341,7 @@ fn indexed_membership_limits_and_cancellation_preserve_prior_work() {
         )
         .unwrap_err()
         .code(),
-        "FDB_LIMIT"
+        "RDB_LIMIT"
     );
     for sql in [
         sql.to_owned(),
@@ -354,7 +354,7 @@ fn indexed_membership_limits_and_cancellation_preserve_prior_work() {
             )
             .unwrap_err()
             .code(),
-            "FDB_LIMIT"
+            "RDB_LIMIT"
         );
     }
     assert_eq!(
@@ -656,7 +656,7 @@ fn array_path_indexes_reject_invalid_shapes_paths_and_limits() {
         ),
     ] {
         let error = c.execute(sql, &Parameters::new()).unwrap_err();
-        assert_eq!(error.code(), "FDB_VALIDATION", "{sql}");
+        assert_eq!(error.code(), "RDB_VALIDATION", "{sql}");
         assert!(error.to_string().contains(message), "{sql}: {error}");
     }
     let team = |links: usize| {
@@ -684,7 +684,7 @@ fn array_path_indexes_reject_invalid_shapes_paths_and_limits() {
         )
     };
     insert("fits", team(63)).unwrap();
-    assert_eq!(insert("over", team(64)).unwrap_err().code(), "FDB_LIMIT");
+    assert_eq!(insert("over", team(64)).unwrap_err().code(), "RDB_LIMIT");
     assert_eq!(
         c.execute(
             "CREATE SEARCH INDEX bad ON docs(team.*.links) USING ARRAY",
@@ -692,7 +692,7 @@ fn array_path_indexes_reject_invalid_shapes_paths_and_limits() {
         )
         .unwrap_err()
         .code(),
-        "FDB_VALIDATION"
+        "RDB_VALIDATION"
     );
     assert!(c
         .execute("SELECT id FROM docs WHERE bad=1", &Parameters::new())
@@ -703,7 +703,7 @@ fn array_path_indexes_reject_invalid_shapes_paths_and_limits() {
             c.create_array_index("docs", "bad", path.clone(), false)
                 .unwrap_err()
                 .code(),
-            "FDB_VALIDATION",
+            "RDB_VALIDATION",
             "{path:?}"
         );
     }
@@ -712,7 +712,7 @@ fn array_path_indexes_reject_invalid_shapes_paths_and_limits() {
         c.create_index("docs", "bad", star.clone(), false)
             .unwrap_err()
             .code(),
-        "FDB_VALIDATION"
+        "RDB_VALIDATION"
     );
     let deep = std::iter::once("team")
         .chain(std::iter::repeat_n("*", 63))
@@ -723,7 +723,7 @@ fn array_path_indexes_reject_invalid_shapes_paths_and_limits() {
         c.create_array_index("docs", "bad", deep, false)
             .unwrap_err()
             .code(),
-        "FDB_LIMIT"
+        "RDB_LIMIT"
     );
     for sql in [
         "CREATE SEARCH INDEX bad ON docs(team.*) USING ARRAY",
@@ -731,7 +731,7 @@ fn array_path_indexes_reject_invalid_shapes_paths_and_limits() {
     ] {
         assert_eq!(
             c.execute(sql, &Parameters::new()).unwrap_err().code(),
-            "FDB_SYNTAX",
+            "RDB_SYNTAX",
             "{sql}"
         );
     }
@@ -741,7 +741,7 @@ fn array_path_indexes_reject_invalid_shapes_paths_and_limits() {
             &Parameters::new(),
         )
         .unwrap_err();
-    assert_eq!(error.code(), "FDB_UNSUPPORTED", "{error}");
+    assert_eq!(error.code(), "RDB_UNSUPPORTED", "{error}");
 }
 
 #[test]
@@ -776,7 +776,7 @@ fn array_path_indexes_follow_declared_field_types() {
     ] {
         assert_eq!(
             c.execute(sql, &Parameters::new()).unwrap_err().code(),
-            "FDB_VALIDATION",
+            "RDB_VALIDATION",
             "{sql}"
         );
     }

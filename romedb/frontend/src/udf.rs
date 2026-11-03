@@ -509,8 +509,8 @@ unsafe extern "C" fn callback(
         Ok(value) => ExtValue::from_blob(value),
         Err(error) => {
             let code = match error.code() {
-                "FDB_LIMIT" => "limit",
-                "FDB_CANCELLED" => "cancelled",
+                "RDB_LIMIT" => "limit",
+                "RDB_CANCELLED" => "cancelled",
                 _ => "validation",
             };
             ExtValue::error_with_message(format!("__romedb_udf_{code}:{error}"))
@@ -545,7 +545,7 @@ mod tests {
         );
         let error = call(&d, &[], Arc::downgrade(&c.engine)).unwrap_err();
         c.engine.set_progress_handler(0, None);
-        assert_eq!(error.code(), "FDB_CANCELLED");
+        assert_eq!(error.code(), "RDB_CANCELLED");
         assert!(ticks.load(Ordering::SeqCst) >= 11);
     }
 }

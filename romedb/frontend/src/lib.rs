@@ -123,46 +123,46 @@ pub enum Error {
 impl Error {
     pub fn code(&self) -> &'static str {
         match self {
-            Self::Syntax(_) => "FDB_SYNTAX",
-            Self::Engine(turso_core::LimboError::Interrupt) => "FDB_CANCELLED",
-            Self::Engine(turso_core::LimboError::Busy) => "FDB_BUSY",
-            Self::Engine(turso_core::LimboError::BusySnapshot) => "FDB_BUSY_SNAPSHOT",
+            Self::Syntax(_) => "RDB_SYNTAX",
+            Self::Engine(turso_core::LimboError::Interrupt) => "RDB_CANCELLED",
+            Self::Engine(turso_core::LimboError::Busy) => "RDB_BUSY",
+            Self::Engine(turso_core::LimboError::BusySnapshot) => "RDB_BUSY_SNAPSHOT",
             Self::Engine(
                 turso_core::LimboError::WriteWriteConflict
                 | turso_core::LimboError::CommitDependencyAborted,
-            ) => "FDB_WRITE_CONFLICT",
+            ) => "RDB_WRITE_CONFLICT",
             Self::Engine(
                 turso_core::LimboError::Constraint(_)
                 | turso_core::LimboError::ForeignKeyConstraint(_)
                 | turso_core::LimboError::Raise(..),
-            ) => "FDB_CONSTRAINT",
+            ) => "RDB_CONSTRAINT",
             Self::Engine(turso_core::LimboError::ExtensionError(message))
                 if message.starts_with("__romedb_udf_limit:") =>
             {
-                "FDB_LIMIT"
+                "RDB_LIMIT"
             }
             Self::Engine(turso_core::LimboError::ExtensionError(message))
                 if message.starts_with("__romedb_udf_cancelled:") =>
             {
-                "FDB_CANCELLED"
+                "RDB_CANCELLED"
             }
             Self::Engine(turso_core::LimboError::ExtensionError(message))
                 if message.starts_with("__romedb_udf_validation:") =>
             {
-                "FDB_VALIDATION"
+                "RDB_VALIDATION"
             }
-            Self::Engine(_) => "FDB_ENGINE",
-            Self::Encoding(_) | Self::Storage(_) => "FDB_STORAGE",
-            Self::Validation(_) => "FDB_VALIDATION",
-            Self::NotFound(_) => "FDB_NOT_FOUND",
-            Self::AlreadyExists(_) => "FDB_ALREADY_EXISTS",
-            Self::Unsupported(_) => "FDB_UNSUPPORTED",
-            Self::Parameter(_) => "FDB_PARAMETER",
-            Self::Limit(_) => "FDB_LIMIT",
-            Self::Cardinality(_) => "FDB_CARDINALITY",
-            Self::Migration { source, .. } if source.code() == "FDB_CANCELLED" => "FDB_CANCELLED",
-            Self::Migration { .. } => "FDB_MIGRATION",
-            Self::Rollback { .. } => "FDB_ROLLBACK",
+            Self::Engine(_) => "RDB_ENGINE",
+            Self::Encoding(_) | Self::Storage(_) => "RDB_STORAGE",
+            Self::Validation(_) => "RDB_VALIDATION",
+            Self::NotFound(_) => "RDB_NOT_FOUND",
+            Self::AlreadyExists(_) => "RDB_ALREADY_EXISTS",
+            Self::Unsupported(_) => "RDB_UNSUPPORTED",
+            Self::Parameter(_) => "RDB_PARAMETER",
+            Self::Limit(_) => "RDB_LIMIT",
+            Self::Cardinality(_) => "RDB_CARDINALITY",
+            Self::Migration { source, .. } if source.code() == "RDB_CANCELLED" => "RDB_CANCELLED",
+            Self::Migration { .. } => "RDB_MIGRATION",
+            Self::Rollback { .. } => "RDB_ROLLBACK",
         }
     }
 
@@ -418,6 +418,7 @@ impl Database {
         if manual_wal {
             conn.wal_auto_actions_disable();
         }
+        refuse_earlier_value_format(&conn)?;
         conn.execute("CREATE TABLE IF NOT EXISTS __romedb_catalog (name TEXT PRIMARY KEY, metadata TEXT NOT NULL)")?;
         conn.execute(udf::DDL)?;
         Ok(Self { engine, manual_wal })
@@ -447,6 +448,41 @@ impl Database {
         connection.atomic(|| connection.validate_storage_schema())?;
         Ok(connection)
     }
+}
+
+const EARLIER_VALUE_FORMAT: &str = "this database was written by RomeDB 0.2.12 or earlier, whose stored values RomeDB 0.2.13 does not read; create a new database";
+
+/// RomeDB 0.2.13 changed the stored value prefix from `FDB` to `RDB`. A file whose
+/// collections hold the earlier prefix is refused before anything is written.
+fn refuse_earlier_value_format(conn: &Arc<EngineConnection>) -> Result<()> {
+    let mut catalog = conn
+        .prepare("SELECT name FROM sqlite_schema WHERE type='table' AND name='__romedb_catalog'")?;
+    if collect_rows(&mut catalog)?.is_empty() {
+        return Ok(());
+    }
+    let mut catalog = conn.prepare("SELECT metadata FROM __romedb_catalog")?;
+    for row in collect_rows(&mut catalog)? {
+        let [EngineValue::Text(metadata)] = row.as_slice() else {
+            continue;
+        };
+        let Some(storage) = serde_json::from_str::<serde_json::Value>(metadata.as_str())
+            .ok()
+            .and_then(|metadata| metadata["storage"].as_str().map(str::to_owned))
+        else {
+            continue;
+        };
+        let Ok(mut first) = conn.prepare(format!("SELECT doc FROM {} LIMIT 1", quote(&storage)))
+        else {
+            continue;
+        };
+        if let Ok(rows) = collect_rows(&mut first) {
+            if matches!(rows.first().map(Vec::as_slice), Some([EngineValue::Blob(doc)]) if doc.starts_with(b"FDB\x01"))
+            {
+                return Err(Error::Unsupported(EARLIER_VALUE_FORMAT.into()));
+            }
+        }
+    }
+    Ok(())
 }
 
 /// The engine creates its WAL and MVCC log files with the process umask, so a
@@ -630,7 +666,7 @@ impl Connection {
         // rollback boundary for interrupts without changing OR FAIL/ROLLBACK
         // and other native error dispositions.
         self.savepoint(f, |error| {
-            matches!(error.code(), "FDB_CANCELLED" | "FDB_ROLLBACK")
+            matches!(error.code(), "RDB_CANCELLED" | "RDB_ROLLBACK")
         })
     }
     /// Run `f` in a uniquely named savepoint. The whole operation runs on a

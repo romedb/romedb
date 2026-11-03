@@ -816,11 +816,11 @@ mod tests {
         let mut reader = io::Cursor::new("abcไทย".as_bytes());
         let input = read_input(&mut reader, 4, false).unwrap();
         assert_eq!(reader.position(), 5);
-        assert_eq!(transfer_text(input, 4).unwrap_err().code(), "FDB_LIMIT");
+        assert_eq!(transfer_text(input, 4).unwrap_err().code(), "RDB_LIMIT");
         assert_eq!(transfer_text("aไ".as_bytes().to_vec(), 4).unwrap(), "aไ");
         assert_eq!(
             transfer_text(vec![0xff], 4).unwrap_err().code(),
-            "FDB_VALIDATION"
+            "RDB_VALIDATION"
         );
     }
 

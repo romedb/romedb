@@ -128,7 +128,7 @@ def main():
         terminal = Terminal(binary, "--max-input-bytes", "8")
         try:
             terminal.send(b"SELECT 1234;\n", rows=1)
-            assert terminal.rows[0]["error"]["code"] == "FDB_LIMIT"
+            assert terminal.rows[0]["error"]["code"] == "RDB_LIMIT"
             assert terminal.child.wait(timeout=10) == 1
         finally:
             terminal.cleanup()
@@ -161,7 +161,7 @@ def main():
                     terminal.wait(lambda: len(terminal.rows) >= before + 2 or time.monotonic() >= poll)
                 terminal.wait(lambda: label in terminal.text)
                 assert len(terminal.rows) == before + 2, terminal.rows
-                assert terminal.rows[-1]["error"]["code"] == "FDB_CANCELLED", terminal.rows[-1]
+                assert terminal.rows[-1]["error"]["code"] == "RDB_CANCELLED", terminal.rows[-1]
                 assert terminal.rows[-1]["transaction"]["after"] == ("active" if outer else "autocommit")
                 terminal.send(b"SELECT count(*) FROM sink;\n", rows=before + 3, prompt=label)
                 assert terminal.rows[-1]["rows"][0][0]["value"] == (1 if outer else 0)
@@ -198,7 +198,7 @@ def main():
                     terminal.wait(lambda: len(terminal.rows) > before or time.monotonic() >= poll)
                 terminal.wait(lambda: b"romedb(tx)> " in terminal.text)
                 report = terminal.rows[-1]
-                assert report["error"]["code"] == "FDB_CANCELLED", report
+                assert report["error"]["code"] == "RDB_CANCELLED", report
                 assert report["transaction"] == {"before": "active", "after": "active"}, report
                 assert "rows" not in report and "profile" not in report
                 terminal.send(b".select-limit 1 9 SELECT x FROM sink;\n", rows=before+2, prompt=b"romedb(tx)> ")

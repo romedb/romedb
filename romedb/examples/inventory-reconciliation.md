@@ -21,7 +21,7 @@ native engine errors abort the entire transaction themselves.
 
 Before writing events, a LEFT JOIN counts unmatched adjustment SKUs. A relational
 CHECK requires that count to be zero, so unknown SKUs reject the batch with
-FDB_CONSTRAINT before stock changes or staging cleanup. An application can also
+RDB_CONSTRAINT before stock changes or staging cleanup. An application can also
 report the unmatched SKUs to its user. The sample does not implement batch
 idempotency, competing inventory
 reservations or automatic retries. Replaying a batch without an application

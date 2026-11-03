@@ -281,13 +281,13 @@ mod tests {
             )
             .unwrap_err()
             .code(),
-            "FDB_LIMIT"
+            "RDB_LIMIT"
         );
         assert_eq!(
             call("cell_disk", &[cell.clone(), Value::Integer(100)])
                 .unwrap_err()
                 .code(),
-            "FDB_LIMIT"
+            "RDB_LIMIT"
         );
         assert!(call("cell_disk", &[cell.clone(), Value::Number(1.5)]).is_err());
         assert!(call("cell_resolution", &[text("8A1FB46622DFFFF")]).is_err());

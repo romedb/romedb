@@ -340,7 +340,7 @@ mod tests {
                 c.check_collection_integrity("docs", limits)
                     .unwrap_err()
                     .code(),
-                "FDB_LIMIT"
+                "RDB_LIMIT"
             );
             assert_eq!(c.transaction_state(), crate::TransactionState::Active);
         }
@@ -372,7 +372,7 @@ mod tests {
                 c.check_collection_integrity("docs", IntegrityLimits::default())
                     .unwrap_err()
                     .code(),
-                "FDB_STORAGE",
+                "RDB_STORAGE",
                 "{sql}"
             );
             assert_eq!(
@@ -399,7 +399,7 @@ mod tests {
             .validate_integrity_candidate(&collection, &doc)
             .unwrap_err();
         c.engine.set_progress_handler(0, None);
-        assert_eq!(error.code(), "FDB_CANCELLED");
+        assert_eq!(error.code(), "RDB_CANCELLED");
         assert_eq!(
             c.check_collection_integrity("docs", IntegrityLimits::default())
                 .unwrap()
@@ -448,7 +448,7 @@ mod tests {
             let error = c
                 .check_collection_integrity("docs", IntegrityLimits::default())
                 .unwrap_err();
-            assert_eq!(error.code(), "FDB_STORAGE", "case {mutation}: {error}");
+            assert_eq!(error.code(), "RDB_STORAGE", "case {mutation}: {error}");
         }
     }
 }

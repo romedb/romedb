@@ -4,7 +4,7 @@
 native addon and the Web-API entries `@romedb/node/client` and
 `@romedb/node/values`. It installs on every platform: the client entries run
 anywhere (Node, Workers, browsers), and the native entries fail with
-`FDB_NATIVE_LOAD` outside Linux x64.
+`RDB_NATIVE_LOAD` outside Linux x64.
 
 ## How a release reaches npm
 

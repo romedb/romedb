@@ -65,11 +65,11 @@ fn iterator_consumer(file: &str) -> Result<(), Box<dyn std::error::Error>> {
         let limits=ResultLimits {max_rows:3,max_payload_bytes:50};
         assert_eq!(c.select_with_limits(query,&params,limits)?.rows,expected);
         assert_eq!(c.profile_select_with_limits(query,&params,limits)?.result.rows,expected);
-        assert_eq!(c.select_with_limits(query,&params,ResultLimits {max_payload_bytes:49,..limits}).unwrap_err().code(),"FDB_LIMIT");
-        assert_eq!(c.execute(query,&empty).unwrap_err().code(),"FDB_PARAMETER");
+        assert_eq!(c.select_with_limits(query,&params,ResultLimits {max_payload_bytes:49,..limits}).unwrap_err().code(),"RDB_LIMIT");
+        assert_eq!(c.execute(query,&empty).unwrap_err().code(),"RDB_PARAMETER");
         for sql in ["CREATE TABLE iterator_output","DEFINE FIELD n ON iterator_output TYPE integer CHECK(n<4)","CREATE UNIQUE INDEX iterator_n ON iterator_output(n)","BEGIN","INSERT INTO iterator_output(n) VALUES(0)"] {c.execute(sql,&empty)?;}
         let insert=format!("INSERT INTO iterator_output(n) SELECT v FROM ({query}) RETURNING n");
-        assert_eq!(c.execute(&insert,&params).unwrap_err().code(),"FDB_VALIDATION");
+        assert_eq!(c.execute(&insert,&params).unwrap_err().code(),"RDB_VALIDATION");
         assert_eq!(c.transaction_state(),romedb::TransactionState::Active);
         assert_eq!(c.execute("SELECT n FROM iterator_output",&empty)?.rows,vec![vec![Value::Integer(0)]]);
         assert!(c.lookup_index("iterator_output","iterator_n",&Value::Integer(2))?.is_empty());
@@ -89,8 +89,8 @@ fn iterator_consumer(file: &str) -> Result<(), Box<dyn std::error::Error>> {
         let limits=ResultLimits {max_rows:2,max_payload_bytes:38};
         assert_eq!(c.select_with_limits(&sql,&params,limits)?.rows,rows);
         assert_eq!(c.profile_select_with_limits(&sql,&params,limits)?.result.rows,rows);
-        assert_eq!(c.execute(&sql,&empty).unwrap_err().code(),"FDB_PARAMETER");
-        assert_eq!(c.select_with_limits(&sql,&params,ResultLimits {max_rows:1,..limits}).unwrap_err().code(),"FDB_LIMIT");
+        assert_eq!(c.execute(&sql,&empty).unwrap_err().code(),"RDB_PARAMETER");
+        assert_eq!(c.select_with_limits(&sql,&params,ResultLimits {max_rows:1,..limits}).unwrap_err().code(),"RDB_LIMIT");
         assert_eq!(c.execute(&sql,&params)?.rows,rows);
     }
     assert_eq!(c.check_collection_integrity("iterator_output",IntegrityLimits::default())?.index_entries,0);
@@ -107,7 +107,7 @@ fn tuple_consumer(file: &str) -> Result<(), Box<dyn std::error::Error>> {
         c.execute("INSERT INTO tuples(a,b) VALUES($a,$b)",&Parameters::from([("$a".into(),record.clone()),("$b".into(),payload.clone())]))?;
         c.execute("BEGIN",&empty)?;
         assert_eq!(c.execute("UPDATE tuples SET (a,b)=(VALUES(b,a)) RETURNING a,b",&empty)?.rows,vec![vec![payload.clone(),record.clone()]]);
-        assert_eq!(c.execute("UPDATE tuples SET (a,b)=(VALUES(1,2),(3,4))",&empty).unwrap_err().code(),"FDB_UNSUPPORTED");
+        assert_eq!(c.execute("UPDATE tuples SET (a,b)=(VALUES(1,2),(3,4))",&empty).unwrap_err().code(),"RDB_UNSUPPORTED");
         assert_eq!(c.transaction_state(),romedb::TransactionState::Active);
         c.execute("ROLLBACK",&empty)?;
         assert_eq!(c.execute("SELECT a,b FROM tuples",&empty)?.rows,vec![vec![record.clone(),payload.clone()]]);
@@ -119,7 +119,7 @@ fn tuple_consumer(file: &str) -> Result<(), Box<dyn std::error::Error>> {
         assert_eq!(c.execute("UPDATE tuples SET (a,b)=(SELECT b,a UNION ALL SELECT b,a LIMIT 1) RETURNING a,b",&empty)?.rows,vec![vec![payload.clone(),record.clone()]]);
         c.execute("UPDATE tuples SET (a,b)=(NULL,NULL)",&empty)?;
         let joined="UPDATE tuples SET (a,b)=(s.b,s.a) FROM (SELECT a,b FROM (SELECT a,b FROM tuple_source LIMIT 1) LIMIT $count OFFSET $skip) s LEFT JOIN tuple_keys k ON k.n=1 WHERE k.n IS NULL RETURNING a,b";
-        assert_eq!(c.execute(joined,&Parameters::from([("$count".into(),Value::Integer(1))])).unwrap_err().code(),"FDB_CONSTRAINT");
+        assert_eq!(c.execute(joined,&Parameters::from([("$count".into(),Value::Integer(1))])).unwrap_err().code(),"RDB_CONSTRAINT");
         assert_eq!(c.execute(joined,&Parameters::from([("$count".into(),Value::Integer(1)),("$skip".into(),Value::Integer(1))]))?.affected,0);
         let result=c.execute(joined,&Parameters::from([("$count".into(),Value::Integer(1)),("$skip".into(),Value::Integer(0))]))?;
         assert_eq!(result.rows,vec![vec![payload.clone(),record.clone()]]);
@@ -159,7 +159,7 @@ fn conflict_consumer(file: &str) -> Result<(), Box<dyn std::error::Error>> {
                 let count=if policy=="REPLACE" {2} else {1};
                 assert_eq!(result.affected,count);
                 assert_eq!(result.rows,vec![vec![Value::Integer(10),payload.clone()];count as usize]);
-            } else { assert_eq!(result.unwrap_err().code(),"FDB_CONSTRAINT"); }
+            } else { assert_eq!(result.unwrap_err().code(),"RDB_CONSTRAINT"); }
             assert_eq!(c.transaction_state(),if pending {romedb::TransactionState::Active} else {romedb::TransactionState::Autocommit});
             if pending { c.execute("COMMIT",&empty)?; }
         }
@@ -195,7 +195,7 @@ fn insert_policy_consumer(file: &str) -> Result<(), Box<dyn std::error::Error>> 
                 let keys=if policy=="REPLACE" {vec![2,3,4]} else {vec![2,4]};
                 assert_eq!(result.affected,keys.len() as i64);
                 assert_eq!(result.rows,keys.into_iter().map(|n|vec![Value::Integer(n),payload.clone()]).collect::<Vec<_>>());
-            } else {assert_eq!(result.unwrap_err().code(),"FDB_CONSTRAINT");}
+            } else {assert_eq!(result.unwrap_err().code(),"RDB_CONSTRAINT");}
             assert_eq!(c.transaction_state(),if pending {romedb::TransactionState::Active} else {romedb::TransactionState::Autocommit});
             if pending {c.execute("COMMIT",&p)?;}
         }
@@ -295,11 +295,11 @@ fn v22_consumer(file: &str) -> Result<(), Box<dyn std::error::Error>> {
     assert_eq!(c.execute("SELECT DISTINCT tags FROM docs UNION SELECT tags FROM docs",&p)?.rows,vec![vec![Value::Array(vec![Value::Integer(2),Value::Integer(3)])]]);
     assert_eq!(c.execute("SELECT n FROM docs WHERE (n,tags) IN(SELECT n,tags FROM docs)",&p)?.rows,vec![vec![Value::Integer(2)]]);
     assert_eq!(c.execute("WITH RECURSIVE r(n) AS (SELECT n FROM docs UNION ALL SELECT n+1 FROM r WHERE n<4) SELECT n FROM r",&p)?.rows,vec![vec![Value::Integer(2)],vec![Value::Integer(3)],vec![Value::Integer(4)]]);
-    assert_eq!(c.execute("UPDATE docs SET stamp=8",&p).unwrap_err().code(),"FDB_VALIDATION");
+    assert_eq!(c.execute("UPDATE docs SET stamp=8",&p).unwrap_err().code(),"RDB_VALIDATION");
     for index in ["pair","tags","words","vectors"] {c.execute(&format!("REINDEX {index}"),&p)?;}
     c.execute("BEGIN",&p)?;
     c.execute("UPDATE docs:a MERGE {n:3}",&p)?;
-    assert_eq!(c.execute("UPDATE docs SET n=8 TIMEOUT 0ms",&p).unwrap_err().code(),"FDB_CANCELLED");
+    assert_eq!(c.execute("UPDATE docs SET n=8 TIMEOUT 0ms",&p).unwrap_err().code(),"RDB_CANCELLED");
     c.execute("ROLLBACK",&p)?;
     assert_eq!(c.lookup_compound_index("docs","pair",&[Value::Integer(2),Value::String("one".into())])?.len(),1);
     c.check_collection_integrity("docs",Default::default())?;
@@ -329,7 +329,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     portable.clone().write_portable_json(&mut written)?;
     assert_eq!(written, portable.clone().into_portable_json()?.as_bytes());
     assert_eq!(portable, Value::from_portable_value(encoded)?);
-    assert_eq!(Value::Number(f64::NAN).into_portable_json().unwrap_err().code(), "FDB_VALIDATION");
+    assert_eq!(Value::Number(f64::NAN).into_portable_json().unwrap_err().code(), "RDB_VALIDATION");
     {
         let db = Database::open(&file)?;
         let c = db.connect()?;
@@ -342,10 +342,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         c.execute("BEGIN", &Parameters::new())?;
         c.execute("UPDATE docs SET value=7", &Parameters::new())?;
         let report=c.execute_report("UPDATE docs SET value=-1", &Parameters::new());
-        assert_eq!(report.result.unwrap_err().code(), "FDB_VALIDATION");
+        assert_eq!(report.result.unwrap_err().code(), "RDB_VALIDATION");
         assert_eq!(report.transaction_after,romedb::TransactionState::Active);
         let limit = c.check_collection_integrity("docs", IntegrityLimits { max_documents: 0, ..IntegrityLimits::default() }).unwrap_err();
-        assert_eq!(limit.code(), "FDB_LIMIT");
+        assert_eq!(limit.code(), "RDB_LIMIT");
         assert_eq!(c.transaction_state(), romedb::TransactionState::Active);
         c.execute("ROLLBACK", &Parameters::new())?;
         assert_eq!(c.lookup_index("docs","docs_value",&Value::Integer(i64::MAX))?.len(),1);
@@ -372,28 +372,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     assert!(profile.metrics.btree_seeks>0);
     assert_eq!(profile.metrics.rows_written,0);
     assert_eq!(c.profile_select("SELECT id,value FROM docs WHERE value=$value", &params)?.metrics, profile.metrics);
-    assert_eq!(c.profile_select("DELETE FROM docs", &Parameters::new()).unwrap_err().code(),"FDB_UNSUPPORTED");
+    assert_eq!(c.profile_select("DELETE FROM docs", &Parameters::new()).unwrap_err().code(),"RDB_UNSUPPORTED");
     assert_eq!(c.check_collection_integrity("docs", IntegrityLimits::default())?.documents,1);
     let empty = Parameters::new();
     let one = ResultLimits { max_rows: 1, max_payload_bytes: 9 };
     assert_eq!(c.select_with_limits("SELECT value AS v FROM docs", &empty, one)?.rows, vec![vec![Value::Integer(i64::MAX)]]);
     assert_eq!(c.profile_select_with_limits("SELECT value AS v FROM docs", &empty, one)?.result.rows, vec![vec![Value::Integer(i64::MAX)]]);
-    assert_eq!(c.select_with_limits("SELECT value AS v FROM docs", &empty, ResultLimits { max_payload_bytes:8, ..one }).unwrap_err().code(), "FDB_LIMIT");
+    assert_eq!(c.select_with_limits("SELECT value AS v FROM docs", &empty, ResultLimits { max_payload_bytes:8, ..one }).unwrap_err().code(), "RDB_LIMIT");
     let fetch = ResultLimits { max_rows:1, max_payload_bytes:25 };
     assert_eq!(c.select_with_limits("SELECT record::fetch(docs:saved) AS v", &empty, fetch)?.rows.len(), 1);
-    assert_eq!(c.select_with_limits("SELECT record::fetch(docs:saved) AS v", &empty, ResultLimits { max_payload_bytes:24, ..fetch }).unwrap_err().code(), "FDB_LIMIT");
+    assert_eq!(c.select_with_limits("SELECT record::fetch(docs:saved) AS v", &empty, ResultLimits { max_payload_bytes:24, ..fetch }).unwrap_err().code(), "RDB_LIMIT");
     c.execute("BEGIN", &empty)?;
     c.execute("UPDATE docs SET value=7", &empty)?;
     let write = "UPDATE docs SET value=8 RETURNING value AS v";
-    assert_eq!(c.write_with_result_limits(write, &empty, ResultLimits { max_rows:0, ..one }).unwrap_err().code(), "FDB_LIMIT");
+    assert_eq!(c.write_with_result_limits(write, &empty, ResultLimits { max_rows:0, ..one }).unwrap_err().code(), "RDB_LIMIT");
     assert_eq!(c.transaction_state(), romedb::TransactionState::Active);
     assert_eq!(c.select_with_limits("SELECT value AS v FROM docs", &empty, one)?.rows, vec![vec![Value::Integer(7)]]);
     assert_eq!(c.write_with_result_limits(write, &empty, one)?.rows, vec![vec![Value::Integer(8)]]);
     let cancelled = CancellationToken::new();
     cancelled.cancel();
-    assert_eq!(c.write_with_result_limits_cancellable("DELETE FROM docs", &empty, one, &cancelled).unwrap_err().code(), "FDB_CANCELLED");
+    assert_eq!(c.write_with_result_limits_cancellable("DELETE FROM docs", &empty, one, &cancelled).unwrap_err().code(), "RDB_CANCELLED");
     let expired = CancellationToken::with_deadline(std::time::Instant::now());
-    assert_eq!(c.execute_cancellable("DELETE FROM docs", &empty, &expired).unwrap_err().code(), "FDB_CANCELLED");
+    assert_eq!(c.execute_cancellable("DELETE FROM docs", &empty, &expired).unwrap_err().code(), "RDB_CANCELLED");
     assert_eq!(c.transaction_state(), romedb::TransactionState::Active);
     assert_eq!(c.execute("SELECT value FROM docs", &empty)?.rows, vec![vec![Value::Integer(8)]]);
     let fresh = CancellationToken::with_deadline(std::time::Instant::now() + std::time::Duration::from_secs(60));
@@ -406,7 +406,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     c.execute("BEGIN", &empty)?;
     c.execute("INSERT INTO docs {id:docs:pending,value:2}", &empty)?;
     let c = c.with_write_buffer_limits(ResultLimits { max_rows:1, max_payload_bytes:1000 });
-    assert_eq!(c.execute("DELETE FROM docs RETURNING value", &empty).unwrap_err().code(), "FDB_LIMIT");
+    assert_eq!(c.execute("DELETE FROM docs RETURNING value", &empty).unwrap_err().code(), "RDB_LIMIT");
     assert_eq!(c.transaction_state(), romedb::TransactionState::Active);
     assert_eq!(c.execute("SELECT value FROM docs ORDER BY value", &empty)?.rows,
         vec![vec![Value::Integer(2)],vec![Value::Integer(i64::MAX)]]);

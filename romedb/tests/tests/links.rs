@@ -33,7 +33,7 @@ fn batched_references_preserve_order_duplicates_nulls_and_typed_identity() {
         c.fetch_records(&vec![Value::Null; 16_385])
             .unwrap_err()
             .code(),
-        "FDB_LIMIT"
+        "RDB_LIMIT"
     );
 }
 #[test]
@@ -158,7 +158,7 @@ fn fetch_projections_share_one_statement_byte_budget() {
             &Parameters::new(),
         )
         .unwrap_err();
-    assert_eq!(error.code(), "FDB_LIMIT", "{error}");
+    assert_eq!(error.code(), "RDB_LIMIT", "{error}");
     assert_eq!(
         c.profile_select(
             "SELECT record::fetch(targets:a) AS a,record::fetch(targets:a) AS b FROM positions",
@@ -166,7 +166,7 @@ fn fetch_projections_share_one_statement_byte_budget() {
         )
         .unwrap_err()
         .code(),
-        "FDB_LIMIT"
+        "RDB_LIMIT"
     );
 
     assert_eq!(c.transaction_state(), romedb::TransactionState::Active);

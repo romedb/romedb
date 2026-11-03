@@ -211,7 +211,7 @@ mod recovery_tests {
                     CALLS.store(0,Ordering::SeqCst);
                     let started=Instant::now();
                     let error=c.execute_cancellable(&sql,&p,&caller).unwrap_err();
-                    assert_eq!(error.code(),"FDB_CANCELLED","{sql}: {error}");
+                    assert_eq!(error.code(),"RDB_CANCELLED","{sql}: {error}");
                     assert_eq!(CALLS.load(Ordering::SeqCst),1,"{sql}");
                     eprintln!("TIMEOUT 200ms during native callback: {:?}, collection={collection}, outer={outer}",started.elapsed());
                     assert_eq!(c.transaction_state(),if outer {TransactionState::Active} else {TransactionState::Autocommit});
@@ -243,10 +243,10 @@ mod recovery_tests {
                 token.cancel();
                 Err(crate::Error::Validation("candidate failed".into()))
             });
-            assert_eq!(failure.unwrap_err().code(), "FDB_VALIDATION");
+            assert_eq!(failure.unwrap_err().code(), "RDB_VALIDATION");
             assert_eq!(
                 c.execute("SELECT 1", &p).unwrap_err().code(),
-                "FDB_CANCELLED"
+                "RDB_CANCELLED"
             );
             Ok(())
         })
@@ -269,7 +269,7 @@ mod recovery_tests {
             parent.cancel();
             assert_eq!(
                 c.execute("SELECT 2", &p).unwrap_err().code(),
-                "FDB_CANCELLED"
+                "RDB_CANCELLED"
             );
             assert_eq!(
                 c.execute("SELECT 3", &p)?.rows,
@@ -282,7 +282,7 @@ mod recovery_tests {
         c.with_cancellation(&fresh, || {
             assert_eq!(
                 c.execute("SELECT 1 TIMEOUT 0ms", &p).unwrap_err().code(),
-                "FDB_CANCELLED"
+                "RDB_CANCELLED"
             );
             fresh.cancel();
             assert_eq!(

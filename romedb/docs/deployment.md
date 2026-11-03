@@ -78,10 +78,10 @@ perform an orderly handoff. There is no lock-file cleanup step: the OS releases
 the file lock when the final owning handle closes or the process exits.
 
 Node's synchronous constructor currently reports the native lock message with
-`code: 'GenericFailure'`; `AsyncDatabase.open` reports `FDB_WORKER` with that
+`code: 'GenericFailure'`; `AsyncDatabase.open` reports `RDB_WORKER` with that
 startup failure in its message/cause. These open failures are distinct from
-`FDB_BUSY` and `FDB_BUSY_SNAPSHOT` during queries on same-process connections.
-An `FDB_WORKER` after startup can mean an unknown write outcome. Do not classify
+`RDB_BUSY` and `RDB_BUSY_SNAPSHOT` during queries on same-process connections.
+An `RDB_WORKER` after startup can mean an unknown write outcome. Do not classify
 every worker failure as a harmless open rejection. See [operations](operations.md).
 
 ## Executable ownership qualification

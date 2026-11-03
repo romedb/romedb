@@ -34,7 +34,7 @@ test('typed array and object helpers agree in reads and writes in both clients',
       const expected = [value,null];
       assert.deepEqual(await db.exactlyOne('SELECT array::distinct(items),doc::from_entries(doc::entries(body)),doc::keys(body) FROM docs'),[expected,value,['binary','integer','null','record','vector']]);
       assert.deepEqual((await db.execute('UPDATE docs:a MERGE {items:array::distinct(items)} RETURNING items')).rows,[[expected]]);
-      await assert.rejects(async () => db.execute("UPDATE docs:a CONTENT doc::from_entries(array::new(array::new('x',1),array::new('x',2)))"), e=>e.code==='FDB_VALIDATION');
+      await assert.rejects(async () => db.execute("UPDATE docs:a CONTENT doc::from_entries(array::new(array::new('x',1),array::new('x',2)))"), e=>e.code==='RDB_VALIDATION');
       assert.deepEqual((await db.collection('docs').get('a')).items,expected);
     } finally { await db.close(); }
   }
@@ -52,7 +52,7 @@ test('PATCH keeps typed array edits atomic in both clients', async () => {
       await db.execute('BEGIN');
       await db.execute("UPDATE docs:a PATCH [{op:'add',path:'/prior',value:true}]");
       const before = await db.collection('docs').get('a');
-      await assert.rejects(async () => db.execute("UPDATE docs:a PATCH [{op:'remove',path:'/items/0'},{op:'test',path:'/n',value:7}]"), e=>e.code==='FDB_VALIDATION');
+      await assert.rejects(async () => db.execute("UPDATE docs:a PATCH [{op:'remove',path:'/items/0'},{op:'test',path:'/n',value:7}]"), e=>e.code==='RDB_VALIDATION');
       assert.deepEqual(await db.collection('docs').get('a'), before);
       await db.checkCollectionIntegrity('docs');
       await db.execute('ROLLBACK');
@@ -76,7 +76,7 @@ test('CONTENT replaces and MERGE recursively updates atomically in both clients'
       await db.execute('BEGIN');
       await db.execute("UPDATE docs:a MERGE {pending:true}");
       const before = await db.all('SELECT * FROM docs ORDER BY id');
-      await assert.rejects(async () => db.execute('UPDATE docs CONTENT {uid:1}'), e => e.code==='FDB_CONSTRAINT');
+      await assert.rejects(async () => db.execute('UPDATE docs CONTENT {uid:1}'), e => e.code==='RDB_CONSTRAINT');
       assert.deepEqual(await db.all('SELECT * FROM docs ORDER BY id'), before);
       await db.checkCollectionIntegrity('docs');
       await db.execute('ROLLBACK');
@@ -156,7 +156,7 @@ test('RomeQL V1 document examples compose with explicit setup in both clients', 
       assert.equal(Object.hasOwn(author,'nickname'),false);
       await db.execute("UPSERT posts {id:posts:p1,title:'Hello again',author:users:u1} RETURNING *");
       assert.equal((await db.collection('posts').get('p1')).published,true);
-      await assert.rejects(async()=>db.execute("UPDATE posts:p1 {title:''}"), e=>e.code==='FDB_VALIDATION');
+      await assert.rejects(async()=>db.execute("UPDATE posts:p1 {title:''}"), e=>e.code==='RDB_VALIDATION');
       await db.execute('BEGIN');
       await db.execute('DELETE FROM posts:p1 RETURNING *');
       assert.deepEqual(await db.all('SELECT posts:p1'),[]);
@@ -187,7 +187,7 @@ test('V1 record targets and row cardinality stay explicit in both clients', asyn
       await assert.rejects(async () => db.exactlyOne('SELECT n FROM docs:missing'), /exactly one/);
       assert.deepEqual(await db.exactlyOne('SELECT docs:1 AS reference'), [new Record('docs',1n)]);
       assert.deepEqual(await db.all('SELECT record::id(id) FROM docs ORDER BY n'), [[1n],['1']]);
-      await assert.rejects(async () => db.execute('INSERT INTO docs {id:other:1}'), error => error.code === 'FDB_VALIDATION');
+      await assert.rejects(async () => db.execute('INSERT INTO docs {id:other:1}'), error => error.code === 'RDB_VALIDATION');
       assert.deepEqual(await db.all('SELECT n FROM docs ORDER BY n'), [[10n],[20n]]);
       assert.deepEqual(await db.first('SELECT n FROM docs ORDER BY n'), [10n]);
       await assert.rejects(async () => db.exactlyOne('SELECT n FROM docs'), /exactly one/);
@@ -234,8 +234,8 @@ test('validation, rollback and error transaction reports pass through frontend',
   db.execute('DEFINE FIELD value ON docs TYPE integer');
   db.execute('BEGIN');
   db.execute('INSERT INTO docs {id:docs:p1,value:1}');
-  assert.throws(() => db.execute('INSERT INTO docs {id:docs:p1,value:2}'), error => error.code === 'FDB_CONSTRAINT' && error.transaction.after === 'active');
-  assert.throws(() => db.execute("INSERT INTO docs {value:'bad'}"), error => error.code === 'FDB_VALIDATION' && error.transaction.after === 'active');
+  assert.throws(() => db.execute('INSERT INTO docs {id:docs:p1,value:2}'), error => error.code === 'RDB_CONSTRAINT' && error.transaction.after === 'active');
+  assert.throws(() => db.execute("INSERT INTO docs {value:'bad'}"), error => error.code === 'RDB_VALIDATION' && error.transaction.after === 'active');
   db.execute('ROLLBACK');
   assert.deepEqual(db.all('SELECT * FROM docs'), []);
   db.execute('BEGIN');
@@ -275,9 +275,9 @@ test('Node migration history retains int64 versions and failure atomicity', () =
   assert.deepEqual(db.migrate(plan).applied, [9007199254740993n]);
   assert.equal(db.migrate(plan).alreadyApplied, 1);
   const pending = [...plan, { version: 9007199254740994n, name: 'fail', sql: 'INSERT INTO docs {value:1}; SELECT array::append(1,2);' }];
-  assert.throws(() => db.migrate(pending), error => error.code === 'FDB_MIGRATION' && error.transaction.after === 'autocommit');
+  assert.throws(() => db.migrate(pending), error => error.code === 'RDB_MIGRATION' && error.transaction.after === 'autocommit');
   assert.deepEqual(db.all('SELECT * FROM docs'), []);
-  assert.throws(() => db.migrate([{ ...plan[0], sql: 'CREATE TABLE docs; -- edit' }]), error => error.code === 'FDB_VALIDATION');
+  assert.throws(() => db.migrate([{ ...plan[0], sql: 'CREATE TABLE docs; -- edit' }]), error => error.code === 'RDB_VALIDATION');
   pending[1].sql = 'INSERT INTO docs {value:1};';
   assert.deepEqual(db.migrate(pending).applied, [9007199254740994n]);
   db.close();
@@ -297,7 +297,7 @@ test('Node transfers preserve values and roll back duplicate imports', () => {
     target.execute('BEGIN');
     assert.throws(() => target.importDocuments('docs', 'bad input', format), error => error.transaction.after === 'active');
     target.execute('ROLLBACK');
-    assert.throws(() => target.exportDocuments('docs', 'csv'), error => error.code === 'FDB_VALIDATION');
+    assert.throws(() => target.exportDocuments('docs', 'csv'), error => error.code === 'RDB_VALIDATION');
     target.close();
   }
   source.close();
@@ -321,7 +321,7 @@ test('async worker preserves submission order, typed values and graceful close',
   const queued = db.execute('INSERT INTO docs {id:docs:p2}');
   const close = db.close();
   assert.equal(db.close(), close);
-  await assert.rejects(db.all('SELECT * FROM docs'), error => error.code === 'FDB_CLOSED' && !Object.hasOwn(error,'transaction'));
+  await assert.rejects(db.all('SELECT * FROM docs'), error => error.code === 'RDB_CLOSED' && !Object.hasOwn(error,'transaction'));
   await queued; await close;
 });
 test('async worker leaves event loop responsive and rejects excess queued requests', async () => {
@@ -342,7 +342,7 @@ test('async worker leaves event loop responsive and rejects excess queued reques
     const settled = await results;
     assert.equal(ticked, true);
     assert.equal(settled.filter(r => r.status === 'fulfilled').length, 256);
-    assert.equal(settled[256].reason.code, 'FDB_LIMIT');
+    assert.equal(settled[256].reason.code, 'RDB_LIMIT');
     assert.deepEqual(await db.exactlyOne('SELECT 2'), [2n]);
   } finally { await db.close(); }
 });
@@ -394,7 +394,7 @@ test('async interrupt reaches active native work without terminating its worker'
     await db.execute('CREATE TABLE sink(x INTEGER)');
     const operation = db.execute('INSERT INTO sink SELECT a.x FROM numbers a CROSS JOIN numbers b CROSS JOIN numbers c');
     timer = setInterval(() => db.interrupt(), 2);
-    await assert.rejects(operation, e => e.code === 'FDB_CANCELLED' && e.transaction.after === 'autocommit');
+    await assert.rejects(operation, e => e.code === 'RDB_CANCELLED' && e.transaction.after === 'autocommit');
     clearInterval(timer); timer = undefined;
     assert.deepEqual(await db.exactlyOne('SELECT count(*) FROM sink'),[0n]);
     await db.execute('INSERT INTO sink VALUES (1)');
@@ -413,7 +413,7 @@ test('nested record targets follow validation even without a reference index', (
   try {
     db.execute('CREATE TABLE docs');
     for (const table of ['__romedb_catalog', 'SQLITE_schema', 'bad\0target']) {
-      assert.throws(() => db.execute('INSERT INTO docs DOCUMENT $doc', { $doc: { nested: [new Record(table, 'key')] } }), e => e.code === 'FDB_VALIDATION');
+      assert.throws(() => db.execute('INSERT INTO docs DOCUMENT $doc', { $doc: { nested: [new Record(table, 'key')] } }), e => e.code === 'RDB_VALIDATION');
     }
     assert.deepEqual(db.all('SELECT * FROM docs'), []);
   } finally { db.close(); }
@@ -434,7 +434,7 @@ test('Node batches preserve offsets and stop at execution or encoding failures',
       assert.deepEqual(await db.all('SELECT * FROM docs'),[]);
       const failedEncoding = await db.executeBatch('SELECT 1e308*1e308; INSERT INTO docs {id:docs:later};');
       assert.equal(failedEncoding.length,1);
-      assert.equal(failedEncoding[0].error.code,'FDB_VALIDATION');
+      assert.equal(failedEncoding[0].error.code,'RDB_VALIDATION');
       assert.deepEqual(await db.all('SELECT * FROM docs'),[]);
       const prior=await db.executeBatch('INSERT INTO docs {id:docs:before}; SELECT * FROM docs;');
       assert.deepEqual(prior[1].result.rows[0][0].id,new Record('docs','before'));
@@ -456,12 +456,12 @@ test('shared-file contention exposes busy codes and preserves committed values',
     a.execute("INSERT INTO docs {id:docs:p1,value:1}");
     a.execute('BEGIN');
     a.execute("UPDATE docs:p1 {value:2}");
-    assert.throws(() => b.execute("UPDATE docs:p1 {value:3}"), e => e.code==='FDB_BUSY' && e.transaction.after==='autocommit');
+    assert.throws(() => b.execute("UPDATE docs:p1 {value:3}"), e => e.code==='RDB_BUSY' && e.transaction.after==='autocommit');
     assert.deepEqual(b.all('SELECT value FROM docs'),[[1n]]);
     a.execute('COMMIT');
     b.execute('BEGIN'); b.all('SELECT * FROM docs');
     a.execute("UPDATE docs:p1 {value:4}");
-    assert.throws(() => b.execute("UPDATE docs:p1 {value:5}"), e => e.code==='FDB_BUSY_SNAPSHOT');
+    assert.throws(() => b.execute("UPDATE docs:p1 {value:5}"), e => e.code==='RDB_BUSY_SNAPSHOT');
     b.execute('ROLLBACK');
     assert.deepEqual(b.all('SELECT value FROM docs'),[[4n]]);
   } finally { b?.close(); a?.close(); fs.rmSync(dir,{recursive:true,force:true}); }
@@ -501,7 +501,7 @@ test('sync and async SELECT profiles preserve typed values and bigint counters',
       assert.deepEqual(native.result.rows, [[Buffer.from([2, 10])]]);
       await db.execute('BEGIN');
       await assert.rejects(Promise.resolve().then(() => db.profileSelect('DELETE FROM docs')), error => {
-        assert.equal(error.code, 'FDB_UNSUPPORTED');
+        assert.equal(error.code, 'RDB_UNSUPPORTED');
         assert.equal(error.transaction.after, 'active');
         return true;
       });
@@ -533,7 +533,7 @@ test('sync and async collection audits preserve work and enforce bigint limits',
       await db.execute('BEGIN');
       await db.execute('INSERT INTO docs {id:docs:b,n:null}');
       await assert.rejects(Promise.resolve().then(() => db.checkCollectionIntegrity('docs', {maxDocuments: 1n})), error => {
-        assert.equal(error.code, 'FDB_LIMIT'); assert.equal(error.transaction.after, 'active'); return true;
+        assert.equal(error.code, 'RDB_LIMIT'); assert.equal(error.transaction.after, 'active'); return true;
       });
       assert.equal((await db.checkCollectionIntegrity('docs')).documents, 2n);
       for (const limits of [{maxDocuments: 1}, {maxDocuments: -1n}, {maxEncodedBytes: 1n << 64n}, {unknown: 1n}, null]) {
@@ -541,7 +541,7 @@ test('sync and async collection audits preserve work and enforce bigint limits',
       }
       await db.execute('ROLLBACK');
       assert.equal((await db.checkCollectionIntegrity('docs')).documents, 1n);
-      await assert.rejects(Promise.resolve().then(() => db.checkCollectionIntegrity('missing')), error => error.code === 'FDB_NOT_FOUND');
+      await assert.rejects(Promise.resolve().then(() => db.checkCollectionIntegrity('missing')), error => error.code === 'RDB_NOT_FOUND');
     } finally { await db.close(); }
     await assert.rejects(Promise.resolve().then(() => db.checkCollectionIntegrity('docs')), /clos/i);
   }
@@ -558,7 +558,7 @@ test('recursive SQL reports parser depth errors through sync and worker clients'
       for (const expression of ['NOT '.repeat(2000) + '1', 'CASE WHEN 1 THEN '.repeat(200) + '1' + ' ELSE 0 END'.repeat(200)]) {
         for (const suffix of ['', ' FROM docs']) {
           await assert.rejects(Promise.resolve().then(() => db.execute('SELECT ' + expression + suffix)), error => {
-            assert.equal(error.code, 'FDB_ENGINE');
+            assert.equal(error.code, 'RDB_ENGINE');
             assert.match(error.message, /maximum depth 100/);
             assert.equal(error.transaction.after, 'active');
             return true;
@@ -591,7 +591,7 @@ test('typed VALUES CTEs preserve mixed values and atomic inserts in both clients
       await db.execute('CREATE UNIQUE INDEX docs_n ON docs(n)');
       await db.execute('BEGIN');
       await db.execute('WITH v(id,n) AS (VALUES ($id,1)) INSERT INTO docs(id,n) SELECT id,n FROM v', {$id:id});
-      await assert.rejects(Promise.resolve().then(() => db.execute('WITH v(id,n) AS (VALUES (docs:b,2),(docs:c,1)) INSERT INTO docs(id,n) SELECT id,n FROM v')), error => error.code === 'FDB_CONSTRAINT' && error.transaction.after === 'active');
+      await assert.rejects(Promise.resolve().then(() => db.execute('WITH v(id,n) AS (VALUES (docs:b,2),(docs:c,1)) INSERT INTO docs(id,n) SELECT id,n FROM v')), error => error.code === 'RDB_CONSTRAINT' && error.transaction.after === 'active');
       assert.equal((await db.checkCollectionIntegrity('docs')).documents, 1n);
       assert.equal((await db.exactlyOne('SELECT n FROM docs'))[0], 1n);
       await db.execute('ROLLBACK');
@@ -775,7 +775,7 @@ test('AbortSignal cancels only its queued or active query and cleans up listener
     const [a,b,c] = await outcomes;
     for (const result of [a,b]) {
       assert.equal(result.status, 'rejected');
-      assert.equal(result.reason.code, 'FDB_CANCELLED');
+      assert.equal(result.reason.code, 'RDB_CANCELLED');
       assert.equal(result.reason.transaction.after, 'active');
     }
     assert.equal(c.status,'fulfilled');
@@ -789,7 +789,7 @@ test('AbortSignal cancels only its queued or active query and cleans up listener
     finished.abort();
     assert.deepEqual(await db.first('SELECT 2'),[2n]);
     const before = new AbortController(); before.abort();
-    await assert.rejects(db.execute('INSERT INTO docs {n:66}',{}, {signal:before.signal}), e => e.code === 'FDB_CANCELLED');
+    await assert.rejects(db.execute('INSERT INTO docs {n:66}',{}, {signal:before.signal}), e => e.code === 'RDB_CANCELLED');
     await assert.rejects(db.execute('SELECT 1',{}, {signal:{}}), TypeError);
     await db.execute('ROLLBACK');
     assert.deepEqual(await db.all('SELECT * FROM docs'),[]);
@@ -814,14 +814,14 @@ test('AbortSignal profiling preserves transaction state and returns complete met
     timer = setTimeout(() => active.abort(),10);
     const [cancelled,success] = await settled;
     assert.equal(cancelled.status,'rejected');
-    assert.equal(cancelled.reason.code,'FDB_CANCELLED');
+    assert.equal(cancelled.reason.code,'RDB_CANCELLED');
     assert.equal(cancelled.reason.transaction.after,'active');
     assert.equal('metrics' in cancelled.reason,false);
     assert.equal(success.status,'fulfilled');
     assert.deepEqual(success.value,[9n]);
     assert.equal(getEventListeners(active.signal,'abort').length,0);
     const before = new AbortController(); before.abort();
-    await assert.rejects(db.profileSelect('SELECT n FROM prior',{}, {signal:before.signal}), e => e.code === 'FDB_CANCELLED');
+    await assert.rejects(db.profileSelect('SELECT n FROM prior',{}, {signal:before.signal}), e => e.code === 'RDB_CANCELLED');
     const retry = new AbortController();
     const profile = await db.profileSelect('SELECT n FROM prior',{}, {signal:retry.signal});
     assert.deepEqual(profile.result.rows,[[9n]]);
@@ -854,13 +854,13 @@ test('AbortSignal integrity audits preserve indexed data and allow exact retry',
     timer = setTimeout(() => controller.abort(),1);
     const [cancelled,read] = await settled;
     assert.equal(cancelled.status,'rejected');
-    assert.equal(cancelled.reason.code,'FDB_CANCELLED');
+    assert.equal(cancelled.reason.code,'RDB_CANCELLED');
     assert.equal(cancelled.reason.transaction.after,'active');
     assert.equal(read.status,'fulfilled');
     assert.deepEqual(read.value,[1000n]);
     assert.equal(getEventListeners(controller.signal,'abort').length,0);
     const before = new AbortController(); before.abort();
-    await assert.rejects(db.checkCollectionIntegrity('docs',{}, {signal:before.signal}), e => e.code === 'FDB_CANCELLED');
+    await assert.rejects(db.checkCollectionIntegrity('docs',{}, {signal:before.signal}), e => e.code === 'RDB_CANCELLED');
     const retry = new AbortController();
     const complete = await db.checkCollectionIntegrity('docs',{}, {signal:retry.signal});
     assert.equal(complete.documents,1001n);
@@ -894,14 +894,14 @@ test('AbortSignal batches retain completed reports and stop before later stateme
     assert.equal(reports.length,2);
     assert.equal(reports[0].result.affected,1n);
     assert.equal(reports[1].offset,Buffer.byteLength(prefix));
-    assert.equal(reports[1].error.code,'FDB_CANCELLED');
+    assert.equal(reports[1].error.code,'RDB_CANCELLED');
     assert.equal(reports[1].transaction.before,'active');
     assert.equal(reports[1].transaction.after,'active');
     assert.deepEqual(read,[9n]);
     assert.equal((await db.checkCollectionIntegrity('docs')).documents,1n);
     assert.equal(getEventListeners(controller.signal,'abort').length,0);
     const before = new AbortController(); before.abort();
-    await assert.rejects(db.executeBatch("SELECT '",{signal:before.signal}),e=>e.code==='FDB_CANCELLED');
+    await assert.rejects(db.executeBatch("SELECT '",{signal:before.signal}),e=>e.code==='RDB_CANCELLED');
     const fresh = new AbortController();
     const retry = await db.executeBatch('INSERT INTO docs {id:docs:retry,n:10}; SELECT n FROM docs ORDER BY n;', {signal:fresh.signal});
     assert.deepEqual(retry[1].result.rows,[[9n],[10n]]);
@@ -935,21 +935,21 @@ test('AbortSignal transfers preserve atomic imports and return complete exports 
         timer = setTimeout(()=>controller.abort(),20);
         const [cancelled,read] = await results;
         assert.equal(cancelled.status,'rejected');
-        assert.equal(cancelled.reason.code,'FDB_CANCELLED',cancelled.reason.message);
+        assert.equal(cancelled.reason.code,'RDB_CANCELLED',cancelled.reason.message);
         assert.equal(cancelled.reason.transaction.after,'active');
         assert.deepEqual(read.value,[1000n]);
         assert.equal((await db.checkCollectionIntegrity('docs')).documents,1n);
         assert.equal(getEventListeners(controller.signal,'abort').length,0);
         const before = new AbortController(); before.abort();
-        await assert.rejects(db.importDocuments('docs','invalid',format,{signal:before.signal}),e=>e.code==='FDB_CANCELLED');
-        await assert.rejects(db.exportDocuments('docs',format,{signal:before.signal}),e=>e.code==='FDB_CANCELLED');
+        await assert.rejects(db.importDocuments('docs','invalid',format,{signal:before.signal}),e=>e.code==='RDB_CANCELLED');
+        await assert.rejects(db.exportDocuments('docs',format,{signal:before.signal}),e=>e.code==='RDB_CANCELLED');
         const fresh = new AbortController();
         const imported = await db.importDocuments('docs',payload,format,{signal:fresh.signal});
         assert.equal(imported.imported,1000);
         assert.equal(getEventListeners(fresh.signal,'abort').length,0);
         const exporting = new AbortController();
         const output = db.exportDocuments('docs',format,{signal:exporting.signal});
-        const rejected = assert.rejects(output,e=>e.code==='FDB_CANCELLED' && e.transaction.after==='active');
+        const rejected = assert.rejects(output,e=>e.code==='RDB_CANCELLED' && e.transaction.after==='active');
         timer = setTimeout(()=>exporting.abort(),1);
         await rejected;
         assert.equal(getEventListeners(exporting.signal,'abort').length,0);
@@ -979,11 +979,11 @@ test('AbortSignal migrations roll back all pending schema, data and history', as
     const operation = db.migrate([base,intermediate,pending],{signal:controller.signal});
     const rejected = assert.rejects(operation,e=>{
       assert(isRomeDBError(e));
-      assert.equal(e.code,'FDB_CANCELLED');
+      assert.equal(e.code,'RDB_CANCELLED');
       assert.equal(e.transaction.after,'autocommit');
       assert.equal(e.migration.version,pending.version);
       assert.equal(e.migration.offset,BigInt(Buffer.byteLength(pending.sql.slice(0,pending.sql.indexOf('INSERT INTO')))));
-      assert.equal(e.migration.cause.code,'FDB_CANCELLED');
+      assert.equal(e.migration.cause.code,'RDB_CANCELLED');
       return true;
     });
     timer=setTimeout(()=>controller.abort(),100);
@@ -996,7 +996,7 @@ test('AbortSignal migrations roll back all pending schema, data and history', as
     const before = new AbortController(); before.abort();
     await assert.rejects(db.migrate([base,intermediate,pending],{signal:before.signal}),e=>{
       assert(isRomeDBError(e));
-      assert.equal(e.code,'FDB_CANCELLED');
+      assert.equal(e.code,'RDB_CANCELLED');
       assert.equal(e.migration,undefined);
       return true;
     });
@@ -1046,7 +1046,7 @@ test('close drains cancelled operations and rolls back the remaining outer trans
     const results = await settled;
     for (const result of results) {
       assert.equal(result.status,'rejected');
-      assert.equal(result.reason.code,'FDB_CANCELLED');
+      assert.equal(result.reason.code,'RDB_CANCELLED');
       assert.equal(result.reason.transaction.after,'active');
     }
     await closing;
@@ -1159,7 +1159,7 @@ test('async startup failure permits repeated opens and a healthy retry', {timeou
   const directory = fs.mkdtempSync(path.join(os.tmpdir(),'romedb-open-failure-'));
   try {
     for (let attempt=0; attempt<3; attempt++) {
-      await assert.rejects(AsyncDatabase.open(path.join(directory,'missing','database.db')), error=>error.code==='FDB_WORKER');
+      await assert.rejects(AsyncDatabase.open(path.join(directory,'missing','database.db')), error=>error.code==='RDB_WORKER');
     }
     const file=path.join(directory,'database.db');
     const db=await AsyncDatabase.open(file);
@@ -1174,7 +1174,7 @@ test('async startup failure permits repeated opens and a healthy retry', {timeou
 });
 
 
-test('closed sync and worker handles expose FDB_CLOSED across operations', async () => {
+test('closed sync and worker handles expose RDB_CLOSED across operations', async () => {
   const { AsyncDatabase } = require('./index.cjs');
   const operations = [
     db=>db.execute('SELECT 1'), db=>db.all('SELECT 1'), db=>db.first('SELECT 1'), db=>db.exactlyOne('SELECT 1'),
@@ -1182,7 +1182,7 @@ test('closed sync and worker handles expose FDB_CLOSED across operations', async
     db=>db.checkCollectionIntegrity('docs'), db=>db.exportDocuments('docs'),
     db=>db.importDocuments('docs','{}'), db=>db.migrate([]),
   ];
-  const closed = error => error.code === 'FDB_CLOSED' && !Object.hasOwn(error,'transaction');
+  const closed = error => error.code === 'RDB_CLOSED' && !Object.hasOwn(error,'transaction');
   const sync = new Database();
   sync.close(); sync.close();
   for (const operation of operations) assert.throws(()=>operation(sync),closed);
@@ -1198,7 +1198,7 @@ test('exactlyOne cardinality errors retain completed statement transaction obser
   const { AsyncDatabase } = require('./index.cjs');
   for (const db of [new Database(), await AsyncDatabase.open()]) {
     const reject = (sql, state) => assert.rejects(async()=>db.exactlyOne(sql), error=>
-      error instanceof RangeError && error.code==='FDB_CARDINALITY' &&
+      error instanceof RangeError && error.code==='RDB_CARDINALITY' &&
       error.transaction.before===state && error.transaction.after===state);
     try {
       await db.execute('CREATE TABLE docs');
@@ -1226,12 +1226,12 @@ test('exactlyOne preserves execution errors and worker cancellation', async () =
       await db.execute('INSERT INTO docs {n:1}');
       await db.execute('BEGIN');
       await assert.rejects(async()=>db.exactlyOne('INSERT INTO docs {n:1} RETURNING n'), error=>
-        error.code === 'FDB_CONSTRAINT' && error.transaction.before==='active' && error.transaction.after==='active');
+        error.code === 'RDB_CONSTRAINT' && error.transaction.before==='active' && error.transaction.after==='active');
       assert.deepEqual(await db.exactlyOne('SELECT count(*) FROM docs'),[1n]);
       if (db instanceof AsyncDatabase) {
         const controller=new AbortController(); controller.abort();
         await assert.rejects(db.exactlyOne('SELECT n FROM docs',{}, {signal:controller.signal}), error=>
-          error.code==='FDB_CANCELLED' && error.transaction.before==='active' && error.transaction.after==='active');
+          error.code==='RDB_CANCELLED' && error.transaction.before==='active' && error.transaction.after==='active');
         assert.deepEqual(await db.exactlyOne('SELECT n FROM docs'),[1n]);
       }
       await db.execute('ROLLBACK');
@@ -1243,17 +1243,17 @@ test('exactlyOne preserves execution errors and worker cancellation', async () =
 
 test('isRomeDBError recognizes public errors and validates transaction observations', async () => {
   const { AsyncDatabase, isRomeDBError } = require('./index.cjs');
-  for (const value of [null,undefined,{},new Error('ordinary'),{code:'FDB_ENGINE'},Object.assign(new Error(),{code:'FDB_'}),Object.assign(new Error(),{code:'FDB_ENGINE',transaction:null}),Object.assign(new Error(),{code:'FDB_ENGINE',transaction:{before:'active',after:'committed'}})]) {
+  for (const value of [null,undefined,{},new Error('ordinary'),{code:'RDB_ENGINE'},Object.assign(new Error(),{code:'RDB_'}),Object.assign(new Error(),{code:'RDB_ENGINE',transaction:null}),Object.assign(new Error(),{code:'RDB_ENGINE',transaction:{before:'active',after:'committed'}})]) {
     assert.equal(isRomeDBError(value),false);
   }
   for (const open of [()=>new Database(), ()=>AsyncDatabase.open()]) {
     const db = await open();
     try {
       await db.execute('CREATE TABLE docs');
-      await assert.rejects(async()=>db.execute('INSERT INTO docs {n:$missing}'), error=>isRomeDBError(error) && error.code==='FDB_PARAMETER');
-      await assert.rejects(async()=>db.exactlyOne('SELECT 1 WHERE 0'), error=>isRomeDBError(error) && error.code==='FDB_CARDINALITY' && error.transaction.after==='autocommit');
+      await assert.rejects(async()=>db.execute('INSERT INTO docs {n:$missing}'), error=>isRomeDBError(error) && error.code==='RDB_PARAMETER');
+      await assert.rejects(async()=>db.exactlyOne('SELECT 1 WHERE 0'), error=>isRomeDBError(error) && error.code==='RDB_CARDINALITY' && error.transaction.after==='autocommit');
     } finally { await db.close(); }
-    await assert.rejects(async()=>db.all('SELECT 1'), error=>isRomeDBError(error) && error.code==='FDB_CLOSED' && error.transaction===undefined);
+    await assert.rejects(async()=>db.all('SELECT 1'), error=>isRomeDBError(error) && error.code==='RDB_CLOSED' && error.transaction===undefined);
   }
 });
 
@@ -1270,7 +1270,7 @@ test('migration diagnostics preserve UTF-8 locations and history reasons in both
       ];
       await assert.rejects(async () => db.migrate(plan), error => {
         assert(isRomeDBError(error));
-        assert.equal(error.code,'FDB_SYNTAX');
+        assert.equal(error.code,'RDB_SYNTAX');
         assert(error.message.includes(`byte ${offset}:`),error.message);
         assert(error.message.includes('migration 9007199254740993:'),error.message);
         assert.deepEqual(error.transaction,{before:'autocommit',after:'autocommit'});
@@ -1286,7 +1286,7 @@ test('migration diagnostics preserve UTF-8 locations and history reasons in both
       ]) {
         const changed = [plan[0],{...plan[1],[field]:value}];
         await assert.rejects(async () => db.migrate(changed),error => {
-          assert.equal(error.code,'FDB_VALIDATION');
+          assert.equal(error.code,'RDB_VALIDATION');
           assert(error.message.includes(reason),error.message);
           assert.deepEqual(error.transaction,{before:'autocommit',after:'autocommit'});
           return true;
@@ -1333,7 +1333,7 @@ test('unnamed derived joins preserve client values and ambiguity errors', async 
       assert.deepEqual(await db.exactlyOne(sql),expected);
       assert.deepEqual((await db.profileSelect(sql)).result.rows,[expected]);
       await db.execute('ALTER TABLE labels ADD COLUMN n INTEGER');
-      await assert.rejects(async () => db.execute(sql), {code:'FDB_VALIDATION'});
+      await assert.rejects(async () => db.execute(sql), {code:'RDB_VALIDATION'});
       assert.deepEqual(await db.exactlyOne('SELECT d.n,flag,link,data,label FROM (SELECT n,flag,link,data FROM docs) d JOIN labels l ON d.n=l.m'),expected);
     } finally { await db.close(); }
   }
@@ -1381,7 +1381,7 @@ test('native loader enforces the declared Node minimum before loading', () => {
     };
     if (Number.parseInt(version, 10) < 22) {
       assert.throws(() => vm.runInNewContext(source, context), error => {
-        assert.equal(error.code, 'FDB_RUNTIME_VERSION');
+        assert.equal(error.code, 'RDB_RUNTIME_VERSION');
         assert(error.message.includes(version));
         assert(error.message.includes('22 or newer'));
         return true;
@@ -1498,7 +1498,7 @@ test('nested membership CTE writes preserve recovery in both clients', async () 
           await db.execute('BEGIN');
           await db.execute('CREATE TABLE pending(n INTEGER)');
           await db.execute('INSERT INTO pending VALUES(9)');
-          await assert.rejects(async () => db.execute(prefix + 'UPDATE docs SET n=1 WHERE n IN (SELECT n FROM chosen) RETURNING n'), error => error.code === 'FDB_CONSTRAINT' && error.transaction.after === 'active');
+          await assert.rejects(async () => db.execute(prefix + 'UPDATE docs SET n=1 WHERE n IN (SELECT n FROM chosen) RETURNING n'), error => error.code === 'RDB_CONSTRAINT' && error.transaction.after === 'active');
           assert.deepEqual(await db.all('SELECT n FROM docs ORDER BY n'), [[1n],[2n],[3n]]);
           assert.deepEqual(await db.all('SELECT n FROM pending'), [[9n]]);
           const result = await db.execute(prefix + 'UPDATE docs SET n=n+10 WHERE n IN (SELECT n FROM chosen) RETURNING n');
@@ -1527,7 +1527,7 @@ test('unsupported correlated CTE writes report query errors in both clients', as
       await db.execute('INSERT INTO docs(n) VALUES(9)');
       const sql = 'WITH chosen AS(WITH local_q AS(SELECT d.n AS n) SELECT n FROM local_q) UPDATE docs AS d SET n=n+10 WHERE EXISTS(SELECT 1 FROM chosen) RETURNING n';
       await assert.rejects(async () => db.execute(sql), error => {
-        assert.equal(error.code, 'FDB_UNSUPPORTED');
+        assert.equal(error.code, 'RDB_UNSUPPORTED');
         assert.deepEqual(error.transaction, {before:'active', after:'active'});
         return true;
       });
@@ -1565,7 +1565,7 @@ test('colliding scalar aliases preserve client values and atomic insert recovery
       await db.execute('INSERT INTO sink(v) VALUES(9)');
       const insert = 'INSERT INTO sink(v) SELECT (SELECT max(b.n)+$delta FROM nums b WHERE b.n<k) FROM docs a RIGHT JOIN b USING(k) ORDER BY k RETURNING v';
       await assert.rejects(async () => db.execute(insert, { $delta: 0n }), error => {
-        assert.equal(error.code, 'FDB_CONSTRAINT');
+        assert.equal(error.code, 'RDB_CONSTRAINT');
         assert.deepEqual(error.transaction, { before: 'active', after: 'active' });
         return true;
       });
@@ -1609,7 +1609,7 @@ test('deeper EXISTS merged keys preserve parameters and write recovery in both c
       await db.execute('BEGIN');
       await db.execute('INSERT INTO sink(k) VALUES(9)');
       const insert = `INSERT INTO sink(k,v) SELECT k,${scalar('k')} FROM docs a RIGHT JOIN b USING(k) ORDER BY k RETURNING k,v`;
-      for (const [params, code] of [[{}, 'FDB_PARAMETER'], [{ $min: 1n }, 'FDB_CONSTRAINT']]) {
+      for (const [params, code] of [[{}, 'RDB_PARAMETER'], [{ $min: 1n }, 'RDB_CONSTRAINT']]) {
         await assert.rejects(async () => db.execute(insert, params), error => {
           assert.equal(error.code, code);
           assert.deepEqual(error.transaction, { before: 'active', after: 'active' });
@@ -1660,7 +1660,7 @@ test('deeper scalar collation and casts preserve client results and atomic write
       await db.execute('INSERT INTO sink(k) VALUES(9)');
       const insert = 'INSERT INTO sink(k,v) SELECT k,(SELECT max(x.n) FROM nums x WHERE x.n<k AND (SELECT v FROM labels LIMIT 1)=k) FROM docs d RIGHT JOIN b USING(k) ORDER BY k RETURNING k,v';
       await assert.rejects(async () => db.execute(insert), error => {
-        assert.equal(error.code, 'FDB_CONSTRAINT');
+        assert.equal(error.code, 'RDB_CONSTRAINT');
         assert.deepEqual(error.transaction, { before: 'active', after: 'active' });
         return true;
       });
@@ -1705,7 +1705,7 @@ test('deeper membership preserves nulls and atomic writes in both clients', asyn
       await db.execute('INSERT INTO sink(k) VALUES(9)');
       const insert = `INSERT INTO sink(k,v) ${select('docs', 'SELECT k')} RETURNING k,v`;
       await assert.rejects(async () => db.execute(insert), error => {
-        assert.equal(error.code, 'FDB_CONSTRAINT');
+        assert.equal(error.code, 'RDB_CONSTRAINT');
         assert.deepEqual(error.transaction, { before: 'active', after: 'active' });
         return true;
       });
@@ -1747,7 +1747,7 @@ test('correlated compound membership preserves sets and write recovery in both c
       await db.execute('INSERT INTO sink(k) VALUES(9)');
       const insert = 'INSERT INTO sink(k,v) ' + query('docs', 'INTERSECT') + ' RETURNING k,v';
       await assert.rejects(async () => db.execute(insert), error => {
-        assert.equal(error.code, 'FDB_CONSTRAINT');
+        assert.equal(error.code, 'RDB_CONSTRAINT');
         assert.deepEqual(error.transaction, { before: 'active', after: 'active' });
         return true;
       });
@@ -1797,14 +1797,14 @@ test('ordered compound pagination binds parameters and preserves write recovery 
       await db.execute('INSERT INTO sink(k) VALUES(9)');
       const insert = `INSERT INTO sink(k,v) ${query('docs', 'UNION', 'chosen DESC')} RETURNING k,v`;
       await assert.rejects(async () => db.execute(insert, { $take: 1n }), error => {
-        assert.equal(error.code, 'FDB_PARAMETER');
+        assert.equal(error.code, 'RDB_PARAMETER');
         assert.deepEqual(error.transaction, { before: 'active', after: 'active' });
         return true;
       });
       const params = { $take: 1n, $skip: 0n };
       const expectedRows = await db.all(query('native', 'UNION', 'chosen DESC'), params);
       await assert.rejects(async () => db.execute(insert, params), error => {
-        assert.equal(error.code, 'FDB_CONSTRAINT');
+        assert.equal(error.code, 'RDB_CONSTRAINT');
         assert.deepEqual(error.transaction, { before: 'active', after: 'active' });
         return true;
       });
@@ -1852,14 +1852,14 @@ test('compound expression ordering preserves RIGHT JOIN client recovery', async 
       await db.execute('INSERT INTO sink(k) VALUES(9)');
       const insert = `INSERT INTO sink(k,v) ${query('docs', 'UNION', '"k+1" DESC')} RETURNING k,v`;
       await assert.rejects(async () => db.execute(insert, { $take: 1n }), error => {
-        assert.equal(error.code, 'FDB_PARAMETER');
+        assert.equal(error.code, 'RDB_PARAMETER');
         assert.deepEqual(error.transaction, { before: 'active', after: 'active' });
         return true;
       });
       const params = { $take: 1n, $skip: 0n };
       const expectedRows = await db.all(query('native', 'UNION', '"k+1" DESC'), params);
       await assert.rejects(async () => db.execute(insert, params), error => {
-        assert.equal(error.code, 'FDB_CONSTRAINT');
+        assert.equal(error.code, 'RDB_CONSTRAINT');
         assert.deepEqual(error.transaction, { before: 'active', after: 'active' });
         return true;
       });
@@ -1908,14 +1908,14 @@ test('unordered UNION ALL pagination preserves parameters and client recovery', 
       await db.execute('INSERT INTO sink(k) VALUES(9)');
       const insert = `INSERT INTO sink(k,v) ${query('docs')} RETURNING k,v`;
       await assert.rejects(async () => db.execute(insert, { $take: 1n }), error => {
-        assert.equal(error.code, 'FDB_PARAMETER');
+        assert.equal(error.code, 'RDB_PARAMETER');
         assert.deepEqual(error.transaction, { before: 'active', after: 'active' });
         return true;
       });
       const params = { $take: 1n, $skip: 1n };
       const expectedRows = await db.all(query('native'), params);
       await assert.rejects(async () => db.execute(insert, params), error => {
-        assert.equal(error.code, 'FDB_CONSTRAINT');
+        assert.equal(error.code, 'RDB_CONSTRAINT');
         assert.deepEqual(error.transaction, { before: 'active', after: 'active' });
         return true;
       });
@@ -1964,14 +1964,14 @@ test('unordered UNION pagination preserves parameters and client recovery', asyn
       await db.execute('INSERT INTO sink(k) VALUES(9)');
       const insert = `INSERT INTO sink(k,v) ${query('docs')} RETURNING k,v`;
       await assert.rejects(async () => db.execute(insert, { $take: 1n }), error => {
-        assert.equal(error.code, 'FDB_PARAMETER');
+        assert.equal(error.code, 'RDB_PARAMETER');
         assert.deepEqual(error.transaction, { before: 'active', after: 'active' });
         return true;
       });
       const params = { $take: 1n, $skip: 1n };
       const expectedRows = await db.all(query('native'), params);
       await assert.rejects(async () => db.execute(insert, params), error => {
-        assert.equal(error.code, 'FDB_CONSTRAINT');
+        assert.equal(error.code, 'RDB_CONSTRAINT');
         assert.deepEqual(error.transaction, { before: 'active', after: 'active' });
         return true;
       });
@@ -1999,7 +1999,7 @@ test('typed compound parameters preserve projections and write recovery in both 
         'CREATE TABLE sink', 'CREATE UNIQUE INDEX sink_n ON sink(n)', 'INSERT INTO sink(n) VALUES(2)',
       ]) await db.execute(sql);
       const query = 'SELECT d.n,(SELECT $same FROM probe WHERE d.k IN(SELECT d.k INTERSECT SELECT $same LIMIT 1)) AS value FROM docs d ORDER BY d.n';
-      for (const value of [true, 1n, new Record('docs',7n), Buffer.from('FDB\x01{"type":"Integer","value":7}')]) {
+      for (const value of [true, 1n, new Record('docs',7n), Buffer.from('RDB\x01{"type":"Integer","value":7}')]) {
         await db.execute('INSERT INTO docs(n,k) VALUES(1,$same)', {$same:value});
         assert.deepEqual((await db.execute(query, {$same:value})).rows, [[1n,value]]);
         assert.deepEqual((await db.profileSelect(query, {$same:value})).result.rows, [[1n,value]]);
@@ -2011,7 +2011,7 @@ test('typed compound parameters preserve projections and write recovery in both 
       await db.execute('INSERT INTO sink(n) VALUES(9)');
       const insert = 'INSERT INTO sink(n,value) ' + query + ' RETURNING n,value';
       await assert.rejects(async () => db.execute(insert, {$same:value}), error => {
-        assert.equal(error.code,'FDB_CONSTRAINT');
+        assert.equal(error.code,'RDB_CONSTRAINT');
         assert.deepEqual(error.transaction,{before:'active',after:'active'});
         return true;
       });
@@ -2060,12 +2060,12 @@ test('collated compound membership preserves client write recovery', async () =>
       const insert = 'INSERT INTO sink(k,found) ' + select + ' RETURNING k,found';
       const params = {$take:1n,$skip:0n};
       await assert.rejects(async () => db.execute(insert,{$take:1n}), error => {
-        assert.equal(error.code,'FDB_PARAMETER');
+        assert.equal(error.code,'RDB_PARAMETER');
         assert.deepEqual(error.transaction,{before:'active',after:'active'});
         return true;
       });
       await assert.rejects(async () => db.execute(insert,params), error => {
-        assert.equal(error.code,'FDB_CONSTRAINT');
+        assert.equal(error.code,'RDB_CONSTRAINT');
         assert.deepEqual(error.transaction,{before:'active',after:'active'});
         return true;
       });
@@ -2115,7 +2115,7 @@ test('collated scalar ranges and between preserve client write recovery', async 
       const predicate = 'd.a COLLATE NOCASE BETWEEN d.b AND d.c';
       const insert = 'INSERT INTO sink(n,value) ' + query(predicate) + ' RETURNING n,value';
       await assert.rejects(async () => db.execute(insert), error => {
-        assert.equal(error.code,'FDB_CONSTRAINT');
+        assert.equal(error.code,'RDB_CONSTRAINT');
         assert.deepEqual(error.transaction,{before:'active',after:'active'});
         return true;
       });
@@ -2163,12 +2163,12 @@ test('local CTE merged keys preserve parameters and client write recovery', asyn
       const select = query('docs','RIGHT JOIN','MATERIALIZED',false);
       const insert = 'INSERT INTO sink(n,prior) ' + select + ' RETURNING n,prior';
       await assert.rejects(async () => db.execute(insert), error => {
-        assert.equal(error.code,'FDB_PARAMETER');
+        assert.equal(error.code,'RDB_PARAMETER');
         assert.deepEqual(error.transaction,{before:'active',after:'active'});
         return true;
       });
       await assert.rejects(async () => db.execute(insert,params), error => {
-        assert.equal(error.code,'FDB_CONSTRAINT');
+        assert.equal(error.code,'RDB_CONSTRAINT');
         assert.deepEqual(error.transaction,{before:'active',after:'active'});
         return true;
       });
@@ -2225,17 +2225,17 @@ test('ordered local CTE pagination preserves typed client recovery', async () =>
       const value = new Record('docs',7n);
       const params = {$take:'1.0',$skip:'1e0',$value:value};
       await assert.rejects(async () => db.execute(insert,{$take:1n,$value:value}), error => {
-        assert.equal(error.code,'FDB_PARAMETER');
+        assert.equal(error.code,'RDB_PARAMETER');
         assert.deepEqual(error.transaction,{before:'active',after:'active'});
         return true;
       });
       await assert.rejects(async () => db.execute(insert,{$take:'1',$value:value}), error => {
-        assert.equal(error.code,'FDB_PARAMETER');
+        assert.equal(error.code,'RDB_PARAMETER');
         assert.deepEqual(error.transaction,{before:'active',after:'active'});
         return true;
       });
       await assert.rejects(async () => db.execute(insert,params), error => {
-        assert.equal(error.code,'FDB_CONSTRAINT');
+        assert.equal(error.code,'RDB_CONSTRAINT');
         assert.deepEqual(error.transaction,{before:'active',after:'active'});
         return true;
       });
@@ -2272,13 +2272,13 @@ test('bounded SELECT limits preserve typed results and transactions in both clie
       await db.execute('INSERT INTO native VALUES(3)');
       for (const [query, limits] of [[sql, {...exact, maxPayloadBytes:36n}], [sql, {...exact,maxRows:0n}], ['SELECT n FROM native', {maxRows:2n,maxPayloadBytes:100n}], ['SELECT n FROM native WHERE 0',{maxRows:0n,maxPayloadBytes:0n}]]) {
         await assert.rejects(Promise.resolve().then(() => db.selectWithLimits(query, limits)), e => {
-          assert.equal(e.code, 'FDB_LIMIT');
+          assert.equal(e.code, 'RDB_LIMIT');
           assert.deepEqual(e.transaction, {before:'active',after:'active'});
           return true;
         });
       }
       assert.deepEqual((await db.selectWithLimits('SELECT n FROM native WHERE 0',{maxRows:0n,maxPayloadBytes:1n})).rows, []);
-      await assert.rejects(Promise.resolve().then(() => db.selectWithLimits('DELETE FROM native', exact)), e => e.code === 'FDB_UNSUPPORTED');
+      await assert.rejects(Promise.resolve().then(() => db.selectWithLimits('DELETE FROM native', exact)), e => e.code === 'RDB_UNSUPPORTED');
       assert.equal((await db.selectWithLimits('SELECT n FROM native',{maxRows:3n,maxPayloadBytes:25n})).rows.length, 3);
       for (const limits of [undefined, null, {}, {maxRows:1,maxPayloadBytes:1n}, {maxRows:-1n,maxPayloadBytes:1n}, {maxRows:1n,maxPayloadBytes:2n**64n}, {...exact,typo:1n}]) {
         await assert.rejects(Promise.resolve().then(() => db.selectWithLimits(sql,limits)), e => e instanceof TypeError || e instanceof RangeError);
@@ -2296,7 +2296,7 @@ test('bounded worker SELECT cancellation cleans up and allows retry', async () =
   const limits = {maxRows:1n,maxPayloadBytes:100n};
   try {
     const cancelled = new AbortController(); cancelled.abort();
-    await assert.rejects(db.selectWithLimits('SELECT 1',limits,{}, {signal:cancelled.signal}), e => e.code === 'FDB_CANCELLED');
+    await assert.rejects(db.selectWithLimits('SELECT 1',limits,{}, {signal:cancelled.signal}), e => e.code === 'RDB_CANCELLED');
     await db.execute('CREATE TABLE nums(n INTEGER)');
     await db.execute('INSERT INTO nums VALUES ' + Array.from({length:1000}, (_,i) => '(' + (i+1) + ')').join(','));
     await db.execute('BEGIN');
@@ -2304,7 +2304,7 @@ test('bounded worker SELECT cancellation cleans up and allows retry', async () =
     const active = new AbortController();
     const pending = db.profileSelectWithLimits('SELECT count(*) FROM nums a CROSS JOIN nums b CROSS JOIN nums c',limits,{}, {signal:active.signal});
     const timer = setTimeout(() => active.abort(), 25);
-    try { await assert.rejects(pending, e => { assert.equal(e.code, 'FDB_CANCELLED'); assert.deepEqual(e.transaction, {before:'active',after:'active'}); return true; }); }
+    try { await assert.rejects(pending, e => { assert.equal(e.code, 'RDB_CANCELLED'); assert.deepEqual(e.transaction, {before:'active',after:'active'}); return true; }); }
     finally { clearTimeout(timer); }
     assert.deepEqual((await db.selectWithLimits('SELECT count(*) AS n FROM nums',limits)).rows, [[1001n]]);
     await db.execute('ROLLBACK');
@@ -2336,7 +2336,7 @@ test('bounded FETCH shares final payload limits across duplicates and scalar col
         assert.equal(actual.metrics.fetchBatches,expected.metrics.fetchBatches);
         for (const rejected of [{...limits,maxPayloadBytes:bytes-1n},{...limits,maxRows:rows-1n}]) {
           await assert.rejects(Promise.resolve().then(() => db.selectWithLimits(sql,rejected)), e => {
-            assert.equal(e.code,'FDB_LIMIT');
+            assert.equal(e.code,'RDB_LIMIT');
             assert.deepEqual(e.transaction,{before:'active',after:'active'});
             return true;
           });
@@ -2365,7 +2365,7 @@ test('atomic write result policy restores rows indexes and trigger effects in bo
         const sql = 'INSERT INTO ' + table + '(n) VALUES(1),(2) RETURNING n';
         for (const limits of [{maxRows:1n,maxPayloadBytes:17n},{maxRows:2n,maxPayloadBytes:16n}]) {
           await assert.rejects(Promise.resolve().then(() => db.writeWithResultLimits(sql,limits)), e => {
-            assert.equal(e.code,'FDB_LIMIT');
+            assert.equal(e.code,'RDB_LIMIT');
             assert.deepEqual(e.transaction,{before:'active',after:'active'});
             return true;
           });
@@ -2381,7 +2381,7 @@ test('atomic write result policy restores rows indexes and trigger effects in bo
       const mixedBudget = {maxRows:3n,maxPayloadBytes:25n};
       for (const rejected of [{...mixedBudget,maxPayloadBytes:0n},{...mixedBudget,maxPayloadBytes:24n},{...mixedBudget,maxRows:2n}]) {
         await assert.rejects(Promise.resolve().then(() => db.writeWithResultLimits(mixed,rejected,{$offset:20n})), error => {
-          assert.equal(error.code,'FDB_LIMIT');
+          assert.equal(error.code,'RDB_LIMIT');
           assert.deepEqual(error.transaction,{before:'active',after:'active'});
           return true;
         });
@@ -2393,12 +2393,12 @@ test('atomic write result policy restores rows indexes and trigger effects in bo
       const value = {r:new Record('docs','prior'),b:Buffer.from([0,255]),t:'猫',a:[true,null]};
       const sql = 'UPDATE docs:prior {value:$v} RETURNING value AS v';
       const exact = {maxRows:1n,maxPayloadBytes:21n}; // v + keys 4 + record 9 + binary 2 + text 3 + array 2
-      await assert.rejects(Promise.resolve().then(() => db.writeWithResultLimits(sql,{...exact,maxPayloadBytes:20n},{$v:value})), e => e.code === 'FDB_LIMIT');
+      await assert.rejects(Promise.resolve().then(() => db.writeWithResultLimits(sql,{...exact,maxPayloadBytes:20n},{$v:value})), e => e.code === 'RDB_LIMIT');
       assert.deepEqual(await db.exactlyOne('SELECT value FROM docs WHERE n=9'),[null]);
       assert.deepEqual((await db.writeWithResultLimits(sql,exact,{$v:value})).rows,[[value]]);
       assert.equal((await db.checkCollectionIntegrity('docs')).documents,3n);
       for (const sql of ['COMMIT','ROLLBACK','CREATE TABLE nope(n)','SELECT 1']) {
-        await assert.rejects(Promise.resolve().then(() => db.writeWithResultLimits(sql,exact)), e => e.code === 'FDB_UNSUPPORTED');
+        await assert.rejects(Promise.resolve().then(() => db.writeWithResultLimits(sql,exact)), e => e.code === 'RDB_UNSUPPORTED');
       }
       await assert.rejects(Promise.resolve().then(() => db.writeWithResultLimits('INSERT INTO native VALUES(5)',{maxRows:0,maxPayloadBytes:0n})), TypeError);
       await db.execute('ROLLBACK');
@@ -2422,7 +2422,7 @@ test('worker write result cancellation rolls back and permits queued retry', asy
     await db.execute('BEGIN');
     await db.execute('INSERT INTO docs {id:docs:prior,n:9}');
     const before = new AbortController(); before.abort();
-    await assert.rejects(db.writeWithResultLimits('DELETE FROM docs',limits,{}, {signal:before.signal}), e => e.code === 'FDB_CANCELLED');
+    await assert.rejects(db.writeWithResultLimits('DELETE FROM docs',limits,{}, {signal:before.signal}), e => e.code === 'RDB_CANCELLED');
     const active = new AbortController();
     const pending = db.writeWithResultLimits('INSERT INTO docs(n) SELECT count(*) FROM nums a CROSS JOIN nums b CROSS JOIN nums c RETURNING n',limits,{}, {signal:active.signal});
     const following = db.all('SELECT n FROM docs');
@@ -2431,7 +2431,7 @@ test('worker write result cancellation rolls back and permits queued retry', asy
     const [cancelled,recovered] = await settled;
     clearTimeout(timer);
     assert.equal(cancelled.status,'rejected');
-    assert.equal(cancelled.reason.code,'FDB_CANCELLED');
+    assert.equal(cancelled.reason.code,'RDB_CANCELLED');
     assert.deepEqual(cancelled.reason.transaction,{before:'active',after:'active'});
     assert.equal(recovered.status,'fulfilled');
     assert.deepEqual(recovered.value,[[9n]]);
@@ -2455,7 +2455,7 @@ test('connection write buffer limits preserve pending work in both clients', asy
       await db.execute('INSERT INTO docs {id:docs:b,n:2}');
       for (const sql of ['UPDATE docs SET n=n+10', 'UPDATE docs {n:n+10}', 'DELETE FROM docs', 'INSERT INTO docs(n) VALUES(3),(4)']) {
         await assert.rejects(async () => db.execute(sql), error => {
-          assert.equal(error.code, 'FDB_LIMIT');
+          assert.equal(error.code, 'RDB_LIMIT');
           assert.deepEqual(error.transaction, { before: 'active', after: 'active' });
           return true;
         });
@@ -2482,7 +2482,7 @@ test('joined update encoded identity limits preserve pending work in both client
       await db.execute('BEGIN');
       await db.execute('INSERT INTO docs {id:docs:pending,n:2}');
       await assert.rejects(async () => db.execute('UPDATE docs SET n=docs.n+10 FROM (SELECT 1 AS k) source WHERE docs.n=1'), error => {
-        assert.equal(error.code, 'FDB_LIMIT');
+        assert.equal(error.code, 'RDB_LIMIT');
         assert.match(error.message, /encoded value limit/);
         assert.deepEqual(error.transaction, {before: 'active', after: 'active'});
         return true;
@@ -2528,7 +2528,7 @@ test('worker timeout uses native deadline and preserves queued request isolation
     const queued = db.execute('INSERT INTO docs {n:2}', {}, { timeoutMs: 0 });
     const next = db.all('SELECT n FROM docs');
     await Promise.all([active, queued].map(promise => assert.rejects(promise, error => {
-      assert.equal(error.code, 'FDB_CANCELLED');
+      assert.equal(error.code, 'RDB_CANCELLED');
       assert.deepEqual(error.transaction, { before:'active', after:'active' });
       return true;
     })));
@@ -2538,7 +2538,7 @@ test('worker timeout uses native deadline and preserves queued request isolation
     }
     const controller = new AbortController();
     controller.abort();
-    await assert.rejects(db.execute('INSERT INTO docs {n:9}', {}, { signal:controller.signal, timeoutMs:60000 }), {code:'FDB_CANCELLED'});
+    await assert.rejects(db.execute('INSERT INTO docs {n:9}', {}, { signal:controller.signal, timeoutMs:60000 }), {code:'RDB_CANCELLED'});
     await db.execute('INSERT INTO docs {n:3}', {}, { timeoutMs:60000 });
     assert.deepEqual(await db.all('SELECT n FROM docs ORDER BY n'), [[1n],[3n]]);
     await db.execute('ROLLBACK');
@@ -2569,7 +2569,7 @@ test('zero timeout rejects async operations before work and allows recovery', as
       () => db.migrate([...plan,{version:2n,name:'delete',sql:'DELETE FROM docs;'}],expired),
     ]) {
       await assert.rejects(operation(), error => {
-        assert.equal(error.code,'FDB_CANCELLED');
+        assert.equal(error.code,'RDB_CANCELLED');
         assert.deepEqual(error.transaction,{before:'autocommit',after:'autocommit'});
         return true;
       });
@@ -2589,7 +2589,7 @@ test('timeout completion and invalid signal paths release native token capacity'
   const held = [];
   try {
     for (let i=0; i<256; i++) {
-      await assert.rejects(db.execute('SELECT 1',{}, {timeoutMs:0}), {code:'FDB_CANCELLED'});
+      await assert.rejects(db.execute('SELECT 1',{}, {timeoutMs:0}), {code:'RDB_CANCELLED'});
       await assert.rejects(db.execute('SELECT 1',{}, {timeoutMs:60000,signal:null}), TypeError);
       assert.deepEqual(await db.all('SELECT 1',{}, {timeoutMs:60000}), [[1n]]);
     }
@@ -2621,13 +2621,13 @@ test('closing a worker with a timed write permits clean persistent reopen', asyn
     await db.execute('INSERT INTO docs {id:docs:b,n:2}');
     const operation = db.execute('INSERT INTO docs(n) SELECT count(*) FROM input a,input b,input c,input d,input e,input f,input g,input h,input i,input j', {}, {timeoutMs:20});
     const rejection = assert.rejects(operation, error => {
-      assert.equal(error.code,'FDB_CANCELLED');
+      assert.equal(error.code,'RDB_CANCELLED');
       assert.deepEqual(error.transaction,{before:'active',after:'active'});
       return true;
     });
     const closed = db.close();
     assert.equal(db.close(),closed);
-    await assert.rejects(db.execute('SELECT 1'),{code:'FDB_CLOSED'});
+    await assert.rejects(db.execute('SELECT 1'),{code:'RDB_CLOSED'});
     await Promise.all([rejection,closed]);
     db = undefined;
     const reopened = new Database(file);
@@ -2720,10 +2720,10 @@ test('migration failures expose lossless versions, UTF-8 offsets and typed cause
       const pending = {version:9007199254740993n,name:'pending',sql:prefix+bad};
       await assert.rejects(async()=>db.migrate([base,pending]),error=>{
         assert(isRomeDBError(error));
-        assert.equal(error.code,'FDB_MIGRATION');
+        assert.equal(error.code,'RDB_MIGRATION');
         assert.equal(error.migration.version,pending.version);
         assert.equal(error.migration.offset,BigInt(Buffer.byteLength(prefix)));
-        assert.equal(error.migration.cause.code,limited?'FDB_LIMIT':'FDB_CONSTRAINT');
+        assert.equal(error.migration.cause.code,limited?'RDB_LIMIT':'RDB_CONSTRAINT');
         assert.equal(typeof error.migration.cause.message,'string');
         assert.deepEqual(error.transaction,{before:'autocommit',after:'autocommit'});
         return true;
@@ -2735,10 +2735,10 @@ test('migration failures expose lossless versions, UTF-8 offsets and typed cause
       assert.equal((await db.migrate([base,pending])).alreadyApplied,2);
     } finally { await db.close(); }
   }
-  for(const migration of [null,{}, {version:1,offset:0n,cause:{code:'FDB_LIMIT',message:'x'}},
-    {version:1n,offset:-1n,cause:{code:'FDB_LIMIT',message:'x'}},
+  for(const migration of [null,{}, {version:1,offset:0n,cause:{code:'RDB_LIMIT',message:'x'}},
+    {version:1n,offset:-1n,cause:{code:'RDB_LIMIT',message:'x'}},
     {version:1n,offset:0n,cause:{code:'bad',message:'x'}}]) {
-    assert.equal(isRomeDBError(Object.assign(new Error('test'),{code:'FDB_MIGRATION',migration})),false);
+    assert.equal(isRomeDBError(Object.assign(new Error('test'),{code:'RDB_MIGRATION',migration})),false);
   }
 });
 
@@ -2753,11 +2753,11 @@ test('direct JSON iterator joins preserve parameters and values in both clients'
       const rows=[[1n,0n,1n],[1n,1n,2n],[1n,2n,null]];
       assert.deepEqual((await db.execute(sql,params)).rows,rows);
       assert.deepEqual((await db.profileSelect(sql,params)).result.rows,rows);
-      await assert.rejects(async()=>db.execute(sql),error=>error.code==='FDB_PARAMETER');
+      await assert.rejects(async()=>db.execute(sql),error=>error.code==='RDB_PARAMETER');
       const computed=sql.replace('json_each($json)', "json_each(coalesce($json,'[]'))");
       assert.deepEqual((await db.execute(computed,params)).rows,rows);
       assert.deepEqual((await db.profileSelect(computed,params)).result.rows,rows);
-      await assert.rejects(async()=>db.execute(computed),error=>error.code==='FDB_PARAMETER');
+      await assert.rejects(async()=>db.execute(computed),error=>error.code==='RDB_PARAMETER');
       assert.deepEqual((await db.execute('SELECT value FROM json_each(json_array(1,2))')).rows,[[1n],[2n]]);
       await db.execute('UPDATE docs SET j=$json',params);
       const correlated=sql.replace('json_each($json)','json_each(d.j)');
@@ -2785,7 +2785,7 @@ test('direct JSON iterator joins preserve parameters and values in both clients'
       const scalar=sql.replace('json_each($json)','json_each((SELECT $json))');
       assert.deepEqual((await db.execute(scalar,params)).rows,rows);
       assert.deepEqual((await db.profileSelect(scalar,params)).result.rows,rows);
-      await assert.rejects(async()=>db.execute(scalar),error=>error.code==='FDB_PARAMETER');
+      await assert.rejects(async()=>db.execute(scalar),error=>error.code==='RDB_PARAMETER');
       await db.execute('CREATE TABLE native(n INTEGER,j TEXT)');
       await db.execute('INSERT INTO native VALUES(1,$json)',params);
       const nested=sql.replace('json_each($json)','json_each((SELECT j FROM native WHERE n=d.n))');
@@ -2795,18 +2795,18 @@ test('direct JSON iterator joins preserve parameters and values in both clients'
       const cteRows=[[1n,1n,2n],[1n,2n,3n]];
       assert.deepEqual((await db.execute(cte,{$delta:1n})).rows,cteRows);
       assert.deepEqual((await db.profileSelect(cte,{$delta:1n})).result.rows,cteRows);
-      await assert.rejects(async()=>db.execute(cte),error=>error.code==='FDB_PARAMETER');
+      await assert.rejects(async()=>db.execute(cte),error=>error.code==='RDB_PARAMETER');
       const predicates='SELECT x.value FROM docs d CROSS JOIN json_each(json_array(EXISTS(SELECT 1 FROM native s WHERE s.n=d.n),$key IN (SELECT n FROM native))) x ORDER BY x.key';
       assert.deepEqual((await db.execute(predicates,{$key:1n})).rows,[[1n],[1n]]);
       assert.deepEqual((await db.profileSelect(predicates,{$key:1n})).result.rows,[[1n],[1n]]);
-      await assert.rejects(async()=>db.execute(predicates),error=>error.code==='FDB_PARAMETER');
+      await assert.rejects(async()=>db.execute(predicates),error=>error.code==='RDB_PARAMETER');
       const inner='SELECT d.n,(SELECT count(*) FROM json_each(d.j) x) AS total FROM docs d WHERE EXISTS(SELECT 1 FROM json_each(d.j) x WHERE x.value=d.n)';
       assert.deepEqual((await db.execute(inner)).rows,[[1n,3n]]);
       assert.deepEqual((await db.profileSelect(inner)).result.rows,[[1n,3n]]);
       const qualifiedCte='SELECT d.n,(WITH a AS (SELECT x.value AS n FROM temp.json_each(d.j) x) SELECT sum(n)+$delta FROM a) AS total FROM docs d';
       assert.deepEqual((await db.execute(qualifiedCte,{$delta:1n})).rows,[[1n,4n]]);
       assert.deepEqual((await db.profileSelect(qualifiedCte,{$delta:1n})).result.rows,[[1n,4n]]);
-      await assert.rejects(async()=>db.execute(qualifiedCte),error=>error.code==='FDB_PARAMETER');
+      await assert.rejects(async()=>db.execute(qualifiedCte),error=>error.code==='RDB_PARAMETER');
       for(const [expression,total] of [
         ['(WITH a AS (SELECT d.n+x.value AS v FROM json_each(d.j) x) SELECT sum(v) FROM a)',5n],
         ['(WITH a AS (SELECT x.value AS v FROM json_each(d.j) x UNION ALL SELECT d.n) SELECT sum(v) FROM a)',4n]
@@ -2846,7 +2846,7 @@ test('worker iterator deadlines preserve queued recovery and indexed work', asyn
       const pending=operation();
       const recovery=db.execute('SELECT n FROM output');
       await assert.rejects(pending,error=>{
-        assert.equal(error.code,'FDB_CANCELLED');
+        assert.equal(error.code,'RDB_CANCELLED');
         assert.deepEqual(error.transaction,{before:'active',after:'active'});
         return true;
       });
@@ -2873,7 +2873,7 @@ test('malformed iterator input reports whole transaction rollback in both client
           await db.execute('BEGIN');
           await db.execute('INSERT INTO output(n) VALUES(0)');
           await assert.rejects(async()=>operation(),error=>{
-            assert.equal(error.code,'FDB_ENGINE');
+            assert.equal(error.code,'RDB_ENGINE');
             assert.deepEqual(error.transaction,{before:'active',after:'autocommit'});
             return true;
           });
@@ -2906,7 +2906,7 @@ test('tuple updates preserve typed snapshots and atomic failure in both clients'
         'BEGIN', 'INSERT INTO docs(n,a,b) VALUES(0,0,0)']) await db.execute(sql);
       const before = (await db.execute('SELECT n,a,b FROM docs ORDER BY n')).rows;
       await assert.rejects(async () => db.execute('UPDATE docs SET (n,a)=(n+8,a+1)'), error => {
-        assert.equal(error.code, 'FDB_VALIDATION');
+        assert.equal(error.code, 'RDB_VALIDATION');
         assert.deepEqual(error.transaction, { before: 'active', after: 'active' });
         return true;
       });
@@ -2914,13 +2914,13 @@ test('tuple updates preserve typed snapshots and atomic failure in both clients'
       const record = new Record('docs', 'target');
       const object = { nested: [true, Buffer.from([0,255]), 9223372036854775807n] };
       await assert.rejects(async () => db.execute('UPDATE docs SET (a,b)=($a,$b),n=n+1 WHERE n=0 RETURNING a,b', { $a: record, $b: object }), error => {
-        assert.equal(error.code, 'FDB_CONSTRAINT');
+        assert.equal(error.code, 'RDB_CONSTRAINT');
         assert.deepEqual(error.transaction, { before: 'active', after: 'active' });
         return true;
       });
       assert.deepEqual((await db.execute('SELECT n,a,b FROM docs ORDER BY n')).rows, before);
       await assert.rejects(async () => db.execute('UPDATE OR ABORT docs SET (a,b)=($a,$b),n=1 WHERE n=0 RETURNING a,b', { $a: record, $b: object }), error => {
-        assert.equal(error.code, 'FDB_CONSTRAINT');
+        assert.equal(error.code, 'RDB_CONSTRAINT');
         assert.deepEqual(error.transaction, { before: 'active', after: 'active' });
         return true;
       });
@@ -2929,7 +2929,7 @@ test('tuple updates preserve typed snapshots and atomic failure in both clients'
 
       assert.deepEqual((await db.execute('UPDATE docs SET (a,b)=(b,a) WHERE n=7 RETURNING a,b')).rows, [[object, record]]);
       await assert.rejects(async () => db.execute('UPDATE docs SET (n,a)=(SELECT n+8,a)'), error => {
-        assert.equal(error.code, 'FDB_VALIDATION');
+        assert.equal(error.code, 'RDB_VALIDATION');
         assert.deepEqual(error.transaction, { before: 'active', after: 'active' });
         return true;
       });
@@ -2973,7 +2973,7 @@ test('tuple collection lookups preserve typed results in both clients', async ()
       assert.deepEqual(values.rows, [[record,payload]]);
       assert.deepEqual(values.transaction, { before: 'active', after: 'active' });
       assert.deepEqual((await db.execute('UPDATE docs SET (a,b)=(VALUES(b,a)) WHERE n=1 RETURNING a,b')).rows, [[payload,record]]);
-      await assert.rejects(async () => db.execute('UPDATE docs SET (a,b)=(VALUES(1,2),(3,4))'), error => error.code === 'FDB_UNSUPPORTED');
+      await assert.rejects(async () => db.execute('UPDATE docs SET (a,b)=(VALUES(1,2),(3,4))'), error => error.code === 'RDB_UNSUPPORTED');
       assert.deepEqual((await db.execute('SELECT a,b FROM docs WHERE n=1')).rows, [[payload,record]]);
       const nested = await db.execute('UPDATE docs SET (a,b)=(SELECT (SELECT x.a FROM lookup x WHERE x.n=docs.n ORDER BY x.rank LIMIT 1),(SELECT x.b FROM lookup x WHERE x.n=docs.n ORDER BY x.rank LIMIT 1)) RETURNING n,a,b');
       assert.deepEqual(nested.rows, [[1n,record,payload],[2n,null,null]]);
@@ -3132,7 +3132,7 @@ test('update from preserves typed candidates and unmatched targets in both clien
       await db.execute('INSERT INTO keys VALUES(1),(1)');
       for (const condition of ['k.k=target.n', 'k.k=(SELECT target.n)']) {
         await assert.rejects(async () => db.execute('UPDATE docs AS target SET (a,b)=(s.a,s.b) FROM source s JOIN keys k ON '+condition+' RETURNING n,a,b'), error => {
-          assert(['FDB_ENGINE','FDB_UNSUPPORTED'].includes(error.code));
+          assert(['RDB_ENGINE','RDB_UNSUPPORTED'].includes(error.code));
           assert.deepEqual(error.transaction, { before: 'active', after: 'active' });
           return true;
         });
@@ -3181,7 +3181,7 @@ test('update from preserves typed candidates and unmatched targets in both clien
       // SELECT pagination requires a source with one row per intended target.
       await db.execute('DELETE FROM source WHERE a=docs:old');
       const paginated = 'UPDATE docs AS target SET (a,b)=(s.a,s.b) FROM (SELECT k,a,b FROM source LIMIT $count OFFSET $skip) s WHERE s.k=target.n RETURNING n,a,b';
-      await assert.rejects(async () => db.execute(paginated, { $count: 1n }), error => error.code === 'FDB_CONSTRAINT' && error.transaction.after === 'active');
+      await assert.rejects(async () => db.execute(paginated, { $count: 1n }), error => error.code === 'RDB_CONSTRAINT' && error.transaction.after === 'active');
       for (const [count, skip, expected] of [[0n,0n,[]],[1n,1n,[]],[1n,0n,[[1n,record,payload]]]]) {
         const page = await db.execute(paginated, { $count: count, $skip: skip });
         assert.deepEqual(page.rows, expected);
@@ -3206,7 +3206,7 @@ test('OR ROLLBACK reports full transaction loss and permits fresh client work', 
     const db = await open();
     try {
       for (const sql of ['CREATE TABLE docs', 'DEFINE FIELD v ON docs TYPE integer REQUIRED CHECK(v<5)', 'CREATE UNIQUE INDEX docs_n ON docs(n)', 'INSERT INTO docs(n,v) VALUES(1,0),(2,0)']) await db.execute(sql);
-      for (const [assignment,code] of [['n=1','FDB_CONSTRAINT'],['v=10','FDB_VALIDATION']]) {
+      for (const [assignment,code] of [['n=1','RDB_CONSTRAINT'],['v=10','RDB_VALIDATION']]) {
         await db.execute('BEGIN');
         await db.execute('INSERT INTO docs(n,v) VALUES(3,0)');
         await assert.rejects(async () => db.execute('UPDATE OR ROLLBACK docs SET '+assignment+' WHERE n>1 RETURNING n,v'), error => {
@@ -3247,7 +3247,7 @@ test('OR IGNORE preserves typed successes and pending client work', async () => 
         assert.deepEqual(conflict.rows,[]);
         assert.deepEqual((await db.execute('SELECT n,v,payload FROM docs ORDER BY n')).rows,[[1n,0n,null],[2n,0n,null],[3n,1n,payload],[4n,0n,null]]);
         await assert.rejects(async () => db.execute(`UPDATE OR IGNORE docs SET v=$missing${from}`),error => {
-          assert.equal(error.code,'FDB_PARAMETER');
+          assert.equal(error.code,'RDB_PARAMETER');
           assert.deepEqual(error.transaction,{before:'active',after:'active'});
           return true;
         });
@@ -3279,7 +3279,7 @@ test('OR FAIL exposes retained typed updates and accurate transaction reports', 
           await assert.rejects(async () => limited
             ? db.writeWithResultLimits(sql,{maxRows:10n,maxPayloadBytes:10000n},{$value:payload})
             : db.execute(sql,{$value:payload}), error => {
-              assert.equal(error.code,'FDB_VALIDATION');
+              assert.equal(error.code,'RDB_VALIDATION');
               assert.deepEqual(error.transaction,{before:'active',after:'active'});
               return true;
             });
@@ -3290,7 +3290,7 @@ test('OR FAIL exposes retained typed updates and accurate transaction reports', 
         }
       }
       await assert.rejects(async () => db.execute('UPDATE OR FAIL docs SET n=10,v=1,payload=$value WHERE n<3 RETURNING n,payload',{$value:payload}),error => {
-        assert.equal(error.code,'FDB_CONSTRAINT');
+        assert.equal(error.code,'RDB_CONSTRAINT');
         assert.deepEqual(error.transaction,{before:'autocommit',after:'autocommit'});
         return true;
       });
@@ -3316,7 +3316,7 @@ test('OR REPLACE preserves typed results and restores deleted conflicts on failu
         await db.execute('INSERT INTO docs(n,v) VALUES(4,0)');
         const before=(await db.execute('SELECT * FROM docs ORDER BY n')).rows;
         await assert.rejects(async()=>db.execute('UPDATE OR REPLACE docs SET n=docs.n+1,v=CASE WHEN docs.n=3 THEN 10 ELSE 1 END'+from+' WHERE docs.n<4 RETURNING n'),error=>{
-          assert.equal(error.code,'FDB_VALIDATION');
+          assert.equal(error.code,'RDB_VALIDATION');
           assert.deepEqual(error.transaction,{before:'active',after:'active'});
           return true;
         });
@@ -3349,8 +3349,8 @@ test('INSERT OR ABORT restores failed batches and retains typed client values', 
       for (const sql of ['CREATE TABLE docs','DEFINE FIELD v ON docs TYPE integer REQUIRED CHECK(v<5)','CREATE UNIQUE INDEX docs_n ON docs(n)','INSERT INTO docs(n,v) VALUES(1,0)','BEGIN','INSERT INTO docs(n,v) VALUES(4,0)']) await db.execute(sql);
       const payload=[new Record('docs',9223372036854775807n),Buffer.from([0,255])];
       for (const [source,code] of [
-        ['VALUES(2,0,$value),(1,0,$value)','FDB_CONSTRAINT'],
-        ['SELECT 2,0,$value UNION ALL SELECT 3,10,$value','FDB_VALIDATION'],
+        ['VALUES(2,0,$value),(1,0,$value)','RDB_CONSTRAINT'],
+        ['SELECT 2,0,$value UNION ALL SELECT 3,10,$value','RDB_VALIDATION'],
       ]) {
         await assert.rejects(async()=>db.execute('INSERT OR ABORT INTO docs(n,v,payload) '+source+' RETURNING n,payload',{$value:payload}),error=>{
           assert.equal(error.code,code);
@@ -3393,7 +3393,7 @@ test('multi-column INSERT SELECT preserves native and collection sources in both
           assert.deepEqual(result.rows,[[1n,bytes],[2n,bytes]]);
           assert.deepEqual(result.transaction,{before:'active',after:'active'});
           await assert.rejects(async()=>db.execute(sql),error=>{
-            assert.equal(error.code,'FDB_CONSTRAINT');
+            assert.equal(error.code,'RDB_CONSTRAINT');
             assert.deepEqual(error.transaction,{before:'active',after:'active'});
             return true;
           });
@@ -3402,7 +3402,7 @@ test('multi-column INSERT SELECT preserves native and collection sources in both
           assert.deepEqual((await db.execute('SELECT * FROM target')).rows,[]);
         }
       }
-      await assert.rejects(async()=>db.execute("INSERT INTO __romedb_catalog(name,metadata) SELECT 'injected',X'00'"),error=>error.code==='FDB_UNSUPPORTED');
+      await assert.rejects(async()=>db.execute("INSERT INTO __romedb_catalog(name,metadata) SELECT 'injected',X'00'"),error=>error.code==='RDB_UNSUPPORTED');
       assert.equal((await db.checkCollectionIntegrity('docs')).documents,2n);
       const final=await db.execute('INSERT INTO target(n,v) SELECT n,v FROM native_source RETURNING n,v');
       assert.equal(final.affected,2n);
@@ -3419,8 +3419,8 @@ test('INSERT OR ROLLBACK reports transaction loss and permits typed retries', as
       for (const sql of ['CREATE TABLE docs','DEFINE FIELD v ON docs TYPE integer REQUIRED CHECK(v<5)','CREATE UNIQUE INDEX docs_n ON docs(n)','INSERT INTO docs(n,v) VALUES(1,0)']) await db.execute(sql);
       const payload=[new Record('docs',9223372036854775807n),Buffer.from([0,255])];
       for (const [source,code] of [
-        ['VALUES(2,0,$value),(1,0,$value)','FDB_CONSTRAINT'],
-        ['SELECT 2,0,$value UNION ALL SELECT 3,10,$value','FDB_VALIDATION'],
+        ['VALUES(2,0,$value),(1,0,$value)','RDB_CONSTRAINT'],
+        ['SELECT 2,0,$value UNION ALL SELECT 3,10,$value','RDB_VALIDATION'],
       ]) {
         await db.execute('BEGIN');
         await db.execute('INSERT INTO docs(n,v) VALUES(4,0)');
@@ -3434,7 +3434,7 @@ test('INSERT OR ROLLBACK reports transaction loss and permits typed retries', as
       }
       await db.execute('BEGIN');
       await assert.rejects(async()=>db.execute('INSERT OR ROLLBACK INTO docs(n,v) VALUES($missing,0)'),error=>{
-        assert.equal(error.code,'FDB_PARAMETER');
+        assert.equal(error.code,'RDB_PARAMETER');
         assert.deepEqual(error.transaction,{before:'active',after:'active'});
         return true;
       });
@@ -3490,8 +3490,8 @@ test('INSERT OR FAIL retains typed prefixes while bounded writes remain atomic',
       for (const sql of ['CREATE TABLE docs','DEFINE FIELD v ON docs TYPE integer REQUIRED CHECK(v<5)','CREATE INDEX docs_v ON docs(v)','CREATE UNIQUE INDEX docs_n ON docs(n)','INSERT INTO docs(n,v) VALUES(1,0)']) await db.execute(sql);
       const payload=[new Record('docs',9223372036854775807n),Buffer.from([0,255])];
       for (const [source,code] of [
-        ['VALUES(2,1,$value),(1,2,$value),(5,3,$value)','FDB_CONSTRAINT'],
-        ['SELECT 2,1,$value UNION ALL SELECT 3,10,$value UNION ALL SELECT 5,3,$value','FDB_VALIDATION'],
+        ['VALUES(2,1,$value),(1,2,$value),(5,3,$value)','RDB_CONSTRAINT'],
+        ['SELECT 2,1,$value UNION ALL SELECT 3,10,$value UNION ALL SELECT 5,3,$value','RDB_VALIDATION'],
       ]) {
         for (const limited of [false,true]) {
           await db.execute('BEGIN');
@@ -3514,7 +3514,7 @@ test('INSERT OR FAIL retains typed prefixes while bounded writes remain atomic',
         }
       }
       await assert.rejects(async()=>db.execute('INSERT OR FAIL INTO docs(n,v,payload) VALUES(2,1,$value),(1,0,$value)',{$value:payload}),error=>{
-        assert.equal(error.code,'FDB_CONSTRAINT');
+        assert.equal(error.code,'RDB_CONSTRAINT');
         assert.deepEqual(error.transaction,{before:'autocommit',after:'autocommit'});
         return true;
       });
@@ -3538,7 +3538,7 @@ test('INSERT OR REPLACE replaces typed documents and restores earlier deletions 
         await db.execute('BEGIN');
         const before=(await db.execute('SELECT * FROM docs ORDER BY n')).rows;
         await assert.rejects(async()=>db.execute('INSERT OR REPLACE INTO docs(id,n,v,payload) '+source+' UNION ALL SELECT docs:c,3,10,$value',{$value:payload}),error=>{
-          assert.equal(error.code,'FDB_VALIDATION');
+          assert.equal(error.code,'RDB_VALIDATION');
           assert.deepEqual(error.transaction,{before:'active',after:'active'});
           return true;
         });
@@ -3690,7 +3690,7 @@ test('V2 record brace projections preserve cardinality, types and limits in both
       assert.deepEqual(missing.rows,[]);
       const profile=await db.profileSelect(sql);
       assert.deepEqual(profile.result.rows,result.rows);
-      await assert.rejects(async () => db.selectWithLimits(sql,{maxRows:0n,maxPayloadBytes:10000n}),e=>e.code==='FDB_LIMIT');
+      await assert.rejects(async () => db.selectWithLimits(sql,{maxRows:0n,maxPayloadBytes:10000n}),e=>e.code==='RDB_LIMIT');
       await db.execute('BEGIN');
       await db.execute("UPDATE users:u1 {name:'Pending'}");
       assert.equal((await db.exactlyOne('SELECT posts:p1 {author.*}'))[0].name,'Pending');
@@ -3719,7 +3719,7 @@ test('V2 inverse relationships preserve indexed pages, transactions and bounds i
       const profile=await db.profileSelect("SELECT relation::fetch(users:u1,'authored'),relation::fetch(users:u1,'authored')");
       assert.equal(profile.metrics.fetchBatches,1n);
       assert.deepEqual(profile.result.rows[0][0],profile.result.rows[0][1]);
-      await assert.rejects(async()=>db.selectWithLimits(sql,{maxRows:1n,maxPayloadBytes:5n},{$after:null}),e=>e.code==='FDB_LIMIT');
+      await assert.rejects(async()=>db.selectWithLimits(sql,{maxRows:1n,maxPayloadBytes:5n},{$after:null}),e=>e.code==='RDB_LIMIT');
       await assert.rejects(async()=>db.execute('DROP INDEX authors'),/dependent relations/);
       await db.execute('BEGIN');
       await db.execute('UPDATE posts:a {author:users:u2}');
@@ -3749,7 +3749,7 @@ test('V2 full-text search preserves typed ranked hits and rollback in both clien
       assert.deepEqual(rows.map(row=>row[0]),[new Record('articles','a')]);
       assert.ok(Number.isFinite(rows[0][1]) && rows[0][1]>0);
       await assert.rejects(async()=>db.all(sql,{...params,$query:'fast AND NOT database'}),
-        e=>e.code==='FDB_VALIDATION' && /negative-only/.test(e.message));
+        e=>e.code==='RDB_VALIDATION' && /negative-only/.test(e.message));
       assert.deepEqual((await db.all(sql,{...params,$query:'+fast -absent'})).map(row=>row[0]),
         [new Record('articles','a')]);
       await db.execute('BEGIN');
@@ -3757,17 +3757,17 @@ test('V2 full-text search preserves typed ranked hits and rollback in both clien
       assert.deepEqual(await db.all(sql,params),[]);
       await db.execute('ROLLBACK');
       assert.deepEqual(await db.all(sql,params),rows);
-      await assert.rejects(async()=>db.execute('UPDATE articles {body:42}'),e=>e.code==='FDB_VALIDATION');
+      await assert.rejects(async()=>db.execute('UPDATE articles {body:42}'),e=>e.code==='RDB_VALIDATION');
       assert.deepEqual(await db.all(sql,params),rows);
       const profile = await db.profileSelect(sql,params);
       assert.deepEqual(profile.result.rows,rows);
-      await assert.rejects(async()=>db.selectWithLimits(sql,{maxRows:0n,maxPayloadBytes:10000n},params),e=>e.code==='FDB_LIMIT');
+      await assert.rejects(async()=>db.selectWithLimits(sql,{maxRows:0n,maxPayloadBytes:10000n},params),e=>e.code==='RDB_LIMIT');
       await db.checkCollectionIntegrity('articles');
       const [info] = await db.exactlyOne('INFO FOR INDEX articles_text');
       assert.equal(info.kind,'fulltext');
       assert.deepEqual(info.paths,[['title'],['body']]);
       await db.execute('DROP INDEX articles_text');
-      await assert.rejects(async()=>db.all(sql,params),e=>e.code==='FDB_NOT_FOUND');
+      await assert.rejects(async()=>db.all(sql,params),e=>e.code==='RDB_NOT_FOUND');
     } finally { await db.close(); }
   }
 });
@@ -3787,14 +3787,14 @@ test('V2 ANN search preserves typed ranked hits, rollback and bounds in both cli
       await db.execute('BEGIN');await db.execute('DELETE FROM items WHERE id=items:a');
       assert.deepEqual((await db.all(sql,params))[0][0],new Record('items','b'));
       await db.execute('ROLLBACK');assert.deepEqual(await db.all(sql,params),rows);
-      await assert.rejects(async()=>db.execute("UPDATE items {v:vector32('[0,0]')}"),e=>e.code==='FDB_VALIDATION');
+      await assert.rejects(async()=>db.execute("UPDATE items {v:vector32('[0,0]')}"),e=>e.code==='RDB_VALIDATION');
       assert.deepEqual((await db.profileSelect(sql,params)).result.rows,rows);
-      await assert.rejects(async()=>db.selectWithLimits(sql,{maxRows:0n,maxPayloadBytes:10000n},params),e=>e.code==='FDB_LIMIT');
+      await assert.rejects(async()=>db.selectWithLimits(sql,{maxRows:0n,maxPayloadBytes:10000n},params),e=>e.code==='RDB_LIMIT');
       await db.checkCollectionIntegrity('items');
       const [info]=await db.exactlyOne('INFO FOR INDEX embeddings');
       assert.equal(info.kind,'vector');assert.equal(info.metric,'cosine');assert.equal(info.dimensions,2n);
       await db.execute('DROP INDEX embeddings');
-      await assert.rejects(async()=>db.all(sql,params),e=>e.code==='FDB_NOT_FOUND');
+      await assert.rejects(async()=>db.all(sql,params),e=>e.code==='RDB_NOT_FOUND');
     } finally {await db.close();}
   }
 });
@@ -3818,7 +3818,7 @@ test('V2 JavaScript functions persist typed values and roll back failed writes i
         await db.execute('BEGIN');
         await db.execute('INSERT INTO docs {n:2}');
         await assert.rejects(async () => db.execute('UPDATE docs SET n=app::late(n)'), error => {
-          assert.equal(error.code, 'FDB_VALIDATION');
+          assert.equal(error.code, 'RDB_VALIDATION');
           assert.deepEqual(error.transaction, { before:'active', after:'active' });
           return true;
         });
@@ -3831,7 +3831,7 @@ test('V2 JavaScript functions persist typed values and roll back failed writes i
         db = await open();
         assert.deepEqual(await db.exactlyOne("SELECT app::normalize(' BOB ')"), ['bob']);
         await db.execute('DROP FUNCTION app::normalize');
-        await assert.rejects(async () => db.execute("SELECT app::normalize('x')"), { code:'FDB_NOT_FOUND' });
+        await assert.rejects(async () => db.execute("SELECT app::normalize('x')"), { code:'RDB_NOT_FOUND' });
       } finally { await db.close(); }
     }
   } finally { fs.rmSync(dir, { recursive:true, force:true }); }
@@ -3846,7 +3846,7 @@ test('V2 JavaScript worker cancellation preserves prior transaction work', async
     await db.execute('BEGIN');
     await db.execute('INSERT INTO docs {n:1}');
     await assert.rejects(db.execute('SELECT app::runaway()', {}, { timeoutMs:5 }), error => {
-      assert.equal(error.code, 'FDB_CANCELLED');
+      assert.equal(error.code, 'RDB_CANCELLED');
       assert.deepEqual(error.transaction, { before:'active', after:'active' });
       return true;
     });
@@ -3935,7 +3935,7 @@ test('array predicates and field selection preserve typed values in both clients
       await db.execute('CREATE TABLE copies');
       await db.execute('INSERT INTO copies(payload) SELECT items[WHERE active=true].{n,bytes,ref,nil} FROM docs');
       assert.deepEqual(await db.all('SELECT payload FROM copies'), [[[selected]]]);
-      await assert.rejects(async () => db.execute('SELECT items[WHERE n=$missing] FROM docs'), error => error.code === 'FDB_PARAMETER');
+      await assert.rejects(async () => db.execute('SELECT items[WHERE n=$missing] FROM docs'), error => error.code === 'RDB_PARAMETER');
     } finally { await db.close(); }
   }
 });
@@ -3951,7 +3951,7 @@ test('typed unnest expands arrays through SQL in both clients', async () => {
       await db.execute('INSERT INTO docs {items:$items}', {$items:[1n,2n,2n]});
       assert.deepEqual(await db.all('SELECT u.value,count(*) FROM docs d CROSS JOIN array::unnest(d.items) u GROUP BY u.value ORDER BY u.value'), [[1n,1n],[2n,2n]]);
       assert.deepEqual(await db.all('SELECT * FROM array::unnest(NULL)'), []);
-      await assert.rejects(async () => db.execute('SELECT count(*) FROM array::unnest($items)', {$items:Array(100001).fill(null)}), error => error.code === 'FDB_LIMIT');
+      await assert.rejects(async () => db.execute('SELECT count(*) FROM array::unnest($items)', {$items:Array(100001).fill(null)}), error => error.code === 'RDB_LIMIT');
       assert.deepEqual(await db.all('SELECT count(*) FROM docs'), [[1n]]);
     } finally { await db.close(); }
   }
@@ -3968,8 +3968,8 @@ test('field defaults and readonly validation preserve both client transactions',
       assert.deepEqual(await db.all('INSERT INTO docs {id:docs:a} RETURNING stamp,data'), [[7n,data]]);
       await db.execute('BEGIN');
       await db.execute('INSERT INTO docs {id:docs:prior}');
-      await assert.rejects(async () => db.execute('UPDATE docs:a PATCH [{op:\'replace\',path:\'/stamp\',value:8}]'), error => error.code === 'FDB_VALIDATION');
-      await assert.rejects(async () => db.execute('UPDATE docs:a MERGE {data:{n:0}}'), error => error.code === 'FDB_VALIDATION');
+      await assert.rejects(async () => db.execute('UPDATE docs:a PATCH [{op:\'replace\',path:\'/stamp\',value:8}]'), error => error.code === 'RDB_VALIDATION');
+      await assert.rejects(async () => db.execute('UPDATE docs:a MERGE {data:{n:0}}'), error => error.code === 'RDB_VALIDATION');
       assert.deepEqual(await db.all('SELECT stamp,data FROM docs ORDER BY id'), [[7n,data],[7n,data]]);
       await db.execute('COMMIT');
       const info = (await db.all('INFO FOR TABLE docs'))[0][0];
@@ -3998,7 +3998,7 @@ test('strict schemas and typed arrays validate writes in both clients', async ()
       await db.execute('INSERT INTO docs {id:docs:a,ints:$ints,refs:$refs,extra:{anything:true}}', {$ints:ints,$refs:refs});
       assert.deepEqual(await db.all('SELECT n,ints,refs FROM docs'), [[7n,ints,refs]]);
       for (const sql of ["UPDATE docs:a {ints:['wrong']}", 'UPDATE docs:a {unknown:1}', 'UPDATE docs:a {refs:[other:a]}', 'REMOVE FIELD ints ON docs']) {
-        await assert.rejects(async () => db.execute(sql), error => error.code === 'FDB_VALIDATION');
+        await assert.rejects(async () => db.execute(sql), error => error.code === 'RDB_VALIDATION');
       }
       const info = (await db.all('INFO FOR TABLE docs'))[0][0];
       assert.equal(info.strict,true);
@@ -4007,7 +4007,7 @@ test('strict schemas and typed arrays validate writes in both clients', async ()
       assert.equal(field.element_nullable,true);
       await db.execute('DEFINE SCHEMA ON docs FLEXIBLE');
       await db.execute('UPDATE docs:a {unknown:1}');
-      await assert.rejects(async () => db.execute('DEFINE SCHEMA ON docs STRICT'), error => error.code === 'FDB_VALIDATION');
+      await assert.rejects(async () => db.execute('DEFINE SCHEMA ON docs STRICT'), error => error.code === 'RDB_VALIDATION');
     } finally { await db.close(); }
   }
 });
@@ -4026,11 +4026,11 @@ test('stored calculations preserve typed results and atomic indexes in both clie
       assert.deepEqual(await db.all('INSERT INTO docs {id:docs:a,calculated:999} RETURNING calculated,ref'), [[8n,new Record('refs',7n)]]);
       await db.execute('BEGIN');
       await db.execute('INSERT INTO docs {id:docs:b,source:9}');
-      await assert.rejects(async () => db.execute('UPDATE docs SET source=7'), error => error.code === 'FDB_CONSTRAINT');
+      await assert.rejects(async () => db.execute('UPDATE docs SET source=7'), error => error.code === 'RDB_CONSTRAINT');
       assert.deepEqual(await db.all('SELECT calculated FROM docs ORDER BY id'), [[8n],[10n]]);
       assert.deepEqual(await db.all('UPDATE docs:a PATCH [{op:\'replace\',path:\'/source\',value:10}] RETURNING calculated,ref'), [[11n,new Record('refs',10n)]]);
       await db.execute('COMMIT');
-      await assert.rejects(async () => db.execute('DEFINE FIELD bad ON docs TYPE integer VALUE (bad+1)'), error => error.code === 'FDB_VALIDATION');
+      await assert.rejects(async () => db.execute('DEFINE FIELD bad ON docs TYPE integer VALUE (bad+1)'), error => error.code === 'RDB_VALIDATION');
       const field=(await db.all('INFO FOR TABLE docs'))[0][0].fields.find(field => field.path[0] === 'calculated');
       assert.equal(field.computed,'source+1');
       await db.checkCollectionIntegrity('docs');
@@ -4056,7 +4056,7 @@ test('analyzer inspection and managed rebuilds preserve typed results in both cl
       await db.execute('REINDEX words'); await db.execute('REINDEX docs_n');
       assert.deepEqual(await db.all("SELECT id FROM search::text('words','data',10)"),before);
       assert.deepEqual(await db.all('SELECT id FROM docs WHERE n=7'),before);
-      await assert.rejects(async()=>db.all("SELECT search::analyze('words',7)"),error=>error.code==='FDB_VALIDATION');
+      await assert.rejects(async()=>db.all("SELECT search::analyze('words',7)"),error=>error.code==='RDB_VALIDATION');
       await db.checkCollectionIntegrity('docs');
     } finally { await db.close(); }
   }
@@ -4089,8 +4089,8 @@ test('statement TIMEOUT composes with client cancellation and preserves transact
       await db.execute('INSERT INTO docs {id:docs:a,n:1} TIMEOUT 1s');
       await db.execute('BEGIN');
       await db.execute('INSERT INTO docs {id:docs:b,n:2}');
-      await assert.rejects(async()=>db.execute('UPDATE docs SET n=10 RETURNING doc::diff() TIMEOUT 0ms'),error=>error.code==='FDB_CANCELLED');
-      await assert.rejects(async()=>db.execute(`${long} TIMEOUT 10ms`),error=>error.code==='FDB_CANCELLED');
+      await assert.rejects(async()=>db.execute('UPDATE docs SET n=10 RETURNING doc::diff() TIMEOUT 0ms'),error=>error.code==='RDB_CANCELLED');
+      await assert.rejects(async()=>db.execute(`${long} TIMEOUT 10ms`),error=>error.code==='RDB_CANCELLED');
       assert.deepEqual(await db.all('SELECT n FROM docs ORDER BY n TIMEOUT 1s'),[[1n],[2n]]);
       await db.execute('ROLLBACK');
       assert.deepEqual(await db.all('SELECT n FROM docs'),[[1n]]);
@@ -4098,7 +4098,7 @@ test('statement TIMEOUT composes with client cancellation and preserves transact
         const controller=new AbortController();
         const pending=db.execute(`${long} TIMEOUT 5s`,{}, {signal:controller.signal});
         const timer=setTimeout(()=>controller.abort(),25);
-        try { await assert.rejects(pending,error=>error.code==='FDB_CANCELLED'); }
+        try { await assert.rejects(pending,error=>error.code==='RDB_CANCELLED'); }
         finally { clearTimeout(timer); }
         assert.deepEqual(await db.all('SELECT 42'),[[42n]]);
       }
@@ -4122,14 +4122,14 @@ test('candidate filters and compressed vectors keep typed results in both client
       for(const source of sources) {
         assert.deepEqual(await db.all(`SELECT id FROM ${source}`,params),expected);
         assert.deepEqual(await db.all(`SELECT id FROM ${source}`,{$ids:[]}),[]);
-        await assert.rejects(async()=>db.all(`SELECT id FROM ${source}`,{$ids:[new Record('other',31n)]}),error=>error.code==='FDB_VALIDATION');
-        await assert.rejects(async()=>db.all(`SELECT id FROM ${source} TIMEOUT 0ms`,params),error=>error.code==='FDB_CANCELLED');
+        await assert.rejects(async()=>db.all(`SELECT id FROM ${source}`,{$ids:[new Record('other',31n)]}),error=>error.code==='RDB_VALIDATION');
+        await assert.rejects(async()=>db.all(`SELECT id FROM ${source} TIMEOUT 0ms`,params),error=>error.code==='RDB_CANCELLED');
       }
       assert.deepEqual(await db.all("SELECT id FROM search::vector('vectors',vector32('[0,0]'),1) WHERE id=type::record('docs',31)"),[]);
       await db.execute('BEGIN');await db.execute('DELETE FROM docs WHERE id=type::record(\'docs\',31)');
       await db.execute('REINDEX vectors');await db.execute('REINDEX words');await db.execute('ROLLBACK');
       for(const source of sources) assert.deepEqual(await db.all(`SELECT id FROM ${source}`,params),expected);
-      await assert.rejects(async()=>db.execute("UPDATE docs SET v=vector32('[65505,0]')"),error=>error.code==='FDB_VALIDATION');
+      await assert.rejects(async()=>db.execute("UPDATE docs SET v=vector32('[65505,0]')"),error=>error.code==='RDB_VALIDATION');
       assert.deepEqual(await db.all('SELECT v FROM docs WHERE id=type::record(\'docs\',31)'),[[Vector.float32([31,0])]]);
       await db.checkCollectionIntegrity('docs');
     } finally { await db.close(); }
@@ -4164,7 +4164,7 @@ test('compound and array indexes support atomic conflict updates in both clients
       await db.execute('BEGIN');
       await db.execute("UPDATE docs:a MERGE {pending:true}");
       const before=await db.collection('docs').get('a');
-      await assert.rejects(async()=>db.execute("INSERT INTO docs(tenant,email,tags) VALUES(1,'one',$bad) ON CONFLICT(tenant,email) DO UPDATE SET tags=excluded.tags",{$bad:[{invalid:true}]}),error=>error.code==='FDB_VALIDATION');
+      await assert.rejects(async()=>db.execute("INSERT INTO docs(tenant,email,tags) VALUES(1,'one',$bad) ON CONFLICT(tenant,email) DO UPDATE SET tags=excluded.tags",{$bad:[{invalid:true}]}),error=>error.code==='RDB_VALIDATION');
       assert.deepEqual(await db.collection('docs').get('a'),before);
       await db.execute('REINDEX address');await db.execute('REINDEX tags');
       await db.checkCollectionIntegrity('docs');
@@ -4188,7 +4188,7 @@ test('composite sets, row membership and collection recursion preserve values in
       assert.deepEqual(await db.all(recursive,{$end:3n}),[[1n,value],[2n,value],[3n,value]]);
       await db.execute('BEGIN');
       await db.execute('UPDATE docs:a MERGE {prior:true}');
-      await assert.rejects(async()=>db.all('WITH RECURSIVE r(n) AS (SELECT n FROM docs WHERE n=1 UNION ALL SELECT n+1 FROM r) SELECT sum(n) FROM r TIMEOUT 10ms'),e=>e.code==='FDB_CANCELLED');
+      await assert.rejects(async()=>db.all('WITH RECURSIVE r(n) AS (SELECT n FROM docs WHERE n=1 UNION ALL SELECT n+1 FROM r) SELECT sum(n) FROM r TIMEOUT 10ms'),e=>e.code==='RDB_CANCELLED');
       assert.equal((await db.collection('docs').get('a')).prior,true);
       await db.execute('ROLLBACK');
     } finally { await db.close(); }
@@ -4208,8 +4208,8 @@ test('edge tables, RELATE and GRAPH sources keep typed records in both clients',
       const edge = await db.exactlyOne('RELATE $s -> follows:ab -> $t {weight:$w} RETURNING id,source,target,weight', {$s:new Record('people','alice'),$t:new Record('people','bob'),$w:2n});
       assert.deepEqual(edge,[new Record('follows','ab'),new Record('people','alice'),new Record('people','bob'),2n]);
       await db.execute('RELATE people:bob -> follows:bc -> people:carol');
-      await assert.rejects(async () => db.execute('RELATE people:bob -> follows -> people:nobody'), e=>e.code==='FDB_CONSTRAINT');
-      await assert.rejects(async () => db.execute('DELETE FROM people WHERE id = people:bob'), e=>e.code==='FDB_CONSTRAINT');
+      await assert.rejects(async () => db.execute('RELATE people:bob -> follows -> people:nobody'), e=>e.code==='RDB_CONSTRAINT');
+      await assert.rejects(async () => db.execute('DELETE FROM people WHERE id = people:bob'), e=>e.code==='RDB_CONSTRAINT');
       const sql = "SELECT g.node, g.depth, g.edges, p.name FROM GRAPH(type::record('people', $root) -> follows -> people DEPTH 1 TO 3 MODE REACHABLE WITH PATH) AS g JOIN people p ON p.id = g.node ORDER BY g.depth";
       assert.deepEqual(await db.all(sql, {$root:'alice'}), [
         [new Record('people','bob'),1n,[new Record('follows','ab')],'Bob'],
@@ -4219,7 +4219,7 @@ test('edge tables, RELATE and GRAPH sources keep typed records in both clients',
       assert.equal(profile.metrics.graphRows, 2n);
       assert.equal(profile.metrics.graphAdjacencyEntries, 2n);
       assert.equal(profile.metrics.graphVisited, 3n);
-      await assert.rejects(async () => db.execute('SELECT * FROM GRAPH(people:alice -> follows) g'), e=>e.code==='FDB_SYNTAX');
+      await assert.rejects(async () => db.execute('SELECT * FROM GRAPH(people:alice -> follows) g'), e=>e.code==='RDB_SYNTAX');
       const info = await db.exactlyOne('INFO FOR TABLE follows');
       assert.equal(info[0].kind, 'edge');
       assert.deepEqual(info[0].edge.source, 'people');
@@ -4239,12 +4239,12 @@ test('AsyncDatabase exports an MVCC file while queries continue and refuses WAL 
     assert.equal((await db.exactlyOne('SELECT count() FROM posts'))[0], 50n);
     const { bytes } = await exporting;
     assert.equal(bytes, fs.statSync(path.join(directory, 'copy.romedb')).size);
-    await assert.rejects(db.exportFile(path.join(directory, 'copy.romedb')), { code: 'FDB_ALREADY_EXISTS' });
+    await assert.rejects(db.exportFile(path.join(directory, 'copy.romedb')), { code: 'RDB_ALREADY_EXISTS' });
   } finally { await db.close(); }
   const copy = new Database(path.join(directory, 'copy.romedb'));
   try { assert.equal(copy.exactlyOne('SELECT count() FROM posts')[0], 50n); }
   finally { copy.close(); }
   const wal = await AsyncDatabase.open(path.join(directory, 'wal.romedb'));
-  try { await assert.rejects(wal.exportFile(path.join(directory, 'wal-copy.romedb')), { code: 'FDB_UNSUPPORTED' }); }
+  try { await assert.rejects(wal.exportFile(path.join(directory, 'wal-copy.romedb')), { code: 'RDB_UNSUPPORTED' }); }
   finally { await wal.close(); }
 });

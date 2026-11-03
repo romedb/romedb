@@ -105,7 +105,7 @@ fn malformed_collection_sql_preserves_native_parse_errors_and_active_work() {
         c.execute("SELECT 1; SELECT 2", &Parameters::new())
             .unwrap_err()
             .code(),
-        "FDB_UNSUPPORTED"
+        "RDB_UNSUPPORTED"
     );
     c.execute("ROLLBACK", &Parameters::new()).unwrap();
 }

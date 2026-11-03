@@ -100,7 +100,7 @@ async fn loopback_http_requires_token_and_rejects_browser_access() {
     );
     stop.send(()).unwrap();
     server.await.unwrap().unwrap();
-    assert_eq!(database.info().unwrap_err().code, "FDB_CLOSED");
+    assert_eq!(database.info().unwrap_err().code, "RDB_CLOSED");
     assert!(TcpStream::connect(address).is_err());
 }
 
@@ -181,7 +181,7 @@ async fn saved_requests_cannot_cross_database_identity_when_a_token_is_reused() 
     )
     .await;
     assert_eq!(status, 409, "{reply}");
-    assert_eq!(reply["error"]["code"], "FDB_REQUEST_IDENTITY");
+    assert_eq!(reply["error"]["code"], "RDB_REQUEST_IDENTITY");
     assert_eq!(database.info().unwrap()["sequence"], 0);
     let read = json!({"readVersion":2,"requestId":"read","afterSequence":0,"statements":[{"sql":"INFO FOR DB"}]}).to_string();
     assert_eq!(

@@ -294,7 +294,7 @@ mod tests {
             )
             .unwrap_err()
             .code(),
-            "FDB_STORAGE"
+            "RDB_STORAGE"
         );
         c.run("DROP INDEX words", &[]).unwrap();
         assert!(c

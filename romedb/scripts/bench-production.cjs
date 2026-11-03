@@ -67,7 +67,7 @@ async function concurrentWorkload(config, file, revisions, api, corpus, progress
   const clients = [];
   const summary = values => values.length ? summarize(values) : {count:0};
   const delay = milliseconds => new Promise(resolve => setTimeout(resolve,milliseconds));
-  const isBusy = error => error?.code === 'FDB_BUSY' || error?.code === 'FDB_BUSY_SNAPSHOT';
+  const isBusy = error => error?.code === 'RDB_BUSY' || error?.code === 'RDB_BUSY_SNAPSHOT';
   const laneStats = role => ({role,
     completed:0, busyCount:0, busySnapshotCount:0, transactionRestarts:0, commitRetries:0,
     priorRevisionReads:0,updatedRevisionReads:0,backoffMs:0, latency:[], busyLatency:[]});
@@ -97,7 +97,7 @@ async function concurrentWorkload(config, file, revisions, api, corpus, progress
             // Retry only this COMMIT while the original transaction remains
             // active. Never replay writes after an uncertain commit outcome.
             if (!isBusy(error) || error.transaction?.after !== 'active' || commitAttempt === 7) throw error;
-            lane[error.code==='FDB_BUSY'?'busyCount':'busySnapshotCount']++;
+            lane[error.code==='RDB_BUSY'?'busyCount':'busySnapshotCount']++;
             lane.commitRetries++;
             lane.busyLatency.push(performance.now()-commitStarted);
             const milliseconds = Math.min(2**commitAttempt,25); lane.backoffMs += milliseconds;
@@ -111,7 +111,7 @@ async function concurrentWorkload(config, file, revisions, api, corpus, progress
         // BEGIN/body Busy can restart only after confirmed rollback, or after
         // BEGIN failed without entering a transaction. Other errors are fatal.
         if (!isBusy(error) || stage === 'commit' || attempt === 7) throw error;
-        lane[error.code==='FDB_BUSY'?'busyCount':'busySnapshotCount']++;
+        lane[error.code==='RDB_BUSY'?'busyCount':'busySnapshotCount']++;
         lane.busyLatency.push(performance.now()-attemptStarted);
         if (error.transaction?.after === 'active') {
           const rolledBack = await client.execute('ROLLBACK',{},options);
@@ -155,7 +155,7 @@ async function concurrentWorkload(config, file, revisions, api, corpus, progress
     assert.equal(probeStats.busyCount,1);
     assert.equal(probeStats.busySnapshotCount,0);
     assert.equal(probeStats.completed,1);
-    const contentionProbe = {code:'FDB_BUSY',rejectedAttempts:probeStats.busyCount,rejectedMs,retryMs:performance.now()-retryStarted,
+    const contentionProbe = {code:'RDB_BUSY',rejectedAttempts:probeStats.busyCount,rejectedMs,retryMs:performance.now()-retryStarted,
       transactionRestarts:probeStats.transactionRestarts,backoffMs:probeStats.backoffMs,retryAfterConfirmedLockRelease:true};
     const initial = {memory:memory(),files:files(file)};
     const series = [];
@@ -362,7 +362,7 @@ async function child(config) {
     await worker.execute('BEGIN');
     const cancellationStart = performance.now();
     await assert.rejects(worker.execute('SELECT count(*) FROM cancellation_input a,cancellation_input b,cancellation_input c,cancellation_input d,cancellation_input e,cancellation_input f,cancellation_input g,cancellation_input h,cancellation_input i,cancellation_input j', {}, {timeoutMs: 20}),
-      error => error.code === 'FDB_CANCELLED' && error.transaction.after === 'active');
+      error => error.code === 'RDB_CANCELLED' && error.transaction.after === 'active');
     const cancellationMs = performance.now()-cancellationStart;
     const retryStart = performance.now();
     assert.deepEqual(await worker.exactlyOne('SELECT count(*) FROM items'), [BigInt(config.rows)]);

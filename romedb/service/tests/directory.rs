@@ -207,7 +207,7 @@ async fn a_directory_serves_cloud_database_routes_and_keeps_databases_across_res
         .await;
     assert_eq!(
         (status, &wrong["error"]["code"]),
-        (409, &json!("FDB_REQUEST_IDENTITY"))
+        (409, &json!("RDB_REQUEST_IDENTITY"))
     );
     let removed = ids.remove(1);
     assert_eq!(
@@ -235,7 +235,7 @@ async fn a_directory_serves_cloud_database_routes_and_keeps_databases_across_res
             .err()
             .unwrap()
             .code,
-        "FDB_BUSY"
+        "RDB_BUSY"
     );
     let organization = server.organization.clone();
     server.stop().await;
@@ -354,7 +354,7 @@ async fn a_directory_database_downloads_as_a_file_that_serves_alone() {
         .send("GET", &server.path(&format!("/{missing}/file")), "", "")
         .await;
     assert_eq!(status, 404);
-    assert_eq!(reply["error"]["code"], "FDB_NOT_FOUND", "{reply}");
+    assert_eq!(reply["error"]["code"], "RDB_NOT_FOUND", "{reply}");
     assert_eq!(
         server
             .send("POST", &server.path(&format!("/{id}/file")), "", "{}")

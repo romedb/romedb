@@ -161,7 +161,7 @@ assert(require.resolve('@romedb/node').startsWith(path.join(__dirname, 'node_mod
         await assert.rejects(client.execute(
           'INSERT INTO sink SELECT a.n FROM nums a,nums b,nums c,nums d,nums e,nums f,nums g',
           {}, {signal: controller.signal, timeoutMs: 3000}), error => {
-          assert.equal(error.code, 'FDB_CANCELLED');
+          assert.equal(error.code, 'RDB_CANCELLED');
           assert.deepEqual(error.transaction, {before: 'active', after: 'active'});
           return true;
         });
@@ -212,7 +212,7 @@ assert(require.resolve('@romedb/node').startsWith(path.join(__dirname, 'node_mod
       await client.execute('INSERT INTO tuple_docs(n,a,b) VALUES(1,$a,$b)',{$a:tupleRecord,$b:tuplePayload});
       await client.execute('BEGIN');
       assert.deepEqual((await client.execute('UPDATE tuple_docs SET (a,b)=(VALUES(b,a)) RETURNING a,b')).rows,[[tuplePayload,tupleRecord]]);
-      await assert.rejects(async()=>client.execute('UPDATE tuple_docs SET (a,b)=(VALUES(1,2),(3,4))'),error=>error.code==='FDB_UNSUPPORTED');
+      await assert.rejects(async()=>client.execute('UPDATE tuple_docs SET (a,b)=(VALUES(1,2),(3,4))'),error=>error.code==='RDB_UNSUPPORTED');
       const tuple = await client.execute('UPDATE tuple_docs SET (a,b)=(SELECT b,a UNION ALL SELECT b,a LIMIT 1) RETURNING a,b');
       assert.deepEqual(tuple.rows,[[tupleRecord,tuplePayload]]);
       assert.deepEqual(tuple.transaction,{before:'active',after:'active'});
@@ -225,7 +225,7 @@ assert(require.resolve('@romedb/node').startsWith(path.join(__dirname, 'node_mod
       await client.execute('CREATE TABLE tuple_keys(n INTEGER)');
       await client.execute('BEGIN');
       const joinedSql = 'UPDATE tuple_docs AS d SET (a,b)=(s.b,s.a) FROM (SELECT n,a,b FROM (SELECT n,a,b FROM tuple_source LIMIT 1) LIMIT $count OFFSET $skip) s LEFT JOIN tuple_keys k ON k.n=s.n WHERE s.n=d.n AND k.n IS NULL RETURNING a,b';
-      await assert.rejects(async()=>client.execute(joinedSql,{$count:1n}),error=>error.code==='FDB_CONSTRAINT' && error.transaction.after==='active');
+      await assert.rejects(async()=>client.execute(joinedSql,{$count:1n}),error=>error.code==='RDB_CONSTRAINT' && error.transaction.after==='active');
       assert.equal((await client.execute(joinedSql,{$count:1n,$skip:1n})).affected,0n);
       const joined = await client.execute(joinedSql,{$count:1n,$skip:0n});
       assert.equal(joined.affected,1n);
@@ -257,7 +257,7 @@ assert(require.resolve('@romedb/node').startsWith(path.join(__dirname, 'node_mod
           assert.deepEqual(result.transaction,{before:'active',after:'active'});
         } else {
           await assert.rejects(async()=>client.execute(sql,{$value:tuplePayload}),error=>{
-            assert.equal(error.code,'FDB_CONSTRAINT');
+            assert.equal(error.code,'RDB_CONSTRAINT');
             assert.deepEqual(error.transaction,{before:'active',after:policy==='ROLLBACK'?'autocommit':'active'});
             return true;
           });
@@ -292,7 +292,7 @@ assert(require.resolve('@romedb/node').startsWith(path.join(__dirname, 'node_mod
           assert.deepEqual(result.transaction,{before:'active',after:'active'});
         } else {
           await assert.rejects(async()=>client.execute(sql,{$value:tuplePayload}),error=>{
-            assert.equal(error.code,'FDB_CONSTRAINT');
+            assert.equal(error.code,'RDB_CONSTRAINT');
             assert.deepEqual(error.transaction,{before:'active',after:pending?'active':'autocommit'});
             return true;
           });
@@ -314,10 +314,10 @@ assert(require.resolve('@romedb/node').startsWith(path.join(__dirname, 'node_mod
       const pending = {version:9007199254740993n,name:'pending',sql:prefix+'INSERT INTO migration_docs {n:1};'};
       await assert.rejects(async()=>client.migrate([base,pending]),error=>{
         assert(isRomeDBError(error));
-        assert.equal(error.code,'FDB_MIGRATION');
+        assert.equal(error.code,'RDB_MIGRATION');
         assert.equal(error.migration.version,pending.version);
         assert.equal(error.migration.offset,BigInt(Buffer.byteLength(prefix)));
-        assert.equal(error.migration.cause.code,'FDB_CONSTRAINT');
+        assert.equal(error.migration.cause.code,'RDB_CONSTRAINT');
         assert.equal(typeof error.migration.cause.message,'string');
         assert.deepEqual(error.transaction,{before:'autocommit',after:'autocommit'});
         return true;
@@ -414,7 +414,7 @@ assert(require.resolve('@romedb/node').startsWith(path.join(__dirname, 'node_mod
         assert.deepEqual((await client.selectWithLimits('SELECT embedding FROM docs',budget)).rows, [[vector]]);
         assert.deepEqual((await client.profileSelectWithLimits('SELECT embedding FROM docs',budget)).result.rows, [[vector]]);
         await assert.rejects(async () => client.selectWithLimits('SELECT embedding FROM docs', {...budget,maxPayloadBytes:budget.maxPayloadBytes-1n}), error => {
-          assert.equal(error.code,'FDB_LIMIT');
+          assert.equal(error.code,'RDB_LIMIT');
           assert.deepEqual(error.transaction,{before:'active',after:'active'});
           return true;
         });
@@ -439,14 +439,14 @@ assert(require.resolve('@romedb/node').startsWith(path.join(__dirname, 'node_mod
       assert.deepEqual((await client.selectWithLimits(fetchSql,fetchBudget)).rows,fetched.result.rows);
       assert.deepEqual((await client.profileSelectWithLimits(fetchSql,fetchBudget)).result,fetched.result);
       await assert.rejects(async () => client.selectWithLimits(fetchSql,{...fetchBudget,maxPayloadBytes:29n}), error => {
-        assert.equal(error.code,'FDB_LIMIT');
+        assert.equal(error.code,'RDB_LIMIT');
         assert.deepEqual(error.transaction,{before:'active',after:'active'});
         return true;
       });
       const writeSql = "INSERT INTO budget_targets VALUES(2,'é'),(3,'猫') RETURNING n";
       const writeBudget = {maxRows:2n,maxPayloadBytes:6n};
       await assert.rejects(async () => client.writeWithResultLimits(writeSql,{...writeBudget,maxPayloadBytes:5n}), error => {
-        assert.equal(error.code,'FDB_LIMIT');
+        assert.equal(error.code,'RDB_LIMIT');
         assert.deepEqual(error.transaction,{before:'active',after:'active'});
         return true;
       });
@@ -521,8 +521,8 @@ assert(require.resolve('@romedb/node').startsWith(path.join(__dirname, 'node_mod
       await client.execute('CREATE UNIQUE INDEX package_cte_k ON package_cte_copy(k)');
       await client.execute('INSERT INTO package_cte_copy(k) VALUES(3),(9)');
       const localCteInsert = 'INSERT INTO package_cte_copy(k,prior) ' + localCteQuery('package_keys','MATERIALIZED') + ' RETURNING k,prior';
-      await assert.rejects(async () => client.execute(localCteInsert),error => error.code === 'FDB_PARAMETER' && error.transaction.after === 'active');
-      await assert.rejects(async () => client.execute(localCteInsert,{$shift:0n}),error => error.code === 'FDB_CONSTRAINT' && error.transaction.after === 'active');
+      await assert.rejects(async () => client.execute(localCteInsert),error => error.code === 'RDB_PARAMETER' && error.transaction.after === 'active');
+      await assert.rejects(async () => client.execute(localCteInsert,{$shift:0n}),error => error.code === 'RDB_CONSTRAINT' && error.transaction.after === 'active');
       assert.deepEqual(await client.all('SELECT k FROM package_cte_copy ORDER BY k'),[[3n],[9n]]);
       await client.execute('DELETE FROM package_cte_copy WHERE k=3');
       const localCteRetry = await client.execute(localCteInsert,{$shift:0n});
@@ -544,8 +544,8 @@ assert(require.resolve('@romedb/node').startsWith(path.join(__dirname, 'node_mod
       await client.execute('INSERT INTO package_page_copy(k) VALUES(3),(9)');
       const orderedCteInsert = 'INSERT INTO package_page_copy(k,value) ' + orderedCteQuery + ' RETURNING k,value';
       const pageParams = {$value:new Record('package_keys',7n),$take:'1.0',$skip:'1e0'};
-      await assert.rejects(async () => client.execute(orderedCteInsert,{$value:true,$take:'1.0'}),error => error.code === 'FDB_PARAMETER' && error.transaction.after === 'active');
-      await assert.rejects(async () => client.execute(orderedCteInsert,pageParams),error => error.code === 'FDB_CONSTRAINT' && error.transaction.after === 'active');
+      await assert.rejects(async () => client.execute(orderedCteInsert,{$value:true,$take:'1.0'}),error => error.code === 'RDB_PARAMETER' && error.transaction.after === 'active');
+      await assert.rejects(async () => client.execute(orderedCteInsert,pageParams),error => error.code === 'RDB_CONSTRAINT' && error.transaction.after === 'active');
       assert.deepEqual(await client.all('SELECT k FROM package_page_copy ORDER BY k'),[[3n],[9n]]);
       await client.execute('DELETE FROM package_page_copy WHERE k=3');
       const pageRetry = await client.execute(orderedCteInsert,pageParams);
@@ -572,8 +572,8 @@ assert(require.resolve('@romedb/node').startsWith(path.join(__dirname, 'node_mod
       await client.execute('CREATE UNIQUE INDEX package_compound_k ON package_compound_sink(k)');
       await client.execute('INSERT INTO package_compound_sink(k) VALUES(3),(9)');
       const compoundInsert = 'INSERT INTO package_compound_sink(k,v) ' + compoundQuery('package_keys','UNION',' DESC') + ' RETURNING k,v';
-      await assert.rejects(async () => client.execute(compoundInsert,{$take:1n}), error => error.code === 'FDB_PARAMETER' && error.transaction.after === 'active');
-      await assert.rejects(async () => client.execute(compoundInsert,compoundParams), error => error.code === 'FDB_CONSTRAINT' && error.transaction.after === 'active');
+      await assert.rejects(async () => client.execute(compoundInsert,{$take:1n}), error => error.code === 'RDB_PARAMETER' && error.transaction.after === 'active');
+      await assert.rejects(async () => client.execute(compoundInsert,compoundParams), error => error.code === 'RDB_CONSTRAINT' && error.transaction.after === 'active');
       assert.deepEqual(await client.all('SELECT k FROM package_compound_sink ORDER BY k'),[[3n],[9n]]);
       await client.execute('DELETE FROM package_compound_sink WHERE k=3');
       const compoundRetry = await client.execute(compoundInsert,compoundParams);
@@ -596,7 +596,7 @@ assert(require.resolve('@romedb/node').startsWith(path.join(__dirname, 'node_mod
       await client.execute('CREATE UNIQUE INDEX package_typed_n ON package_typed_copy(n)');
       await client.execute('INSERT INTO package_typed_copy(n) VALUES(2),(9)');
       const typedInsert = 'INSERT INTO package_typed_copy(n,value) ' + typedQuery + ' RETURNING n,value';
-      await assert.rejects(async () => client.execute(typedInsert,{$same:typedRecord}),error => error.code === 'FDB_CONSTRAINT' && error.transaction.after === 'active');
+      await assert.rejects(async () => client.execute(typedInsert,{$same:typedRecord}),error => error.code === 'RDB_CONSTRAINT' && error.transaction.after === 'active');
       assert.deepEqual(await client.all('SELECT n FROM package_typed_copy ORDER BY n'),[[2n],[9n]]);
       await client.execute('DELETE FROM package_typed_copy WHERE n=2');
       const typedRetry = await client.execute(typedInsert,{$same:typedRecord});
@@ -606,7 +606,7 @@ assert(require.resolve('@romedb/node').startsWith(path.join(__dirname, 'node_mod
       assert.equal(typedAudit.documents,3n);
       assert.equal(typedAudit.indexEntries,3n);
       const insertQuery = 'INSERT INTO package_sink(k,v) ' + scalarQuery + ' RETURNING k,v';
-      await assert.rejects(async () => client.execute(insertQuery, {$needle:'A'}), error => error.code === 'FDB_CONSTRAINT' && error.transaction.after === 'active');
+      await assert.rejects(async () => client.execute(insertQuery, {$needle:'A'}), error => error.code === 'RDB_CONSTRAINT' && error.transaction.after === 'active');
       assert.deepEqual(await client.all('SELECT k FROM package_sink'), [[3n]]);
       await client.execute('DELETE FROM package_sink WHERE k=3');
       const scalarInsert = await client.execute(insertQuery, {$needle:'A'});
@@ -657,13 +657,13 @@ assert(require.resolve('@romedb/node').startsWith(path.join(__dirname, 'node_mod
 
     assert.deepEqual((await client.execute(sql,params)).rows,rows);
     assert.deepEqual((await client.profileSelect(sql,params)).result.rows,rows);
-    await assert.rejects(async()=>client.execute(sql),error=>isRomeDBError(error) && error.code==='FDB_PARAMETER');
+    await assert.rejects(async()=>client.execute(sql),error=>isRomeDBError(error) && error.code==='RDB_PARAMETER');
     await client.execute('BEGIN');
     try {
       await client.execute('INSERT INTO '+output+'(n) VALUES(0)');
       const insert='INSERT INTO '+output+'(n) SELECT y.value'+from;
       await assert.rejects(async()=>client.execute(insert+' ORDER BY d.n,x.key RETURNING n',params),error=>{
-        assert.equal(error.code,'FDB_VALIDATION');
+        assert.equal(error.code,'RDB_VALIDATION');
         assert.deepEqual(error.transaction,{before:'active',after:'active'});
         return true;
       });
@@ -675,7 +675,7 @@ assert(require.resolve('@romedb/node').startsWith(path.join(__dirname, 'node_mod
   }
   async function withWrites(client) {
     await client.execute('BEGIN');
-    await assert.rejects(async()=>client.exactlyOne('SELECT value FROM docs WHERE 0'), error=>isRomeDBError(error) && error instanceof RangeError && error.code==='FDB_CARDINALITY' && error.transaction.before==='active' && error.transaction.after==='active');
+    await assert.rejects(async()=>client.exactlyOne('SELECT value FROM docs WHERE 0'), error=>isRomeDBError(error) && error instanceof RangeError && error.code==='RDB_CARDINALITY' && error.transaction.before==='active' && error.transaction.after==='active');
     const changed = await client.execute('WITH chosen AS (SELECT value FROM docs) UPDATE docs SET value=(SELECT $next) WHERE value IN (SELECT value FROM chosen) RETURNING value', {$next:8n});
     assert.deepEqual(changed.rows, [[8n]]);
     assert.equal(changed.affected,1n);
@@ -770,7 +770,7 @@ assert(require.resolve('@romedb/node').startsWith(path.join(__dirname, 'node_mod
       await client.execute('BEGIN');
       await client.execute('INSERT INTO buffered {id:buffered:b,n:2}');
       await assert.rejects(async () => client.execute('UPDATE buffered SET n=n+10'), error => {
-        assert.equal(error.code,'FDB_LIMIT');
+        assert.equal(error.code,'RDB_LIMIT');
         assert.deepEqual(error.transaction,{before:'active',after:'active'});
         return true;
       });
@@ -821,7 +821,7 @@ assert(require.resolve('@romedb/node').startsWith(path.join(__dirname, 'node_mod
     await withWrites(db);
     await withJsonIterators(db,'pkg_sync');
   } finally { db.close(); }
-  assert.throws(()=>db.all('SELECT 1'), error=>isRomeDBError(error) && error.code==='FDB_CLOSED' && !Object.hasOwn(error,'transaction'));
+  assert.throws(()=>db.all('SELECT 1'), error=>isRomeDBError(error) && error.code==='RDB_CLOSED' && !Object.hasOwn(error,'transaction'));
   const worker = await AsyncDatabase.open(file);
   try {
     for (const make of [Vector.float32, Vector.float64, Vector.sparse32, Vector.quantized8, Vector.bit1, () => Vector.sparse32Entries(3, [[0,1],[2,-1]])]) {
@@ -839,7 +839,7 @@ assert(require.resolve('@romedb/node').startsWith(path.join(__dirname, 'node_mod
     await worker.execute('BEGIN');
     await worker.execute('UPDATE docs SET value=7');
     await assert.rejects(worker.execute('DELETE FROM docs',{}, {timeoutMs:0}), error => {
-      assert.equal(error.code,'FDB_CANCELLED');
+      assert.equal(error.code,'RDB_CANCELLED');
       assert.deepEqual(error.transaction,{before:'active',after:'active'});
       return true;
     });
@@ -860,7 +860,7 @@ assert(require.resolve('@romedb/node').startsWith(path.join(__dirname, 'node_mod
       () => worker.importDocuments('docs', 'invalid', 'ndjson', options),
       () => worker.migrate([], options),
     ]) {
-      await assert.rejects(operation(), error => error.code === 'FDB_CANCELLED' && error.transaction.after === 'active');
+      await assert.rejects(operation(), error => error.code === 'RDB_CANCELLED' && error.transaction.after === 'active');
     }
     assert.equal(require('node:events').getEventListeners(cancelled.signal,'abort').length,0);
     const importSource=new Database();
@@ -875,7 +875,7 @@ assert(require.resolve('@romedb/node').startsWith(path.join(__dirname, 'node_mod
     const pendingImport=worker.importDocuments('docs',payload,'json',{signal:importing.signal});
     const timer=setTimeout(()=>importing.abort(),20);
     try {
-      await assert.rejects(pendingImport,error=>error.code==='FDB_CANCELLED' && error.transaction.after==='active');
+      await assert.rejects(pendingImport,error=>error.code==='RDB_CANCELLED' && error.transaction.after==='active');
     } finally {clearTimeout(timer);}
     assert.equal((await worker.checkCollectionIntegrity('docs')).documents,1n);
     assert.deepEqual(await worker.exactlyOne('SELECT value FROM docs'),[7n]);
@@ -891,7 +891,7 @@ assert(require.resolve('@romedb/node').startsWith(path.join(__dirname, 'node_mod
     fresh.abort();
     assert.deepEqual(await worker.exactlyOne('SELECT value FROM docs'), [7n]);
 
-    await assert.rejects(worker.checkCollectionIntegrity('docs', {maxDocuments: 0n}), error => error.code === 'FDB_LIMIT' && error.transaction.after === 'active');
+    await assert.rejects(worker.checkCollectionIntegrity('docs', {maxDocuments: 0n}), error => error.code === 'RDB_LIMIT' && error.transaction.after === 'active');
     const profile = await worker.profileSelect('SELECT value FROM docs WHERE value=$value', {$value: 7n});
     assert.equal(profile.result.rows[0][0], 7n);
     assert.equal(profile.result.transaction.after, 'active');
@@ -914,7 +914,7 @@ assert(require.resolve('@romedb/node').startsWith(path.join(__dirname, 'node_mod
     await withWrites(worker);
     await withJsonIterators(worker,'pkg_worker');
   } finally { await worker.close(); }
-  await assert.rejects(worker.all('SELECT 1'), error=>isRomeDBError(error) && error.code==='FDB_CLOSED' && !Object.hasOwn(error,'transaction'));
+  await assert.rejects(worker.all('SELECT 1'), error=>isRomeDBError(error) && error.code==='RDB_CLOSED' && !Object.hasOwn(error,'transaction'));
   const reopened = new Database(file);
   try {
     await withV2(reopened);
@@ -938,7 +938,7 @@ assert(require.resolve('@romedb/node').startsWith(path.join(__dirname, 'node_mod
   try {
     const failureProbe = `const assert = require('node:assert/strict');
       assert.throws(()=>require('@romedb/node'), error => {
-        assert.equal(error.code, 'FDB_NATIVE_LOAD');
+        assert.equal(error.code, 'RDB_NATIVE_LOAD');
         assert(error.cause instanceof Error);
         assert(error.message.includes(process.platform + '/' + process.arch));
         assert(error.message.includes('check-node.sh'));

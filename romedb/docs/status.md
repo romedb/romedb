@@ -15,6 +15,11 @@ and overflow checks; see [the build policy](production-build.md).
 
 Back up before upgrading. Legacy full-text indexes require `REINDEX`.
 
+0.2.13 changed the stored value prefix from `FDB` to `RDB` and the error codes from
+`FDB_*` to `RDB_*`. It refuses a database file from 0.2.12 or earlier whose
+collections hold documents, with `RDB_UNSUPPORTED`, before it writes to the file.
+Create new databases for 0.2.13. The C ABI functions are now `rdb_*`.
+
 ## Implemented behavior
 
 - [Language contracts](v2.2-language.md), [record sources](record-sources.md),

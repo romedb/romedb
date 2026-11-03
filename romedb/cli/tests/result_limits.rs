@@ -40,7 +40,7 @@ fn limited_commands_report_boundaries_and_invalid_arguments() {
         for limits in ["0 9", "1 8"] {
             let (ok, reports) = run("--script", &format!("{command} {limits} SELECT 7 AS n;"));
             assert!(!ok);
-            assert_eq!(reports[0]["error"]["code"], "FDB_LIMIT");
+            assert_eq!(reports[0]["error"]["code"], "RDB_LIMIT");
             assert!(reports[0].get("rows").is_none());
             assert!(reports[0].get("profile").is_none());
         }
@@ -54,7 +54,7 @@ fn limited_commands_report_boundaries_and_invalid_arguments() {
     ] {
         let (ok, reports) = run("--script", input);
         assert!(!ok, "{input}");
-        assert_eq!(reports[0]["error"]["code"], "FDB_VALIDATION");
+        assert_eq!(reports[0]["error"]["code"], "RDB_VALIDATION");
     }
     let (ok, reports) = run(
         "--script",
@@ -78,7 +78,7 @@ fn limited_write_commands_preserve_pending_work_and_allow_retry() {
         let (ok, reports) = run(mode, script);
         assert!(!ok);
         assert_eq!(reports.len(), 10, "{mode}: {reports:?}");
-        assert_eq!(reports[3]["error"]["code"], "FDB_LIMIT");
+        assert_eq!(reports[3]["error"]["code"], "RDB_LIMIT");
         assert_eq!(
             reports[3]["transaction"],
             serde_json::json!({"before":"active","after":"active"})
@@ -87,7 +87,7 @@ fn limited_write_commands_preserve_pending_work_and_allow_retry() {
         assert_eq!(reports[5]["affected"], 2);
         assert_eq!(reports[6]["rows"].as_array().unwrap().len(), 3);
         assert!(reports[6]["profile"].is_object());
-        assert_eq!(reports[7]["error"]["code"], "FDB_UNSUPPORTED");
+        assert_eq!(reports[7]["error"]["code"], "RDB_UNSUPPORTED");
         assert_eq!(reports[7]["transaction"]["after"], "active");
         assert_eq!(reports[9]["rows"], serde_json::json!([]));
     }
@@ -109,7 +109,7 @@ fn interactive_limited_commands_accumulate_sql_and_clear_pending_input() {
     );
     assert!(!ok);
     assert_eq!(reports.len(), 2);
-    assert_eq!(reports[0]["error"]["code"], "FDB_VALIDATION");
+    assert_eq!(reports[0]["error"]["code"], "RDB_VALIDATION");
     assert_eq!(reports[1]["rows"][0][0]["value"], 8);
 }
 
@@ -118,9 +118,9 @@ fn timeout_commands_preserve_pending_work_and_multiline_completion() {
     let (ok, rows) = run("--line", "CREATE TABLE docs\nBEGIN\nINSERT INTO docs {n:1}\n.timeout 0 DELETE FROM docs\n.timeout -1 DELETE FROM docs\n.timeout 60000 SELECT n FROM docs\nROLLBACK\nSELECT * FROM docs\n");
     assert!(!ok);
     assert_eq!(rows.len(), 8);
-    assert_eq!(rows[3]["error"]["code"], "FDB_CANCELLED");
+    assert_eq!(rows[3]["error"]["code"], "RDB_CANCELLED");
     assert_eq!(rows[3]["transaction"]["after"], "active");
-    assert_eq!(rows[4]["error"]["code"], "FDB_VALIDATION");
+    assert_eq!(rows[4]["error"]["code"], "RDB_VALIDATION");
     assert_eq!(rows[5]["rows"].as_array().unwrap().len(), 1);
     assert_eq!(rows[7]["rows"].as_array().unwrap().len(), 0);
     let (ok, rows) = run("--interactive", ".timeout 60000\nSELECT\n1 AS n;\n.quit\n");
@@ -141,7 +141,7 @@ fn active_cli_deadlines_discard_results_and_preserve_write_recovery() {
     assert!(!ok);
     assert_eq!(rows.len(), 13);
     for report in &rows[6..8] {
-        assert_eq!(report["error"]["code"], "FDB_CANCELLED");
+        assert_eq!(report["error"]["code"], "RDB_CANCELLED");
         assert_eq!(report["transaction"]["before"], "active");
         assert_eq!(report["transaction"]["after"], "active");
         assert!(report.get("rows").is_none());

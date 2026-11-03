@@ -99,7 +99,7 @@ fn compressed_index_validation_boundaries_and_late_failures_are_atomic() {
         assert!(c.execute(&format!("CREATE SEARCH INDEX bad ON docs(v) USING VECTOR WITH(dimensions=2,metric='l2',{options})"),&Parameters::new()).is_err());
     }
     q(&c, "INSERT INTO large {v:vector32('[65505,0]')}");
-    assert_eq!(c.execute("CREATE SEARCH INDEX too_large ON large(v) USING VECTOR WITH(dimensions=2,metric='l2',quantization='f16')",&Parameters::new()).unwrap_err().code(),"FDB_VALIDATION");
+    assert_eq!(c.execute("CREATE SEARCH INDEX too_large ON large(v) USING VECTOR WITH(dimensions=2,metric='l2',quantization='f16')",&Parameters::new()).unwrap_err().code(),"RDB_VALIDATION");
     q(
         &c,
         "CREATE SEARCH INDEX still_valid ON large(v) USING VECTOR WITH(dimensions=2,metric='l2')",
@@ -107,7 +107,7 @@ fn compressed_index_validation_boundaries_and_late_failures_are_atomic() {
     q(&c,"CREATE SEARCH INDEX compressed ON docs(v) USING VECTOR WITH(dimensions=2,metric='l2',quantization='f16')");
     q(&c, "BEGIN");
     q(&c, "INSERT INTO docs {id:docs:prior,v:vector32('[2,0]')}");
-    assert_eq!(c.execute("INSERT INTO docs(id,v) VALUES(docs:b,vector32('[3,0]')),(docs:c,vector32('[65505,0]'))",&Parameters::new()).unwrap_err().code(),"FDB_VALIDATION");
+    assert_eq!(c.execute("INSERT INTO docs(id,v) VALUES(docs:b,vector32('[3,0]')),(docs:c,vector32('[65505,0]'))",&Parameters::new()).unwrap_err().code(),"RDB_VALIDATION");
     assert_eq!(
         q(&c, "SELECT count(*) FROM docs").rows,
         vec![vec![Value::Integer(2)]]
@@ -118,7 +118,7 @@ fn compressed_index_validation_boundaries_and_late_failures_are_atomic() {
     ] {
         assert_eq!(
             c.execute(sql, &Parameters::new()).unwrap_err().code(),
-            "FDB_VALIDATION"
+            "RDB_VALIDATION"
         );
     }
     q(

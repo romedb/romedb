@@ -197,7 +197,7 @@ fn inverse_projection_restrictions_limits_and_deduplication() {
             c.select_with_limits(sql, &Parameters::new(), limits)
                 .unwrap_err()
                 .code(),
-            "FDB_LIMIT"
+            "RDB_LIMIT"
         );
     }
     for sql in [

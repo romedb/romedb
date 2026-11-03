@@ -54,7 +54,7 @@ fn cli_runs_multiline_scripts_and_returns_nonzero_on_first_failure() {
     let (ok, rows) = run("CREATE TABLE posts; SELECT 'unterminated");
     assert!(!ok);
     assert_eq!(rows.len(), 1);
-    assert_eq!(rows[0]["error"]["code"], "FDB_SYNTAX");
+    assert_eq!(rows[0]["error"]["code"], "RDB_SYNTAX");
 }
 
 #[test]
@@ -75,7 +75,7 @@ fn interactive_input_accumulates_multiline_statements_and_recovers_after_errors(
         .map(|s| serde_json::from_str::<serde_json::Value>(s).unwrap())
         .collect::<Vec<_>>();
     assert_eq!(rows.len(), 7);
-    assert_eq!(rows[3]["error"]["code"], "FDB_CONSTRAINT");
+    assert_eq!(rows[3]["error"]["code"], "RDB_CONSTRAINT");
     assert_eq!(rows[3]["transaction"]["after"], "active");
     assert_eq!(rows[5]["rows"], serde_json::json!([]));
     assert_eq!(rows[6]["rows"][0][0]["value"], 7);
@@ -144,12 +144,12 @@ fn cli_input_limits_count_utf8_bytes_and_never_submit_truncated_scripts() {
         let (ok, rows) = limited("--script", limit, script);
         assert!(!ok);
         assert_eq!(rows.len(), 1);
-        assert_eq!(rows[0]["error"]["code"], "FDB_LIMIT");
+        assert_eq!(rows[0]["error"]["code"], "RDB_LIMIT");
     }
     let (ok, rows) = limited("--script", 32, &format!("SELECT 1; {}", "x".repeat(64)));
     assert!(!ok);
     assert_eq!(rows.len(), 1);
-    assert_eq!(rows[0]["error"]["code"], "FDB_LIMIT");
+    assert_eq!(rows[0]["error"]["code"], "RDB_LIMIT");
 }
 #[test]
 fn line_and_interactive_limits_stop_without_consuming_tail_as_sql() {
@@ -160,7 +160,7 @@ fn line_and_interactive_limits_stop_without_consuming_tail_as_sql() {
     );
     assert!(!ok);
     assert_eq!(rows.len(), 2);
-    assert_eq!(rows[1]["error"]["code"], "FDB_LIMIT");
+    assert_eq!(rows[1]["error"]["code"], "RDB_LIMIT");
     let (ok, rows) = limited(
         "--interactive",
         32,
@@ -172,7 +172,7 @@ fn line_and_interactive_limits_stop_without_consuming_tail_as_sql() {
     );
     assert!(!ok);
     assert_eq!(rows.len(), 2);
-    assert_eq!(rows[1]["error"]["code"], "FDB_LIMIT");
+    assert_eq!(rows[1]["error"]["code"], "RDB_LIMIT");
     assert_eq!(rows[1]["transaction"]["after"], "active");
 }
 
@@ -201,7 +201,7 @@ fn cli_profiles_selects_without_allowing_profiled_writes() {
         assert_eq!(rows.len(), 5, "{rows:?}");
         assert_eq!(rows[2]["rows"][0][0]["value"], 1);
         assert!(rows[2]["profile"]["rows_read"].as_u64().unwrap() > 0);
-        assert_eq!(rows[3]["error"]["code"], "FDB_UNSUPPORTED");
+        assert_eq!(rows[3]["error"]["code"], "RDB_UNSUPPORTED");
         assert_eq!(rows[4]["rows"][0][0]["value"], 1);
     }
 }

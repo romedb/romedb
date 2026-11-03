@@ -72,7 +72,7 @@ create the file with `openEmbedded` from the start.
 | `INSERT INTO posts {id: posts:second, title: 'Second', author: people:alice}` | Stores a link to another record. |
 | `SELECT * FROM posts WHERE id = posts:second FETCH author` | Returns the post with the linked `people:alice` document in place of the link. |
 | `DELETE posts:hello` | Deletes one record. `DELETE FROM posts:hello` is the same statement. |
-| `DEFINE FIELD title ON posts TYPE string` | Adds validation. After it, a write with a number in `title` fails with `FDB_VALIDATION`. |
+| `DEFINE FIELD title ON posts TYPE string` | Adds validation. After it, a write with a number in `title` fails with `RDB_VALIDATION`. |
 | `CREATE UNIQUE INDEX posts_title ON posts(title)` | Adds a unique index on a field. |
 | `CREATE TABLE visits(at INTEGER, path TEXT)` | Makes an ordinary SQL table. SQL statements work on it, and collections can join it. |
 
@@ -101,7 +101,7 @@ helpers.
 - `transaction`: the transaction state before and after the statement.
 
 `all`, `first` and `exactlyOne` return only rows. `first` returns `undefined` when
-there is no row. `exactlyOne` throws a `RangeError` with the code `FDB_CARDINALITY`
+there is no row. `exactlyOne` throws a `RangeError` with the code `RDB_CARDINALITY`
 unless the result has exactly one row. That error has the `transaction` field of
 the statement. The statement already ran, so the helper does not undo writes or
 roll back an outer transaction.
@@ -142,27 +142,27 @@ not finished. Prepared statements and streamed results are not available.
 
 Engine and frontend failures throw an `Error` with a `code` and a `transaction`
 field. A call on a closed `Database` or `AsyncDatabase`, or on a worker that is
-closing, fails with `FDB_CLOSED`. That error has no `transaction` field, because no
+closing, fails with `RDB_CLOSED`. That error has no `transaction` field, because no
 statement ran. Constructor errors and JavaScript argument errors are ordinary
 errors without these fields. The error contract across clients is not final.
 
 | Code | Meaning |
 | --- | --- |
-| `FDB_BUSY` | Native lock contention. |
-| `FDB_BUSY_SNAPSHOT` | A stale read transaction cannot become a writer. The work needs a fresh transaction. |
-| `FDB_CONSTRAINT` | A native constraint, foreign-key or trigger-raise error, with the engine message. |
-| `FDB_VALIDATION` | Frontend validation of a document failed. |
-| `FDB_CLOSED` | The database or its worker is closed. |
+| `RDB_BUSY` | Native lock contention. |
+| `RDB_BUSY_SNAPSHOT` | A stale read transaction cannot become a writer. The work needs a fresh transaction. |
+| `RDB_CONSTRAINT` | A native constraint, foreign-key or trigger-raise error, with the engine message. |
+| `RDB_VALIDATION` | Frontend validation of a document failed. |
+| `RDB_CLOSED` | The database or its worker is closed. |
 
 Before you recover from an error, read its `transaction` field. The client does not
-retry by itself. `FDB_CONSTRAINT` also covers some runtime validation failures, and
+retry by itself. `RDB_CONSTRAINT` also covers some runtime validation failures, and
 it does not tell the rollback scope: ordinary SQL `OR FAIL` can keep earlier rows.
 Apply the conflict policy of the statement when you recover. A test with two
 `Database` instances on one file covers both busy codes. Contention and recovery
 across processes need more qualification.
 
 `isRomeDBError(error)` narrows a caught `unknown` value to the exported
-`RomeDBError` interface. It accepts an `Error` with an `FDB_*` code. It also
+`RomeDBError` interface. It accepts an `Error` with an `RDB_*` code. It also
 validates the transaction and migration details when they are present. The
 `transaction` field is optional, because closed-handle, worker and queue errors can
 happen before execution. Constructor and argument errors can fail this test.
@@ -178,13 +178,13 @@ client does not read migration folders, so your code supplies the scripts.
 
 | Migration failure | Error and meaning |
 | --- | --- |
-| Script splitting or tokenization | `FDB_SYNTAX`, with the migration version and the byte offset in that script. The plan did not start. |
-| Edited or incomplete applied history | `FDB_VALIDATION`. The message tells whether the version sequence, the name or the exact SQL differs. Restore the original applied scripts before you retry. |
-| Size limit of the input or the stored history | `FDB_LIMIT`. The message names the limit. |
-| Incompatible history schema or invalid stored types | `FDB_STORAGE`. The runner does not repair the history. |
-| A pending statement fails | Usually `FDB_MIGRATION`. `error.migration.version` and `.offset` are `bigint` values, and `.cause.code` and `.cause.message` give the underlying failure. The offset counts UTF-8 bytes in that script. The runner rolls back all pending scripts and their history together. |
-| Cooperative cancellation | `FDB_CANCELLED`. The message of a pending statement keeps its version and offset. Completion can win the race with the abort. |
-| Rollback failure | `FDB_ROLLBACK`. Cleanup did not reach the normal rollback outcome. |
+| Script splitting or tokenization | `RDB_SYNTAX`, with the migration version and the byte offset in that script. The plan did not start. |
+| Edited or incomplete applied history | `RDB_VALIDATION`. The message tells whether the version sequence, the name or the exact SQL differs. Restore the original applied scripts before you retry. |
+| Size limit of the input or the stored history | `RDB_LIMIT`. The message names the limit. |
+| Incompatible history schema or invalid stored types | `RDB_STORAGE`. The runner does not repair the history. |
+| A pending statement fails | Usually `RDB_MIGRATION`. `error.migration.version` and `.offset` are `bigint` values, and `.cause.code` and `.cause.message` give the underlying failure. The offset counts UTF-8 bytes in that script. The runner rolls back all pending scripts and their history together. |
+| Cooperative cancellation | `RDB_CANCELLED`. The message of a pending statement keeps its version and offset. Completion can win the race with the abort. |
+| Rollback failure | `RDB_ROLLBACK`. Cleanup did not reach the normal rollback outcome. |
 
 Migration errors keep `code`, `message` and the transaction observations of the
 runner in both clients. The version and the UTF-8 byte offset are in the message.
@@ -195,7 +195,7 @@ statement failures have it, interrupted statements included. Plan parsing, histo
 comparison and cancellation before execution do not always provide it.
 
 Before you retry, read `error.transaction` and the actual result. A worker
-transport failure (`FDB_WORKER`) has no transaction observation, so it does not tell
+transport failure (`RDB_WORKER`) has no transaction observation, so it does not tell
 whether accepted migration work committed. JavaScript argument validation can fail
 before the runner starts. Keep applied scripts unchanged, comments and whitespace
 included. After a confirmed failed run, you can correct a pending script that is not
@@ -212,7 +212,7 @@ These methods hold the whole string in memory and use the transfer limits of the
 frontend. They do not back up the schema, stream data or read or write files. To
 copy a whole database into a file, use [`exportFile`](#copying-a-database-into-a-file).
 Failures use the same code and transaction fields as `execute`. Closed-handle calls
-fail with `FDB_CLOSED` and no transaction field.
+fail with `RDB_CLOSED` and no transaction field.
 
 ## Asynchronous database
 
@@ -244,7 +244,7 @@ decoding still use time and memory in the caller.
 
 The queue accepts 256 outstanding operations and 128 MiB of encoded argument
 strings, the active operation included. A request over these limits rejects with
-`FDB_LIMIT` before it is sent. These limits do not bound total memory or query time.
+`RDB_LIMIT` before it is sent. These limits do not bound total memory or query time.
 
 `close()` stops new requests, runs the requests already accepted, closes the native
 connection and waits for the worker to exit. Repeated `close()` calls share the same
@@ -270,7 +270,7 @@ long-running lifecycle stress are still release gates.
 not wait in the worker queue. It returns `false` after native close, and `true` while
 the connection is live. `true` does not confirm that the statement stopped.
 
-A cancelled `execute` rejects with `FDB_CANCELLED` and the observed transaction
+A cancelled `execute` rejects with `RDB_CANCELLED` and the observed transaction
 state, and the worker can run later operations. The interruption applies to the
 whole connection: it does not target one Promise and does not remove queued
 requests. Stop repeated interrupt requests before you use the connection again.
@@ -282,7 +282,7 @@ entry on native close or drop. No raw engine pointer crosses into JavaScript.
 
 ### Worker failures
 
-A fatal worker transport error uses `FDB_WORKER`, keeps the first cause and rejects
+A fatal worker transport error uses `RDB_WORKER`, keeps the first cause and rejects
 every outstanding request. It has no transaction observation: a missing response
 does not tell whether an accepted write committed. Later requests reject with the
 same failure. Do not retry a write with an unknown outcome automatically.
@@ -347,7 +347,7 @@ database or cancel other requests.
 Active cancellation is cooperative: the engine reacts at its progress points.
 Completion can win the race with the abort, so use the returned result or error. An
 abort alone does not prove a rollback. A cancelled query rejects with
-`FDB_CANCELLED` and the usual transaction fields, not with `signal.reason`. There is
+`RDB_CANCELLED` and the usual transaction fields, not with `signal.reason`. There is
 no fixed cancellation delay for compilation or work outside the engine. The pinned
 defect in trigger interruption is still a release gate.
 
@@ -360,21 +360,21 @@ a signal use the normal path. Synchronous `Database` methods do not take signals
 How each operation ends after cancellation:
 
 - `executeBatch`: a request aborted before it starts rejects before the script is
-  split. Cancellation during the batch appears as a final `FDB_CANCELLED` entry with
+  split. Cancellation during the batch appears as a final `RDB_CANCELLED` entry with
   the byte offset and transaction state of that statement. Earlier entries stay,
   and later statements do not run. Earlier writes keep their effects, and an explicit
   transaction can stay active. Coordinate any rollback yourself, and use a fresh
   signal for a retry.
-- `importDocuments` and `exportDocuments`: rejects with `FDB_CANCELLED` and
+- `importDocuments` and `exportDocuments`: rejects with `RDB_CANCELLED` and
   transaction fields. An import rolls back its own work and keeps earlier outer work.
   An export returns a complete string or an error.
-- `migrate`: interrupted statements report `FDB_CANCELLED`, and the message keeps the
+- `migrate`: interrupted statements report `RDB_CANCELLED`, and the message keeps the
   migration version and byte offset. All pending scripts and history rows roll back
   together, and applied migrations stay. A request aborted before it starts does no
   database work, but JavaScript argument validation still runs.
 - `close()`: runs the accepted requests and does not abort them. Signals can still
   cancel accepted operations while `close()` waits. Later requests reject with
-  `FDB_CLOSED`.
+  `RDB_CLOSED`.
 
 Parsing, conversion and serialization have no fixed cancellation delay. In every
 case, a successful completion can win the race, so read the outcome before a retry.
@@ -390,7 +390,7 @@ await rql.execute('SELECT * FROM posts', {}, { timeoutMs: 500 });
 
 The deadline starts when the request token is made: after the parameters are
 encoded and before the request enters the worker queue. Time in the queue counts,
-and 0 has already expired. An expired request returns `FDB_CANCELLED` through the
+and 0 has already expired. An expired request returns `RDB_CANCELLED` through the
 cancellation path, with the normal rollback and transaction fields. You can pass
 `signal` with it. An expired request does not cancel later requests. `close()` has no
 timeout.
@@ -416,7 +416,7 @@ const result = await rql.selectWithLimits(
 );
 ```
 
-If the result passes a limit, the call fails with `FDB_LIMIT` and the transaction
+If the result passes a limit, the call fails with `RDB_LIMIT` and the transaction
 fields, and it returns no partial rows or metrics. An empty result still counts its
 column names. These calls accept one SQL SELECT, one-hop FETCH included. Fetched
 documents and their duplicates count toward the payload limit, and missing targets
@@ -450,7 +450,7 @@ Supported SQL writes and document writes run in an operation savepoint. Native S
 counts each result row before the frontend keeps it. Collection SQL and document
 RETURNING count each projected row before they keep it. Native destinations with
 logical sources also count rows during the final collection. In all cases, a write
-over a limit returns `FDB_LIMIT` and rolls back, index and trigger effects included.
+over a limit returns `RDB_LIMIT` and rolls back, index and trigger effects included.
 
 This policy accepts or refuses a result. It does not bound engine RETURNING buffers,
 write candidates, document snapshots or the working memory of one projection.
@@ -471,7 +471,7 @@ const worker = await AsyncDatabase.open(':memory:', options);
 ```
 
 The limits apply to each write-candidate buffer and each document-snapshot buffer of
-the frontend. If a buffer passes a limit, the operation fails with `FDB_LIMIT` and
+the frontend. If a buffer passes a limit, the operation fails with `RDB_LIMIT` and
 rolls back, and earlier work in the transaction stays. Ordinary reads and the result
 limits above have their own policies. The limits are off by default and cannot
 change while the connection is open. Both fields are required, nonnegative uint64
@@ -535,7 +535,7 @@ valid for an empty collection. The `AsyncDatabase` version takes `{ signal }` as
 third argument.
 
 The audit tests typed IDs, validation and the consistency of index entries in one
-snapshot, and it repairs nothing. `FDB_LIMIT` returns no partial report. The limits
+snapshot, and it repairs nothing. `RDB_LIMIT` returns no partial report. The limits
 do not bound engine memory or time. This is not a test of physical pages or B-trees,
 and it is not a tool to recover from corruption.
 
@@ -613,7 +613,7 @@ new file, pass `create: true`. Creation refuses an existing file and leftover
 journal files. Files use MVCC, the journal mode of `romedb serve` and RomeDB Cloud.
 A file moves between these without conversion and gets the same write conflicts.
 
-Opening a WAL file fails with `FDB_UNSUPPORTED` and leaves the file unchanged. Stop
+Opening a WAL file fails with `RDB_UNSUPPORTED` and leaves the file unchanged. Stop
 its owner and convert it with `romedb migrate-to-mvcc`. The managed connection turns
 on SQL foreign keys. The legacy APIs keep their own setting.
 
@@ -629,7 +629,7 @@ made by 0.2.11 or earlier gets private journal files at its next open.
 ### Open files
 
 One process keeps at most `maxOpen` different files open: 1 to 1024, 16 by default.
-An open over this number fails with `FDB_LIMIT`. Clients of a file that is already
+An open over this number fails with `RDB_LIMIT`. Clients of a file that is already
 open do not count again. To keep many databases, such as one per site, open them
 with the same `maxOpen` and close the least recently used one yourself.
 
@@ -693,13 +693,13 @@ const { size, body } = await rql.exportFile({ signal });
 
 The file holds every write up to and including `sequence`, and none after it. The
 destination and its `-wal`, `-shm`, `-log`, `-journal` and `.db-log` files must not
-exist, or the call fails with `FDB_ALREADY_EXISTS`. The new file has mode 0600 and
+exist, or the call fails with `RDB_ALREADY_EXISTS`. The new file has mode 0600 and
 appears only when it is complete.
 
 The streaming form builds its copy in a private folder beside the database file. It
 removes the name of the copy before it returns, so read `body` to the end or cancel
 it. Exports have no deadline unless you pass `timeoutMs`. `signal`, `timeoutMs` and
-`close()` cancel a running export. It then rejects with `FDB_CANCELLED`, unless it
+`close()` cancel a running export. It then rejects with `RDB_CANCELLED`, unless it
 finished first.
 
 The URL client has the streaming form, `rql.exportFile({ signal, timeoutMs })`, for
@@ -748,7 +748,7 @@ Use HTTPS for every host that is not local.
 `romedb://` is another name for `https://`. The client replaces the scheme and applies
 the same rules, so `romedb://cloud.romedb.com/v1/organizations/{org}/databases/{db}`
 and the `https://` form are the same database. Requests use `redirect: 'manual'`, and
-any redirect fails with `FDB_PROTOCOL`, so the token never goes to another URL. Pass
+any redirect fails with `RDB_PROTOCOL`, so the token never goes to another URL. Pass
 the bearer token separately. The client refuses a token in the URL.
 
 ### Cloud URLs
@@ -758,7 +758,7 @@ comes from the URL, and the Cloud capabilities are documented. Reads start from
 sequence 0 as their lower bound and update the sequence from each reply.
 
 A write needs a current sequence. If none is known yet, `writeAtomic` first fetches
-the database details, and `prepareWrite` throws `FDB_SEQUENCE_UNKNOWN` (outcome
+the database details, and `prepareWrite` throws `RDB_SEQUENCE_UNKNOWN` (outcome
 `not-sent`) until a read, `info()` or an explicit `afterSequence` supplies one. To
 fetch the details at connect, pass `deferInfo: false`. Other URLs always fetch the
 details at connect and refuse `deferInfo: true`.
@@ -821,7 +821,7 @@ bodies.
 Version 2 covers tagged Record keys and typed query errors. Resource URLs stay `/v1`,
 and `readVersion: 2` separately defines fresh-read execution. The client accepts the
 version it asked for, version 2, and older responses without the header, and it
-decodes both byte forms. An unknown version fails with `FDB_PROTOCOL`. A write that
+decodes both byte forms. An unknown version fails with `RDB_PROTOCOL`. A write that
 was sent then stays `unknown` and keeps its exact saved request for recovery.
 
 Saved writes are version 2 and record their query version. Version 1 saved writes
@@ -868,10 +868,10 @@ downloads the addon, but the Workers bundle never includes it.
 ## Load errors
 
 On Node.js versions before 22, importing the native entries throws
-`FDB_RUNTIME_VERSION` before native code loads.
+`RDB_RUNTIME_VERSION` before native code loads.
 
 If the native addon is missing or cannot load, importing the package throws
-`FDB_NATIVE_LOAD`. The message names the platform, the architecture and the Node
+`RDB_NATIVE_LOAD`. The message names the platform, the architecture and the Node
 version, and it points to the source build instructions. `error.cause` keeps the
 original loader error, for example a missing library or an invalid binary. The package
 does not select, download or rebuild an addon automatically.

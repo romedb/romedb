@@ -366,7 +366,7 @@ fn conflicting_document_update_is_reported_and_can_be_retried() {
             &Parameters::new(),
         )
         .unwrap_err();
-    assert_eq!(error.code(), "FDB_WRITE_CONFLICT", "{error}");
+    assert_eq!(error.code(), "RDB_WRITE_CONFLICT", "{error}");
     if b.transaction_state() == romedb::TransactionState::Active {
         q(&b, "ROLLBACK");
     }

@@ -28,7 +28,7 @@ fn migrations_apply_once_and_reject_changed_or_missing_history() {
     let mut changed = plan.clone();
     changed[0].sql.push(' ');
     let error = c.migrate(&changed).unwrap_err();
-    assert_eq!(error.code(), "FDB_VALIDATION");
+    assert_eq!(error.code(), "RDB_VALIDATION");
     assert!(error.to_string().contains("SQL source differs"));
     changed = plan.clone();
     changed[0].name.push_str("_renamed");
@@ -69,7 +69,7 @@ fn failed_pending_run_rolls_back_ddl_data_and_history() {
         m(3, "INSERT INTO docs {id:docs:p2,value:'bad'};"),
     ];
     let error = c.migrate(&plan).unwrap_err();
-    assert_eq!(error.code(), "FDB_MIGRATION");
+    assert_eq!(error.code(), "RDB_MIGRATION");
     assert!(q(&c, "SELECT * FROM docs").rows.is_empty());
     assert!(c
         .execute("SELECT * FROM audit", &Parameters::new())
@@ -78,7 +78,7 @@ fn failed_pending_run_rolls_back_ddl_data_and_history() {
     assert_eq!(c.migrate(&plan).unwrap().applied, vec![2, 3]);
     assert_eq!(q(&c, "SELECT * FROM docs").rows.len(), 2);
     plan.push(m(4,"CREATE TABLE runtime_work(value INTEGER); INSERT INTO docs {id:docs:p3,value:3}; SELECT array::append(1,2);"));
-    assert_eq!(c.migrate(&plan).unwrap_err().code(), "FDB_MIGRATION");
+    assert_eq!(c.migrate(&plan).unwrap_err().code(), "RDB_MIGRATION");
     assert_eq!(c.transaction_state(), TransactionState::Autocommit);
     assert_eq!(q(&c, "SELECT * FROM docs").rows.len(), 2);
     assert!(c
@@ -140,7 +140,7 @@ fn persistent_migrations_retry_after_writer_conflict_and_reopen() {
             other => other,
         };
         assert!(
-            matches!(cause.code(), "FDB_BUSY" | "FDB_BUSY_SNAPSHOT"),
+            matches!(cause.code(), "RDB_BUSY" | "RDB_BUSY_SNAPSHOT"),
             "{error:?}"
         );
         assert_eq!(c.transaction_state(), TransactionState::Autocommit);
@@ -178,7 +178,7 @@ fn persistent_migrations_retry_after_writer_conflict_and_reopen() {
             .unwrap();
         let mut changed = plan.clone();
         changed[1].name.push_str("_renamed");
-        assert_eq!(c.migrate(&changed).unwrap_err().code(), "FDB_VALIDATION");
+        assert_eq!(c.migrate(&changed).unwrap_err().code(), "RDB_VALIDATION");
         assert_eq!(c.migrate(&plan).unwrap().already_applied, 2);
         assert_eq!(c.transaction_state(), TransactionState::Autocommit);
     }
@@ -193,16 +193,16 @@ fn migration_plan_limits_reject_before_mutation_and_allow_boundary_retry() {
     let mut invalid = Vec::new();
     invalid.push((
         vec![first.clone(), m(2, &" ".repeat(script_limit + 1))],
-        "FDB_LIMIT",
+        "RDB_LIMIT",
     ));
     invalid.push((
         (1..=1001).map(|version| m(version, "")).collect(),
-        "FDB_LIMIT",
+        "RDB_LIMIT",
     ));
     let comment = format!("--{}", " ".repeat(script_limit - 2));
     invalid.push((
         (1..=5).map(|version| m(version, &comment)).collect(),
-        "FDB_LIMIT",
+        "RDB_LIMIT",
     ));
     for name in [
         "".to_owned(),
@@ -212,10 +212,10 @@ fn migration_plan_limits_reject_before_mutation_and_allow_boundary_retry() {
     ] {
         let mut next = m(2, "INSERT INTO docs {n:1};");
         next.name = name;
-        invalid.push((vec![first.clone(), next], "FDB_VALIDATION"));
+        invalid.push((vec![first.clone(), next], "RDB_VALIDATION"));
     }
     for version in [0, -1] {
-        invalid.push((vec![m(version, "CREATE TABLE docs;")], "FDB_VALIDATION"));
+        invalid.push((vec![m(version, "CREATE TABLE docs;")], "RDB_VALIDATION"));
     }
     for (plan, code) in invalid {
         assert_eq!(c.migrate(&plan).unwrap_err().code(), code);
@@ -289,7 +289,7 @@ fn migration_failure_reports_utf8_statement_offset_and_underlying_error() {
     let pending = m(7, &format!("{prefix}{failing} CREATE TABLE skipped;"));
     let mut plan = [initial, pending];
     let error = c.migrate(&plan).unwrap_err();
-    assert_eq!(error.code(), "FDB_MIGRATION");
+    assert_eq!(error.code(), "RDB_MIGRATION");
     match error {
         romedb::Error::Migration {
             version,
@@ -298,7 +298,7 @@ fn migration_failure_reports_utf8_statement_offset_and_underlying_error() {
         } => {
             assert_eq!(version, 7);
             assert_eq!(offset, prefix.len());
-            assert_eq!(source.code(), "FDB_VALIDATION");
+            assert_eq!(source.code(), "RDB_VALIDATION");
             assert!(offset > prefix.chars().count());
         }
         other => panic!("unexpected error: {other:?}"),
@@ -328,7 +328,7 @@ fn migration_preflight_syntax_identifies_version_without_mutation() {
     let source = "-- café 日本語\nSELECT 'unterminated";
     let plan = [m(1, "CREATE TABLE docs;"), m(7, source)];
     let error = c.migrate(&plan).unwrap_err();
-    assert_eq!(error.code(), "FDB_SYNTAX");
+    assert_eq!(error.code(), "RDB_SYNTAX");
     match error {
         romedb::Error::Syntax(error) => {
             assert_eq!(error.offset, source.find('\'').unwrap());

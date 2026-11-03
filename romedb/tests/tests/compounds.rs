@@ -299,7 +299,7 @@ fn union_all_parameters_keep_statement_positions_and_binary_identity() {
     q(&c, "CREATE TABLE docs");
     q(&c, "CREATE INDEX docs_data ON docs(data)");
     q(&c, "CREATE TABLE native(data BLOB)");
-    let bytes = Value::Binary(b"FDB\x01{\"type\":\"Integer\",\"value\":7}".to_vec());
+    let bytes = Value::Binary(b"RDB\x01{\"type\":\"Integer\",\"value\":7}".to_vec());
     let params = Parameters::from([("$data".into(), bytes.clone())]);
     c.execute("INSERT INTO docs(data) VALUES ($data)", &params)
         .unwrap();
@@ -418,7 +418,7 @@ fn set_operators_preserve_record_binary_identity_and_collation() {
         key: romedb::Key::Integer(7),
     });
     let bytes = Value::Binary(
-        b"FDB\x01{\"type\":\"Record\",\"value\":{\"table\":\"docs\",\"key\":{\"Integer\":7}}}"
+        b"RDB\x01{\"type\":\"Record\",\"value\":{\"table\":\"docs\",\"key\":{\"Integer\":7}}}"
             .to_vec(),
     );
     for (right, union, intersection, difference) in [(same, 1, 1, 0), (bytes, 2, 0, 1)] {
@@ -653,7 +653,7 @@ fn direct_union_pagination_preserves_typed_derived_and_insert_rows() {
         Value::Boolean(true),
         Value::Integer(i64::MAX),
         Value::String("text".into()),
-        Value::Binary(b"FDB\x01{\"type\":\"Integer\",\"value\":7}".to_vec()),
+        Value::Binary(b"RDB\x01{\"type\":\"Integer\",\"value\":7}".to_vec()),
         Value::Record(romedb::Record {
             table: "sink".into(),
             key: romedb::Key::Integer(7),
@@ -947,7 +947,7 @@ fn composite_membership_retains_sql_null_truth_and_binary_tag_separation() {
     let array = Value::Array(vec![Value::Integer(1), Value::Null]);
     let object = Value::Object([("x".into(), Value::Boolean(true))].into());
     let vector = q(&c, "SELECT vector32('[1,0]')").rows[0][0].clone();
-    for (n,value) in [(1,array.clone()),(2,object.clone()),(3,Value::Null),(4,Value::Binary(b"FDB\x01{\"type\":\"Array\",\"value\":[{\"type\":\"Integer\",\"value\":1},{\"type\":\"Null\"}]}".to_vec())),(5,vector.clone())] {c.execute("INSERT INTO docs {n:$n,v:$value}",&Parameters::from([("$n".into(),Value::Integer(n)),("$value".into(),value)])).unwrap();}
+    for (n,value) in [(1,array.clone()),(2,object.clone()),(3,Value::Null),(4,Value::Binary(b"RDB\x01{\"type\":\"Array\",\"value\":[{\"type\":\"Integer\",\"value\":1},{\"type\":\"Null\"}]}".to_vec())),(5,vector.clone())] {c.execute("INSERT INTO docs {n:$n,v:$value}",&Parameters::from([("$n".into(),Value::Integer(n)),("$value".into(),value)])).unwrap();}
     let params = Parameters::from([
         ("$array".into(), array),
         ("$object".into(), object),
@@ -1128,7 +1128,7 @@ fn typed_row_membership_rejects_unsupported_affinity_and_widths() {
     ] {
         assert_eq!(
             c.execute(sql, &Parameters::new()).unwrap_err().code(),
-            "FDB_UNSUPPORTED",
+            "RDB_UNSUPPORTED",
             "{sql}"
         );
     }

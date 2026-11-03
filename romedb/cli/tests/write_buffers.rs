@@ -20,7 +20,7 @@ fn line_mode_buffer_policy_preserves_transaction_and_allows_smaller_retry() {
         .map(|s| serde_json::from_str(s).unwrap())
         .collect();
     assert_eq!(rows.len(), 9);
-    assert_eq!(rows[4]["error"]["code"], "FDB_LIMIT");
+    assert_eq!(rows[4]["error"]["code"], "RDB_LIMIT");
     assert_eq!(rows[4]["transaction"]["after"], "active");
     assert_eq!(rows[5]["rows"].as_array().unwrap().len(), 2);
     assert_eq!(rows[6]["affected"], 1);

@@ -415,7 +415,7 @@ fn text_query_grammar_preserves_exclusions_and_rejects_negative_only_subclauses(
                 &Parameters::from([("$query".into(), Value::String(query.into()))]),
             )
             .unwrap_err();
-        assert_eq!(error.code(), "FDB_VALIDATION", "{query}: {error}");
+        assert_eq!(error.code(), "RDB_VALIDATION", "{query}: {error}");
         assert!(error.to_string().contains("negative-only"));
     }
 }

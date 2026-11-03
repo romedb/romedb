@@ -491,7 +491,7 @@ mod tests {
             if ok {
                 assert_eq!(result.unwrap().0, expected);
             } else {
-                assert_eq!(result.err().unwrap().code(), "FDB_LIMIT");
+                assert_eq!(result.err().unwrap().code(), "RDB_LIMIT");
             }
         }
         let mut budget = crate::budget::ResultBudget::new(
@@ -518,7 +518,7 @@ mod tests {
             .err()
             .unwrap()
             .code(),
-            "FDB_LIMIT"
+            "RDB_LIMIT"
         );
         // The returned array is part of the logical value's depth budget.
         let mut deep = Value::Null;
@@ -537,7 +537,7 @@ mod tests {
             )
             .unwrap_err()
             .code(),
-            "FDB_LIMIT"
+            "RDB_LIMIT"
         );
         assert!(c.get(&record("posts", "a")).unwrap().is_some());
     }
@@ -583,7 +583,7 @@ mod tests {
             let result = c.profile_select(sql, &Parameters::new());
             c.engine.set_progress_handler(0, None);
             assert!(fired.load(Ordering::SeqCst));
-            assert_eq!(result.unwrap_err().code(), "FDB_CANCELLED");
+            assert_eq!(result.unwrap_err().code(), "RDB_CANCELLED");
             assert_eq!(c.transaction_state(), crate::TransactionState::Active);
             let retry = c.profile_select(sql, &Parameters::new()).unwrap();
             assert_eq!(retry.result.rows, baseline.result.rows);

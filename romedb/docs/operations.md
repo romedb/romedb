@@ -87,8 +87,8 @@ Cardinality/result conversion errors can occur after the statement executed.
 
 | Situation | Application action |
 |---|---|
-| `FDB_BUSY` during a query | Resolve the conflicting same-process transaction. Retry only a known uncommitted, retry-safe operation with bounded backoff and a total deadline. |
-| `FDB_BUSY_SNAPSHOT` | End the stale transaction and start a fresh one; reread inputs and retry the whole application unit if safe. Retrying just the write retains the stale snapshot. |
+| `RDB_BUSY` during a query | Resolve the conflicting same-process transaction. Retry only a known uncommitted, retry-safe operation with bounded backoff and a total deadline. |
+| `RDB_BUSY_SNAPSHOT` | End the stale transaction and start a fresh one; reread inputs and retry the whole application unit if safe. Retrying just the write retains the stale snapshot. |
 | Validation/constraint/UDF/result-limit error | Inspect transaction state and conflict policy. Roll back the application's unit or deliberately continue only when prior work is understood. Native SQL `OR FAIL` can preserve earlier row changes. |
 | Cancellation or deadline | Inspect transaction observations. Cancellation is cooperative; completion can win the race. A client deadline is not proof of rollback. |
 | Worker/process loss, transport failure, or an ambiguous commit/I/O error | Treat accepted writes as unknown until reconciled against stored application state. Reopen only after ownership is released. Do not automatically replay non-idempotent writes. |

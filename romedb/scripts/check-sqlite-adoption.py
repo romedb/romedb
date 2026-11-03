@@ -101,8 +101,8 @@ def verify(cli, evidence):
         assert scalar(initial[2]) == 17 and scalar(initial[3]) == 42
         checkpoint(initial[4])
         # Enable FK enforcement in the same process as the failing operation.
-        query(destination, "PRAGMA foreign_keys=ON; INSERT INTO child VALUES(2,999);", succeeds=False, error_code="FDB_CONSTRAINT")
-        query(destination, "UPDATE parent SET n='invalid';", succeeds=False, error_code="FDB_CONSTRAINT")
+        query(destination, "PRAGMA foreign_keys=ON; INSERT INTO child VALUES(2,999);", succeeds=False, error_code="RDB_CONSTRAINT")
+        query(destination, "UPDATE parent SET n='invalid';", succeeds=False, error_code="RDB_CONSTRAINT")
         unchanged = query(destination, "SELECT n FROM parent; SELECT count(*) FROM child;")
         assert scalar(unchanged[0]) == -(2 ** 63) and scalar(unchanged[1]) == 1
         written = query(destination, """

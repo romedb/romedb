@@ -380,7 +380,7 @@ mod tests {
         let result=c.execute("INSERT INTO docs(a,b,tags,body) VALUES(1,2,array::new(3),'new') ON CONFLICT(a,b) DO UPDATE SET tags=excluded.tags,body=excluded.body",&Parameters::new());
         c.engine.set_progress_handler(0, None);
         assert!(fired.load(Ordering::SeqCst));
-        assert_eq!(result.unwrap_err().code(), "FDB_CANCELLED");
+        assert_eq!(result.unwrap_err().code(), "RDB_CANCELLED");
         c.check_collection_integrity("docs", Default::default())
             .unwrap();
         assert_eq!(
@@ -418,7 +418,7 @@ mod tests {
             &sql,
             &Parameters::from([("$body".into(), Value::String("x".repeat(1024 * 1024)))]),
         );
-        assert_eq!(result.unwrap_err().code(), "FDB_LIMIT");
+        assert_eq!(result.unwrap_err().code(), "RDB_LIMIT");
         let clauses = " ON CONFLICT(id) DO NOTHING".repeat(17);
         assert_eq!(
             c.execute(
@@ -427,7 +427,7 @@ mod tests {
             )
             .unwrap_err()
             .code(),
-            "FDB_LIMIT"
+            "RDB_LIMIT"
         );
         assert_eq!(
             c.execute("SELECT n FROM docs", &Parameters::new())

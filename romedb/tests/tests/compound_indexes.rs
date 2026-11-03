@@ -75,7 +75,7 @@ fn compound_predicates_use_native_prefix_keys_and_keep_sql_scalar_meanings() {
         c.execute("INSERT INTO docs {a:5.0,b:7}", &Parameters::new())
             .unwrap_err()
             .code(),
-        "FDB_CONSTRAINT"
+        "RDB_CONSTRAINT"
     );
     for _ in 0..2 {
         q(&c, "INSERT INTO docs {a:5,b:null}");
@@ -117,7 +117,7 @@ fn compound_constraints_replacements_computed_values_and_rebuild_are_atomic() {
         c.execute("UPDATE docs SET a=1,source=1", &Parameters::new())
             .unwrap_err()
             .code(),
-        "FDB_CONSTRAINT"
+        "RDB_CONSTRAINT"
     );
     assert_eq!(
         q(&c, "SELECT a,b FROM docs ORDER BY a").rows,
@@ -222,7 +222,7 @@ fn compound_definition_bounds_failed_builds_and_relational_indexes_remain_explic
         c.execute("CREATE UNIQUE INDEX pair ON docs(a,b)", &Parameters::new())
             .unwrap_err()
             .code(),
-        "FDB_CONSTRAINT"
+        "RDB_CONSTRAINT"
     );
     q(&c, "CREATE INDEX pair ON docs(a,b)");
     for fields in [
@@ -239,7 +239,7 @@ fn compound_definition_bounds_failed_builds_and_relational_indexes_remain_explic
             )
             .unwrap_err()
             .code(),
-            "FDB_VALIDATION"
+            "RDB_VALIDATION"
         );
     }
     let fields = (0..16)
@@ -254,7 +254,7 @@ fn compound_definition_bounds_failed_builds_and_relational_indexes_remain_explic
         c.execute("INSERT INTO relational VALUES(1,2)", &Parameters::new())
             .unwrap_err()
             .code(),
-        "FDB_CONSTRAINT"
+        "RDB_CONSTRAINT"
     );
     q(&c, "CREATE TABLE schema_docs");
     q(&c, "CREATE INDEX schema_pair ON schema_docs(a,b)");
@@ -265,7 +265,7 @@ fn compound_definition_bounds_failed_builds_and_relational_indexes_remain_explic
         )
         .unwrap_err()
         .code(),
-        "FDB_VALIDATION"
+        "RDB_VALIDATION"
     );
     c.check_collection_integrity("docs", Default::default())
         .unwrap();

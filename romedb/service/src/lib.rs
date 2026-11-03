@@ -56,12 +56,12 @@ impl From<romedb::RequestError> for Error {
 }
 impl From<std::io::Error> for Error {
     fn from(_: std::io::Error) -> Self {
-        Self::new("FDB_STORAGE", "service filesystem operation failed")
+        Self::new("RDB_STORAGE", "service filesystem operation failed")
     }
 }
 impl From<serde_json::Error> for Error {
     fn from(_: serde_json::Error) -> Self {
-        Self::new("FDB_PROTOCOL", "service JSON conversion failed")
+        Self::new("RDB_PROTOCOL", "service JSON conversion failed")
     }
 }
 
@@ -98,7 +98,7 @@ impl DatabaseService {
     pub fn create_with_id(path: &Path, database_id: &str) -> Result<Self> {
         if !path.is_absolute() {
             return Err(Error::new(
-                "FDB_VALIDATION",
+                "RDB_VALIDATION",
                 "service creation requires an absolute path",
             ));
         }
@@ -113,7 +113,7 @@ impl DatabaseService {
             match std::fs::symlink_metadata(sidecar) {
                 Ok(_) => {
                     return Err(Error::new(
-                        "FDB_CONFLICT",
+                        "RDB_CONFLICT",
                         "database sidecar exists; recover it before creating a file",
                     ))
                 }
@@ -131,13 +131,13 @@ impl DatabaseService {
         options.open(path)?.sync_all()?;
         let database = Database::create_mvcc(
             path.to_str()
-                .ok_or_else(|| Error::new("FDB_VALIDATION", "database path must be UTF-8"))?,
+                .ok_or_else(|| Error::new("RDB_VALIDATION", "database path must be UTF-8"))?,
         )?;
         let service = Self::initialize(database, database_id, path)?;
         #[cfg(unix)]
         std::fs::File::open(path.parent().ok_or_else(|| {
             Error::new(
-                "FDB_VALIDATION",
+                "RDB_VALIDATION",
                 "database path requires a parent directory",
             )
         })?)?
@@ -157,7 +157,7 @@ impl DatabaseService {
         let service = Self::initialize(Self::open_database(path)?, database_id, path)?;
         if service.database_id != database_id {
             return Err(Error::new(
-                "FDB_CONFLICT",
+                "RDB_CONFLICT",
                 "database file holds another database's identity; it was copied or renamed",
             ));
         }
@@ -168,7 +168,7 @@ impl DatabaseService {
         let metadata = std::fs::symlink_metadata(path).map_err(|error| {
             if error.kind() == std::io::ErrorKind::NotFound {
                 Error::new(
-                    "FDB_NOT_FOUND",
+                    "RDB_NOT_FOUND",
                     "service requires an existing database file",
                 )
             } else {
@@ -181,12 +181,12 @@ impl DatabaseService {
         let one_link = true;
         if !metadata.is_file() || !one_link {
             return Err(Error::new(
-                "FDB_VALIDATION",
+                "RDB_VALIDATION",
                 "service requires a regular database file with one link; use its original path",
             ));
         }
         Ok(Database::open_mvcc(path.to_str().ok_or_else(|| {
-            Error::new("FDB_VALIDATION", "database path must be UTF-8")
+            Error::new("RDB_VALIDATION", "database path must be UTF-8")
         })?)?)
     }
 
@@ -195,7 +195,7 @@ impl DatabaseService {
             .parent()
             .ok_or_else(|| {
                 Error::new(
-                    "FDB_VALIDATION",
+                    "RDB_VALIDATION",
                     "database path requires a parent directory",
                 )
             })?
@@ -244,7 +244,7 @@ impl DatabaseService {
             let sequence = scope.connection.service_catalog()?.sequence;
             if request.after_sequence > sequence {
                 return Err(Error::new(
-                    "FDB_CONFLICT",
+                    "RDB_CONFLICT",
                     "requested sequence is ahead of this database",
                 ));
             }
@@ -270,13 +270,13 @@ impl DatabaseService {
         let started = deadline();
         self.check_fence()?;
         if self.stopping.is_cancelled() {
-            return Err(Error::new("FDB_CLOSED", "service is stopping"));
+            return Err(Error::new("RDB_CLOSED", "service is stopping"));
         }
         let _export = match self.export.try_lock() {
             Ok(guard) => guard,
             Err(TryLockError::WouldBlock) => {
                 return Err(Error::new(
-                    "FDB_BUSY",
+                    "RDB_BUSY",
                     "this database is already being exported; retry when it finishes",
                 ))
             }
@@ -345,7 +345,7 @@ impl DatabaseService {
                         &mut publication,
                         request,
                         hash,
-                        &Error::new("FDB_CONFLICT", "sequence changed; refresh before saving"),
+                        &Error::new("RDB_CONFLICT", "sequence changed; refresh before saving"),
                         request.budget()?,
                     )
                     .map(Some);
@@ -401,7 +401,7 @@ impl DatabaseService {
                         &mut publication,
                         request,
                         hash,
-                        &Error::new("FDB_CONFLICT", "sequence changed; refresh before saving"),
+                        &Error::new("RDB_CONFLICT", "sequence changed; refresh before saving"),
                         budget,
                     )
                     .map(Some);
@@ -433,7 +433,7 @@ impl DatabaseService {
             if let Err(error) = scope.commit() {
                 if matches!(
                     error.code.as_str(),
-                    "FDB_WRITE_CONFLICT" | "FDB_BUSY_SNAPSHOT" | "FDB_BUSY"
+                    "RDB_WRITE_CONFLICT" | "RDB_BUSY_SNAPSHOT" | "RDB_BUSY"
                 ) {
                     scope.rollback()?;
                     return self
@@ -455,7 +455,7 @@ impl DatabaseService {
             request,
             hash,
             &Error::new(
-                "FDB_WRITE_CONFLICT",
+                "RDB_WRITE_CONFLICT",
                 "publication changed during the bounded retry attempts",
             ),
             budget,
@@ -476,7 +476,7 @@ impl DatabaseService {
                 Ok(Some(receipt.response))
             }
             Ok(Some(_)) => Err(Error::new(
-                "FDB_CONFLICT",
+                "RDB_CONFLICT",
                 "request ID was reused with a different body",
             )),
             Ok(None) => Ok(None),
@@ -492,7 +492,7 @@ impl DatabaseService {
         error: &Error,
         budget: RequestBudget,
     ) -> Result<String> {
-        if matches!(error.code.as_str(), "FDB_ROLLBACK" | "FDB_STORAGE") {
+        if matches!(error.code.as_str(), "RDB_ROLLBACK" | "RDB_STORAGE") {
             return Err(self.fence());
         }
         let response = serde_json::to_string(
@@ -556,7 +556,7 @@ impl DatabaseService {
             self.check_fence()?;
             if Instant::now() >= deadline {
                 return Err(Error::new(
-                    "FDB_CANCELLED",
+                    "RDB_CANCELLED",
                     "request deadline expired waiting for a service lock",
                 ));
             }
@@ -570,7 +570,7 @@ impl DatabaseService {
     fn fence(&self) -> Error {
         self.fenced.store(true, Ordering::SeqCst);
         Error::new(
-            "FDB_STORAGE",
+            "RDB_STORAGE",
             "service outcome is uncertain; stop and recover the database before continuing",
         )
     }
@@ -590,7 +590,7 @@ impl DatabaseService {
         let result = connection.execute("PRAGMA wal_checkpoint(TRUNCATE)", &Parameters::new())?;
         if result.rows.first().and_then(|row| row.first()) != Some(&romedb::Value::Integer(0)) {
             return Err(Error::new(
-                "FDB_BUSY",
+                "RDB_BUSY",
                 "shutdown checkpoint did not complete; the log is replayed on the next open",
             ));
         }
@@ -627,7 +627,7 @@ impl Scope {
         {
             self.fenced.store(true, Ordering::SeqCst);
             return Err(Error::new(
-                "FDB_STORAGE",
+                "RDB_STORAGE",
                 "request rollback could not be confirmed",
             ));
         }
@@ -649,11 +649,11 @@ fn deadline() -> Instant {
 }
 fn check_position(request: &Request, sequence: u64) -> Result<()> {
     if sequence > request::MAX_SEQUENCE {
-        return Err(Error::new("FDB_LIMIT", "publication sequence is exhausted"));
+        return Err(Error::new("RDB_LIMIT", "publication sequence is exhausted"));
     }
     if request.after_sequence > sequence || sequence - request.after_sequence >= 64 {
         return Err(Error::new(
-            "FDB_CONFLICT",
+            "RDB_CONFLICT",
             "request retry window expired or is ahead of the database; reconcile the saved request",
         ));
     }
@@ -692,7 +692,7 @@ mod tests {
             &CancellationToken::with_deadline(started + Duration::from_millis(20)),
         )
         .unwrap_err();
-        assert_eq!(error.code, "FDB_CANCELLED");
+        assert_eq!(error.code, "RDB_CANCELLED");
         assert!(started.elapsed() < Duration::from_secs(2));
         scope.rollback().unwrap();
         scope
@@ -714,7 +714,7 @@ mod tests {
             })
             .err()
             .unwrap();
-        assert_eq!(error.code, "FDB_CANCELLED");
+        assert_eq!(error.code, "RDB_CANCELLED");
         assert!(started.elapsed() < Duration::from_secs(1));
         drop(publication);
         assert_eq!(service.info().unwrap()["sequence"], 0);

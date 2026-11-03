@@ -44,12 +44,12 @@ fn publication_fault_child() {
         !armed.load(Ordering::SeqCst),
         "fault was not reached: {fault}"
     );
-    assert_eq!(result.unwrap_err().code, "FDB_STORAGE");
-    assert_eq!(service.info().unwrap_err().code, "FDB_STORAGE");
-    assert_eq!(service.read(&json!({"requestId":"read","afterSequence":2,"readVersion":2,"statements":[{"sql":"SELECT n FROM docs"}]}).to_string()).unwrap_err().code, "FDB_STORAGE");
+    assert_eq!(result.unwrap_err().code, "RDB_STORAGE");
+    assert_eq!(service.info().unwrap_err().code, "RDB_STORAGE");
+    assert_eq!(service.read(&json!({"requestId":"read","afterSequence":2,"readVersion":2,"statements":[{"sql":"SELECT n FROM docs"}]}).to_string()).unwrap_err().code, "RDB_STORAGE");
     assert_eq!(
         service.query(&update_request()).unwrap_err().code,
-        "FDB_STORAGE"
+        "RDB_STORAGE"
     );
     std::process::exit(74);
 }
@@ -80,7 +80,7 @@ fn atomic_request_fault_child() {
         !armed.load(Ordering::SeqCst),
         "fault was not reached: {fault}"
     );
-    assert_eq!(outcome.unwrap_err().code(), "FDB_STORAGE");
+    assert_eq!(outcome.unwrap_err().code(), "RDB_STORAGE");
     std::process::exit(74);
 }
 

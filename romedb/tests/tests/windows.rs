@@ -182,7 +182,7 @@ fn grouped_window_insert_failure_preserves_prior_work_and_indexes() {
     let source = "SELECT t COLLATE NOCASE AS k,sum(sum(n)) OVER(ORDER BY t COLLATE NOCASE) AS running FROM samples GROUP BY k";
     let sql = format!("INSERT INTO totals (category,running) {source} ORDER BY k");
     let error = c.execute(&sql, &Parameters::new()).unwrap_err();
-    assert_eq!(error.code(), "FDB_VALIDATION");
+    assert_eq!(error.code(), "RDB_VALIDATION");
     assert_eq!(c.transaction_state(), TransactionState::Active);
     assert_eq!(
         q(&c, "SELECT running FROM totals ORDER BY running").rows,

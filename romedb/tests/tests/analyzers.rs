@@ -139,7 +139,7 @@ fn analyzer_validation_limits_typed_results_and_transaction_preservation() {
             )
             .unwrap_err()
             .code(),
-            "FDB_VALIDATION"
+            "RDB_VALIDATION"
         );
     }
     for options in [
@@ -159,7 +159,7 @@ fn analyzer_validation_limits_typed_results_and_transaction_preservation() {
             )
             .unwrap_err()
             .code(),
-            "FDB_SYNTAX"
+            "RDB_SYNTAX"
         );
     }
     let mut options = FullTextOptions::default();
@@ -188,9 +188,9 @@ fn analyzer_validation_limits_typed_results_and_transaction_preservation() {
     q(&c, "BEGIN");
     q(&c, "INSERT INTO docs {id:docs:a,body:'retained'}");
     for (text, code) in [
-        (Value::Integer(7), "FDB_VALIDATION"),
-        (Value::String("x".repeat(1024 * 1024 + 1)), "FDB_LIMIT"),
-        (Value::String("x ".repeat(16_385)), "FDB_LIMIT"),
+        (Value::Integer(7), "RDB_VALIDATION"),
+        (Value::String("x".repeat(1024 * 1024 + 1)), "RDB_LIMIT"),
+        (Value::String("x ".repeat(16_385)), "RDB_LIMIT"),
     ] {
         let error = c
             .execute(
@@ -222,7 +222,7 @@ fn analyzer_validation_limits_typed_results_and_transaction_preservation() {
         .is_err());
     assert_eq!(
         c.analyze_text("missing", "text").unwrap_err().code(),
-        "FDB_NOT_FOUND"
+        "RDB_NOT_FOUND"
     );
 }
 

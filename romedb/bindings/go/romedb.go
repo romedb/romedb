@@ -155,7 +155,7 @@ func response(p *C.char) (Response, error) {
 	if p == nil {
 		return Response{}, errors.New("null RomeDB response")
 	}
-	defer C.fdb_free(p)
+	defer C.rdb_free(p)
 	var r Response
 	if err := json.Unmarshal([]byte(C.GoString(p)), &r); err != nil {
 		return r, err
@@ -176,12 +176,12 @@ func Open(path string) (*Database, error) {
 	if strings.ContainsRune(path, 0) {
 		return nil, errors.New("path contains NUL")
 	}
-	if C.fdb_abi_version() != 1 {
+	if C.rdb_abi_version() != 1 {
 		return nil, errors.New("unsupported RomeDB ABI")
 	}
 	p := C.CString(path)
 	defer C.free(unsafe.Pointer(p))
-	r, err := response(C.fdb_open(p))
+	r, err := response(C.rdb_open(p))
 	if err != nil {
 		return nil, err
 	}
@@ -207,7 +207,7 @@ func (db *Database) Call(request any, timeoutMS int64) (Response, error) {
 	}
 	p := C.CString(string(data))
 	defer C.free(unsafe.Pointer(p))
-	return response(C.fdb_call(db.handle, p, C.int64_t(timeoutMS)))
+	return response(C.rdb_call(db.handle, p, C.int64_t(timeoutMS)))
 }
 func (db *Database) Execute(sql string, parameters map[string]Value, timeoutMS int64) (Result, error) {
 	if parameters == nil {
@@ -221,5 +221,5 @@ func (db *Database) Execute(sql string, parameters map[string]Value, timeoutMS i
 	err = json.Unmarshal(r.Execution.Result, &result)
 	return result, err
 }
-func (db *Database) Close() error     { _, err := response(C.fdb_close(db.handle)); return err }
-func (db *Database) Interrupt() error { _, err := response(C.fdb_interrupt(db.handle)); return err }
+func (db *Database) Close() error     { _, err := response(C.rdb_close(db.handle)); return err }
+func (db *Database) Interrupt() error { _, err := response(C.rdb_interrupt(db.handle)); return err }

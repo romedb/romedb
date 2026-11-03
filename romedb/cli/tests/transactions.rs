@@ -68,7 +68,7 @@ fn cli_reports_iterator_rollback_and_recovers_after_reopen() {
     let (ok, rows) = run(&script);
     assert!(!ok);
     assert_eq!(rows.len(), 8);
-    assert_eq!(rows[7]["error"]["code"], "FDB_ENGINE");
+    assert_eq!(rows[7]["error"]["code"], "RDB_ENGINE");
     assert_eq!(
         rows[7]["transaction"],
         serde_json::json!({"before":"active","after":"autocommit"})
@@ -145,8 +145,8 @@ fn cli_commits_ordered_tuple_lookups_and_reopens() {
 #[test]
 fn inventory_script_failure_discards_uncommitted_events_on_exit() {
     for (replacement, code) in [
-        ("('P2',-30)", "FDB_VALIDATION"),
-        ("('UNKNOWN',-3)", "FDB_CONSTRAINT"),
+        ("('P2',-30)", "RDB_VALIDATION"),
+        ("('UNKNOWN',-3)", "RDB_CONSTRAINT"),
     ] {
         let root = std::env::temp_dir().join(format!(
             "romedb-inventory-{}-{}",

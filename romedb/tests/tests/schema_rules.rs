@@ -33,7 +33,7 @@ fn strict_schema_rejects_unknown_fields_and_preserves_flexible_typed_children() 
         "INSERT OR REPLACE INTO docs(id,name,n,extra) VALUES(docs:a,'a',7,1)",
     ] {
         let error = c.execute(sql, &Parameters::new()).unwrap_err();
-        assert_eq!(error.code(), "FDB_VALIDATION", "{sql}: {error}");
+        assert_eq!(error.code(), "RDB_VALIDATION", "{sql}: {error}");
         assert_eq!(query(&c, "SELECT * FROM docs").rows, before, "{sql}");
     }
     query(
@@ -45,7 +45,7 @@ fn strict_schema_rejects_unknown_fields_and_preserves_flexible_typed_children() 
     let error = c
         .execute("DEFINE SCHEMA ON docs STRICT", &Parameters::new())
         .unwrap_err();
-    assert_eq!(error.code(), "FDB_VALIDATION");
+    assert_eq!(error.code(), "RDB_VALIDATION");
     query(&c, "UPDATE docs:a SET another=2");
     let Value::Object(info) = &query(&c, "INFO FOR TABLE docs").rows[0][0] else {
         panic!()
@@ -74,7 +74,7 @@ fn schema_changes_validate_existing_data_atomically_and_removal_cannot_orphan_fi
     ] {
         assert_eq!(
             c.execute(sql, &Parameters::new()).unwrap_err().code(),
-            "FDB_VALIDATION",
+            "RDB_VALIDATION",
             "{sql}"
         );
     }
@@ -149,7 +149,7 @@ fn typed_arrays_validate_exact_types_nullability_defaults_and_existing_records()
     ] {
         assert_eq!(
             c.execute(sql, &Parameters::new()).expect_err(sql).code(),
-            "FDB_VALIDATION",
+            "RDB_VALIDATION",
             "{sql}"
         );
         assert_eq!(query(&c, "SELECT * FROM docs").rows, before);
@@ -162,7 +162,7 @@ fn typed_arrays_validate_exact_types_nullability_defaults_and_existing_records()
             )
             .unwrap_err()
             .code(),
-            "FDB_VALIDATION"
+            "RDB_VALIDATION"
         );
     }
     query(&c, "UPDATE docs:a SET ints=null");
@@ -178,7 +178,7 @@ fn typed_arrays_validate_exact_types_nullability_defaults_and_existing_records()
             result.unwrap();
             query(&c, "REMOVE FIELD defaults ON docs");
         } else {
-            assert_eq!(result.unwrap_err().code(), "FDB_VALIDATION");
+            assert_eq!(result.unwrap_err().code(), "RDB_VALIDATION");
         }
     }
     let Value::Object(info) = &query(&c, "INFO FOR TABLE docs").rows[0][0] else {
@@ -285,7 +285,7 @@ fn schema_limits_cancellation_and_metadata_fail_closed_without_losing_caller_wor
             },
         )
         .unwrap();
-    assert_eq!(m.outcome.unwrap_err().code(), "FDB_CANCELLED");
+    assert_eq!(m.outcome.unwrap_err().code(), "RDB_CANCELLED");
     assert_eq!(m.work.row_mutations, 0);
     assert!(m.work.read_budget_exhausted);
     assert_eq!(
@@ -298,7 +298,7 @@ fn schema_limits_cancellation_and_metadata_fail_closed_without_losing_caller_wor
         c.execute_cancellable("DEFINE SCHEMA ON docs STRICT", &Parameters::new(), &token)
             .unwrap_err()
             .code(),
-        "FDB_CANCELLED"
+        "RDB_CANCELLED"
     );
     query(&c, "UPDATE docs:a {extra:1}");
     query(&c, "UPDATE docs:a UNSET extra");
@@ -314,7 +314,7 @@ fn schema_limits_cancellation_and_metadata_fail_closed_without_losing_caller_wor
         )
         .unwrap_err()
         .code(),
-        "FDB_LIMIT"
+        "RDB_LIMIT"
     );
     let engine = turso_core::Database::open_file(
         turso_core::Database::io_for_path(path).unwrap(),
@@ -338,7 +338,7 @@ fn schema_limits_cancellation_and_metadata_fail_closed_without_losing_caller_wor
             c.execute("INFO FOR TABLE docs", &Parameters::new())
                 .unwrap_err()
                 .code(),
-            "FDB_STORAGE",
+            "RDB_STORAGE",
             "{expression}"
         );
         raw.execute("UPDATE __romedb_catalog SET metadata=(SELECT metadata FROM metadata_backup)")

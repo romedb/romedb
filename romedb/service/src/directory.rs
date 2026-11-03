@@ -65,7 +65,7 @@ impl DirectoryService {
     pub fn open(root: &Path, create: bool, max_open: usize) -> Result<Self> {
         if !(1..=1024).contains(&max_open) {
             return Err(Error::new(
-                "FDB_VALIDATION",
+                "RDB_VALIDATION",
                 "the open database limit must be 1..1024",
             ));
         }
@@ -78,7 +78,7 @@ impl DirectoryService {
         }
         if !root.is_dir() {
             return Err(Error::new(
-                "FDB_NOT_FOUND",
+                "RDB_NOT_FOUND",
                 "database directory is missing; use --create to create it",
             ));
         }
@@ -136,14 +136,14 @@ impl DirectoryService {
 
     pub fn create(&self, body: &str, origin: &str) -> Result<Value> {
         let request: CreateRequest = serde_json::from_str(body).map_err(|_| {
-            Error::new("FDB_VALIDATION", "database creation takes {\"name\": NAME}")
+            Error::new("RDB_VALIDATION", "database creation takes {\"name\": NAME}")
         })?;
         if !valid_name(&request.name) {
-            return Err(Error::new("FDB_VALIDATION", "Invalid database name"));
+            return Err(Error::new("RDB_VALIDATION", "Invalid database name"));
         }
         let mut state = self.state()?;
         if state.closing {
-            return Err(Error::new("FDB_CLOSED", "service is stopping"));
+            return Err(Error::new("RDB_CLOSED", "service is stopping"));
         }
         if let Some(entry) = state
             .manifest
@@ -195,7 +195,7 @@ impl DirectoryService {
         if let Some(open) = state.open.get(id) {
             if Arc::strong_count(&open.service) > 1 {
                 return Err(Error::new(
-                    "FDB_BUSY",
+                    "RDB_BUSY",
                     "database has requests in progress; retry the deletion",
                 ));
             }
@@ -251,7 +251,7 @@ impl DirectoryService {
             return Ok((open.service.clone(), entry));
         }
         if state.closing {
-            return Err(Error::new("FDB_CLOSED", "service is stopping"));
+            return Err(Error::new("RDB_CLOSED", "service is stopping"));
         }
         if state.open.len() >= self.max_open {
             self.close_least_recent(&mut state)?;
@@ -276,7 +276,7 @@ impl DirectoryService {
             .map(|(id, _)| id.clone())
             .ok_or_else(|| {
                 Error::new(
-                    "FDB_BUSY",
+                    "RDB_BUSY",
                     "every open database has requests in progress; retry or raise --max-open",
                 )
             })?;
@@ -308,7 +308,7 @@ impl DirectoryService {
     fn state(&self) -> Result<MutexGuard<'_, State>> {
         self.state
             .lock()
-            .map_err(|_| Error::new("FDB_STORAGE", "directory state failed"))
+            .map_err(|_| Error::new("RDB_STORAGE", "directory state failed"))
     }
 }
 
@@ -327,7 +327,7 @@ fn valid_name(name: &str) -> bool {
 }
 
 fn not_found() -> Error {
-    Error::new("FDB_NOT_FOUND", "Database not found")
+    Error::new("RDB_NOT_FOUND", "Database not found")
 }
 
 fn lock_directory(root: &Path) -> Result<File> {
@@ -341,7 +341,7 @@ fn lock_directory(root: &Path) -> Result<File> {
         .open(root.join(LOCK))?;
     if unsafe { libc::flock(lock.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } != 0 {
         return Err(Error::new(
-            "FDB_BUSY",
+            "RDB_BUSY",
             "another romedb serve owns this directory",
         ));
     }
@@ -362,7 +362,7 @@ fn read_manifest(root: &Path) -> Result<Option<Manifest>> {
     Read::by_ref(&mut file)
         .take(MAX_MANIFEST_BYTES + 1)
         .read_to_string(&mut text)?;
-    let invalid = || Error::new("FDB_STORAGE", "directory manifest is invalid");
+    let invalid = || Error::new("RDB_STORAGE", "directory manifest is invalid");
     if text.len() as u64 > MAX_MANIFEST_BYTES {
         return Err(invalid());
     }

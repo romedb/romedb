@@ -77,7 +77,7 @@ letter. Management errors use Cloud's `{"error": "message"}` body; `/read`,
 
 At most `--max-open` databases (1 to 1024, default 32) stay open. Opening one more
 checkpoints and closes the least recently used idle database; when every open
-database has requests in progress the request gets 503 `FDB_BUSY`. Stopping the
+database has requests in progress the request gets 503 `RDB_BUSY`. Stopping the
 service checkpoints every open database, so the files open in `openEmbedded`
 without a log to replay.
 
@@ -188,7 +188,7 @@ their transaction and report `foreignKeys: true` in capabilities. Cloud query
 connections also enable foreign keys before BEGIN; immediate/deferred rollback
 and the hosted common fixture pass qualification.
 The adapter opens only MVCC files (`create: true` makes one) and refuses WAL files
-with `FDB_UNSUPPORTED` before writing to them. It enables foreign keys on its managed
+with `RDB_UNSUPPORTED` before writing to them. It enables foreign keys on its managed
 connection. `maxOpen` bounds the different files open in one process (default 16),
 and closing the last client checkpoints the MVCC log. Clients for the same canonical file in one Node module share a worker
 and revision. Other native handles do not advance that revision. Capabilities
@@ -224,7 +224,7 @@ sequence of the copy), `x-romedb-database-id` and `cache-control: no-store`. It
 needs the same token as the other routes. A `X-RomeDB-Database-ID` request header
 is checked as for reads and writes. Errors use the service body
 `{"error": {"code", "message"}}`, also on directory routes. One copy of a database
-is built at a time; a second request gets 503 `FDB_BUSY` and can be retried.
+is built at a time; a second request gets 503 `RDB_BUSY` and can be retried.
 
 How a copy is made:
 
@@ -238,23 +238,23 @@ How a copy is made:
   nothing behind. That disk needs room for one more copy of the database while it
   is built and sent.
 - `exportFile(destination)` refuses a destination that exists, or whose `-wal`,
-  `-shm`, `-log`, `-journal` or `.db-log` file exists, with `FDB_ALREADY_EXISTS`.
+  `-shm`, `-log`, `-journal` or `.db-log` file exists, with `RDB_ALREADY_EXISTS`.
   It builds the copy in a folder beside the destination, then links the finished
   file into place with mode 0600, so the destination never holds a partial file.
 - Checkpoints wait while a copy is built, so the MVCC log grows during a long
   export. The first checkpoint after the export merges it.
 - `signal`, `timeoutMs` and closing the database cancel the copy and remove its
-  folder. An embedded export settles with `FDB_CANCELLED`, or with the file if the
+  folder. An embedded export settles with `RDB_CANCELLED`, or with the file if the
   copy finished first. For the URL client, `timeoutMs` (default: the client's
   timeout) covers building the copy, until the file starts arriving; `signal`
   also stops the download.
-- Only MVCC databases are copied. A WAL file gets `FDB_UNSUPPORTED`.
+- Only MVCC databases are copied. A WAL file gets `RDB_UNSUPPORTED`.
 - An `openEmbedded` sequence counts writes through that adapter and starts at 0 on
   each open. A file that only `openEmbedded` has written has no service sequence,
   so `romedb serve FILE` starts it at 0.
 - The copy keeps the database's ID. `serve --directory` refuses it under another
   file name (409, a copied database); serve it alone or under its own ID.
-- Not yet available: `exportFile` on a Cloud URL fails with `FDB_UNSUPPORTED`
+- Not yet available: `exportFile` on a Cloud URL fails with `RDB_UNSUPPORTED`
   before sending (Cloud exports remain the archives of `PUT .../exports/{uuid}`),
   and a Cloud database cannot be created from a file.
 
@@ -395,7 +395,7 @@ Native work counters bound rows read, mutations and VM steps; negotiated capabil
 must state which statements have checked coverage. No SQL prefix alone proves a
 request read-only. Execution details remain engine-enforced.
 
-Client errors have a stable `FDB_*` code and outcome: `not-sent`, `read-failed`,
+Client errors have a stable `RDB_*` code and outcome: `not-sent`, `read-failed`,
 `unknown`, or `rolled-back`. Only a valid receipt proves the last outcome. Keep
 the request journal on unknown errors, plus HTTP status where available. Do not
 include tokens, full request bodies or transport errors containing credential

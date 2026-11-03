@@ -279,7 +279,7 @@ fn rust_vector_constructors_enforce_dimensions_and_finite_values() {
         assert!(constructor(&[]).is_err());
         assert_eq!(
             constructor(&vec![0.0; 65_537]).unwrap_err().code(),
-            "FDB_LIMIT"
+            "RDB_LIMIT"
         );
         for value in [f32::NAN, f32::INFINITY, f32::NEG_INFINITY] {
             assert!(constructor(&[value]).is_err());
@@ -294,7 +294,7 @@ fn rust_vector_constructors_enforce_dimensions_and_finite_values() {
     }
     assert_eq!(
         Value::vector64(&vec![0.0; 65_537]).unwrap_err().code(),
-        "FDB_LIMIT"
+        "RDB_LIMIT"
     );
     assert!(Value::vector64(&[]).is_err());
     // Finite inputs can overflow the pinned quantizer's scale calculation.
@@ -362,7 +362,7 @@ fn sparse_entry_constructor_checks_boundaries_before_encoding() {
             Value::vector32_sparse_entries(dimensions, &[])
                 .unwrap_err()
                 .code(),
-            "FDB_LIMIT"
+            "RDB_LIMIT"
         );
     }
     for entries in [

@@ -49,19 +49,19 @@ public sealed class Database : IDisposable
     private static class Native
     {
         private const string Library = "romedb_c";
-        [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern uint fdb_abi_version();
-        [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern IntPtr fdb_open([MarshalAs(UnmanagedType.LPUTF8Str)] string path);
-        [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern IntPtr fdb_call(ulong handle, [MarshalAs(UnmanagedType.LPUTF8Str)] string request, long timeoutMs);
-        [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern IntPtr fdb_close(ulong handle);
-        [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern IntPtr fdb_interrupt(ulong handle);
-        [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern void fdb_free(IntPtr response);
+        [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern uint rdb_abi_version();
+        [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern IntPtr rdb_open([MarshalAs(UnmanagedType.LPUTF8Str)] string path);
+        [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern IntPtr rdb_call(ulong handle, [MarshalAs(UnmanagedType.LPUTF8Str)] string request, long timeoutMs);
+        [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern IntPtr rdb_close(ulong handle);
+        [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern IntPtr rdb_interrupt(ulong handle);
+        [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern void rdb_free(IntPtr response);
     }
     private static JsonObject Receive(IntPtr pointer)
     {
         if (pointer == IntPtr.Zero) throw new InvalidOperationException("null RomeDB response");
         JsonObject response;
         try { response = JsonNode.Parse(Marshal.PtrToStringUTF8(pointer)!)!.AsObject(); }
-        finally { Native.fdb_free(pointer); }
+        finally { Native.rdb_free(pointer); }
         if (response["version"]!.GetValue<int>() != 1) throw new InvalidOperationException("unsupported RomeDB response version");
         if (response["execution"]!["error"] is JsonObject error)
             throw new RomeDBException(error, response["transaction"] as JsonObject);
@@ -72,14 +72,14 @@ public sealed class Database : IDisposable
         ArgumentNullException.ThrowIfNull(path);
         _ = new System.Text.UTF8Encoding(false, true).GetByteCount(path);
         if (path.Contains('\0')) throw new ArgumentException("path contains NUL", nameof(path));
-        if (Native.fdb_abi_version() != 1) throw new InvalidOperationException("unsupported RomeDB ABI");
-        handle = ulong.Parse(Receive(Native.fdb_open(path))["execution"]!["result"]!.GetValue<string>(), CultureInfo.InvariantCulture);
+        if (Native.rdb_abi_version() != 1) throw new InvalidOperationException("unsupported RomeDB ABI");
+        handle = ulong.Parse(Receive(Native.rdb_open(path))["execution"]!["result"]!.GetValue<string>(), CultureInfo.InvariantCulture);
     }
     /// <summary>All shared-protocol operations; results retain transfer-v1 tags. Timeout -1 means none.</summary>
     public JsonObject Call(JsonObject request, long timeoutMs = -1)
     {
         ValidateText(request);
-        try { return Receive(Native.fdb_call(handle, request.ToJsonString(), timeoutMs)); }
+        try { return Receive(Native.rdb_call(handle, request.ToJsonString(), timeoutMs)); }
         finally { GC.KeepAlive(this); }
     }
     public JsonObject Execute(string sql, JsonObject? parameters = null, long timeoutMs = -1)
@@ -89,7 +89,7 @@ public sealed class Database : IDisposable
         result["transaction"] = r["transaction"]!.DeepClone();
         return result;
     }
-    public void Interrupt() { try { Receive(Native.fdb_interrupt(handle)); } finally { GC.KeepAlive(this); } }
-    public void Dispose() { Receive(Native.fdb_close(handle)); GC.SuppressFinalize(this); }
-    ~Database() { if (handle != 0) { try { Native.fdb_free(Native.fdb_close(handle)); } catch { /* Finalizers must not throw. */ } } }
+    public void Interrupt() { try { Receive(Native.rdb_interrupt(handle)); } finally { GC.KeepAlive(this); } }
+    public void Dispose() { Receive(Native.rdb_close(handle)); GC.SuppressFinalize(this); }
+    ~Database() { if (handle != 0) { try { Native.rdb_free(Native.rdb_close(handle)); } catch { /* Finalizers must not throw. */ } } }
 }
