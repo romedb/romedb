@@ -23,7 +23,7 @@ version, 0.2.12, differs from its asset only in `package.json` and this README. 
 project can also depend on the asset of a GitHub release by URL:
 
 ```sh
-pnpm add https://github.com/romedb/romedb/releases/download/romedb-v0.2.12/romedb-node-0.2.12.tgz
+pnpm add https://github.com/romedb/romedb/releases/download/romedb-v0.2.13/romedb-node-0.2.13.tgz
 ```
 
 ## A first database

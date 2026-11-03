@@ -35,7 +35,8 @@ Back up before upgrading. Legacy full-text indexes require `REINDEX`.
   [Node.js client for Workers and browsers](../bindings/node/README.md#workers-browsers-and-other-runtimes),
   from 0.2.12.
 - [Copies of an open database as new `.romedb` files](service-protocol.md#database-files)
-  (`exportFile`, `GET .../file`) while reads and writes continue; not yet released.
+  (`exportFile`, `GET .../file`) while reads and writes continue, and the Node.js
+  package [published to npm](npm-publishing.md) by each release, from 0.2.13.
 
 ## Release verification
 
