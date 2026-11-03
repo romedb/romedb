@@ -38,3 +38,31 @@ fn document_writes_create_collections_atomically_and_persist() {
         );
     }
 }
+
+#[test]
+fn a_record_delete_needs_no_from() {
+    let database = Database::open(":memory:").unwrap();
+    let c = database.connect().unwrap();
+    let q = |sql: &str| c.execute(sql, &Parameters::new()).expect(sql);
+    q("INSERT INTO posts {id:posts:a,title:'A'}");
+    q("INSERT INTO posts {id:posts:b,title:'B'}");
+    q("CREATE INDEX posts_title ON posts(title)");
+    q("DELETE posts:a");
+    q("DELETE posts:missing");
+    assert_eq!(q("SELECT title FROM posts").rows.len(), 1);
+    assert!(q("SELECT * FROM posts WHERE title='A'").rows.is_empty());
+    assert_eq!(
+        q("DELETE posts:b RETURNING title").rows,
+        vec![vec![romedb::Value::String("B".into())]]
+    );
+    assert!(q("SELECT * FROM posts").rows.is_empty());
+    q("INSERT INTO posts {id:posts:c,title:'C'}");
+    q("DELETE FROM posts:c");
+    assert!(q("SELECT * FROM posts").rows.is_empty());
+    assert_eq!(
+        c.check_collection_integrity("posts", Default::default())
+            .unwrap()
+            .index_entries,
+        0
+    );
+}

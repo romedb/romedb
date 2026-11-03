@@ -1687,8 +1687,8 @@ pub fn parse(input: &str) -> Result<Statement> {
         if !p.eat(verb) {
             continue;
         }
-        if verb == "DELETE" && !p.eat("FROM") {
-            continue;
+        if verb == "DELETE" {
+            p.eat("FROM");
         }
         let start = p.pos;
         if p.tokens.get(start + 1).is_none_or(|t| t.text != ":")

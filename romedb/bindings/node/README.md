@@ -71,7 +71,7 @@ create the file with `openEmbedded` from the start.
 | `SELECT id, title FROM posts WHERE array::contains(tags, 'news')` | Finds documents by a value in an array. |
 | `INSERT INTO posts {id: posts:second, title: 'Second', author: people:alice}` | Stores a link to another record. |
 | `SELECT * FROM posts WHERE id = posts:second FETCH author` | Returns the post with the linked `people:alice` document in place of the link. |
-| `DELETE FROM posts:hello` | Deletes one record. |
+| `DELETE posts:hello` | Deletes one record. `DELETE FROM posts:hello` is the same statement. |
 | `DEFINE FIELD title ON posts TYPE string` | Adds validation. After it, a write with a number in `title` fails with `FDB_VALIDATION`. |
 | `CREATE UNIQUE INDEX posts_title ON posts(title)` | Adds a unique index on a field. |
 | `CREATE TABLE visits(at INTEGER, path TEXT)` | Makes an ordinary SQL table. SQL statements work on it, and collections can join it. |
