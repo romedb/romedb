@@ -1,0 +1,35 @@
+{
+  "version": "0.2.13",
+  "verifiedAtUtc": "2026-11-04T02:09:13.913639+00:00",
+  "releaseUrl": "https://github.com/romedb/romedb/releases/tag/romedb-v0.2.13",
+  "archiveUrl": "https://github.com/romedb/romedb/releases/download/romedb-v0.2.13/romedb-0.2.13-linux-x64.tar.gz",
+  "archiveSha256": "539b7bd56b848ef4e7dc76f9950607777a6c910cb4d1eea5e195bce1ae6a8591",
+  "archiveBytes": 105047321,
+  "archiveReproduced": "the downloaded tar.gz is byte-identical to the archive built from the assembled bundle (fixed owner and commit-time mtimes)",
+  "sourceCommit": "54514891294992c65458b4e90ee2f1de6352cd63",
+  "sourceArchiveSha256": "c71f4c90106c569a8a9b55cb813771203651f753b7b727127442fd0db1af42b1",
+  "anonymousDownload": true,
+  "outerChecksumMatches": true,
+  "internalChecksumsPass": true,
+  "internalFiles": 73,
+  "sourceArchiveMatchesTag": true,
+  "cAbiSmoke": "passed",
+  "cliVersion": "bin/romedb --version prints 'romedb 0.2.13'",
+  "nodePackageAsset": {
+    "url": "https://github.com/romedb/romedb/releases/download/romedb-v0.2.13/romedb-node-0.2.13.tgz",
+    "sha256": "24fa6b3d7fedb60d2b281a9be29ff73a5fd33d552cab34b11e1668e073208c26",
+    "bytes": 16010894,
+    "matchesBundle": "byte-identical to packages/romedb-node-0.2.13.tgz in the archive"
+  },
+  "npmPackage": {
+    "url": "https://www.npmjs.com/package/@romedb/node/v/0.2.13",
+    "tarball": "https://registry.npmjs.org/@romedb/node/-/node-0.2.13.tgz",
+    "matchesAsset": "the registry tarball is byte-identical to romedb-node-0.2.13.tgz",
+    "publishedBy": "GitHub Actions run https://github.com/romedb/romedb/actions/runs/41758103924 of npm-publish.yml through npm trusted publishing, without an npm token",
+    "provenance": "npm audit signatures reports a verified attestation; transparency log https://search.sigstore.dev/?logIndex=3685282051"
+  },
+  "consumerChecks": "from clean npm and pnpm installs of @romedb/node@^0.2.13, on Node 22.0.0 and 24.19.0: DELETE posts:a removes a record; a failed statement carries an RDB_ code; a WAL file made by the Database class is refused by openEmbedded with RDB_UNSUPPORTED; a new openEmbedded database writes and reads with files 0600 and binaries as plain Uint8Array; exportFile writes a 0600 copy at the current sequence; romedb serve --directory from the archive serves a database the installed client reaches by its loopback URL, and exportFile downloads it to a file that openEmbedded reads alone",
+  "formatBreak": "a database written by the released 0.2.12 Node package is refused by the 0.2.13 package with RDB_UNSUPPORTED and stays byte-identical, on Node 22.0.0 and 24.19.0",
+  "workersCheck": "a Worker bundled by esbuild (platform neutral) from the installed @romedb/node/client uses client.mjs and values.mjs, has no node: import and ran in Miniflare (compatibility date 2026-06-06, no nodejs_compat) against serve --directory: engine 0.2.13, negotiated capabilities, typed values, an exportFile download of the exact size, an RDB_ error code and DELETE posts:hello",
+  "manifestSha256": "240e05af792fbb73f31f848a196d018219489470468a444ed4d5ca0b63751a94"
+}
