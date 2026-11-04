@@ -42,6 +42,9 @@ Create new databases for 0.2.13. The C ABI functions are now `rdb_*`.
 - [Copies of an open database as new `.romedb` files](service-protocol.md#database-files)
   (`exportFile`, `GET .../file`) while reads and writes continue, and the Node.js
   package [published to npm](npm-publishing.md) by each release, from 0.2.13.
+- [Copies that leave named tables empty or start a new identity](service-protocol.md#database-files)
+  (`emptyTables`, `newIdentity`), and copies between databases in
+  `romedb serve --directory`, from 0.2.14.
 
 ## Release verification
 
