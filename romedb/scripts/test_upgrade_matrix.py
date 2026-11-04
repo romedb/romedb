@@ -16,7 +16,8 @@ class UpgradeMatrixTests(unittest.TestCase):
         self.assertEqual([u.previous for u in matrix.applicable("0.2.12")], ["0.2.9", "0.2.10", "0.2.11"])
         self.assertEqual([u.previous for u in matrix.applicable("0.2.13")], [])
         self.assertEqual([u.previous for u in matrix.applicable("0.2.14")], ["0.2.13"])
-        self.assertEqual([u.previous for u in matrix.applicable("0.3.0")], ["0.2.13"])
+        self.assertEqual([u.previous for u in matrix.applicable("0.2.15")], ["0.2.13", "0.2.14"])
+        self.assertEqual([u.previous for u in matrix.applicable("0.3.0")], ["0.2.13", "0.2.14"])
         self.assertTrue(matrix.at_least("0.2.10", "0.2.9"))
         self.assertFalse(matrix.at_least("0.2.9", "0.2.10"))
 
