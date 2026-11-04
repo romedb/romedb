@@ -15,7 +15,8 @@ class UpgradeMatrixTests(unittest.TestCase):
         self.assertEqual([u.previous for u in matrix.applicable("0.2.11")], ["0.2.9", "0.2.10"])
         self.assertEqual([u.previous for u in matrix.applicable("0.2.12")], ["0.2.9", "0.2.10", "0.2.11"])
         self.assertEqual([u.previous for u in matrix.applicable("0.2.13")], [])
-        self.assertEqual([u.previous for u in matrix.applicable("0.3.0")], [])
+        self.assertEqual([u.previous for u in matrix.applicable("0.2.14")], ["0.2.13"])
+        self.assertEqual([u.previous for u in matrix.applicable("0.3.0")], ["0.2.13"])
         self.assertTrue(matrix.at_least("0.2.10", "0.2.9"))
         self.assertFalse(matrix.at_least("0.2.9", "0.2.10"))
 
@@ -32,14 +33,7 @@ class UpgradeMatrixTests(unittest.TestCase):
             matrix.UPGRADES = original
 
     def test_a_format_break_stops_earlier_rows(self):
-        row = matrix.Upgrade("v0213", "0.2.13", "check-v251-upgrade.cjs", "0.2.14")
-        original = matrix.UPGRADES
-        matrix.UPGRADES = [*original, row]
-        try:
-            self.assertEqual(matrix.applicable("0.2.13"), [])
-            self.assertEqual(matrix.applicable("0.2.14"), [row])
-        finally:
-            matrix.UPGRADES = original
+        self.assertEqual(matrix.applicable("0.2.13"), [])
 
     def test_missing_or_mismatched_previous_packages_fail(self):
         original = matrix.UPGRADES
