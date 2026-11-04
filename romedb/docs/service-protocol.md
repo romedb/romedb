@@ -66,6 +66,7 @@ another process.
 | `GET .../databases/{id}` | 200 `entry` plus the service details (`sequence`, `serviceVersion`, `engineVersion`, `journalMode`, `capabilities`, `limits`) |
 | `DELETE .../databases/{id}` | 204; closes the database and removes its file and journal files |
 | `POST .../databases/{id}/read` and `/query` | the service protocol below, per database |
+| `POST .../databases` `{name, from, emptyTables}` | 201 `entry` for a copy of `from` with a new identity; `emptyTables` is optional. A name in use gets 409, not the existing database |
 | `GET .../databases/{id}/file` | 200 with the database as a `.romedb` file; see [Database files](#database-files) |
 
 An entry is `{id, name, organizationId, status: "active", createdAt, updatedAt,
@@ -222,9 +223,36 @@ The reply to `GET .../file` has these headers: `content-type:
 application/vnd.romedb.database`, `content-length`, `x-romedb-sequence` (the
 sequence of the copy), `x-romedb-database-id` and `cache-control: no-store`. It
 needs the same token as the other routes. A `X-RomeDB-Database-ID` request header
-is checked as for reads and writes. Errors use the service body
+is checked as for reads and writes. The service leaves this connection open for the
+client to end. Node's `fetch` crashes the process if a socket closes while its reader
+is paused. Errors use the service body
 `{"error": {"code", "message"}}`, also on directory routes. One copy of a database
 is built at a time; a second request gets 503 `RDB_BUSY` and can be retried.
+
+A copy can leave data out:
+
+| Node option | Query | Effect |
+| --- | --- | --- |
+| `emptyTables: ['a', 'b']` | `?empty=a,b` | The tables keep their schema and indexes but no rows, and the copy gets a new identity |
+| `newIdentity: true` | `?identity=new` | Every row is kept. The copy has no database ID, sequence or receipts |
+
+Names in `?empty=` are percent-encoded, and a name cannot hold a comma. A name that
+is not a table gets 400 `RDB_VALIDATION`. So does an edge table's endpoint unless the
+edge table is emptied too. Internal tables and views cannot be named. The query is at
+most 4,096 bytes.
+
+The rows of an emptied table are never read. The copy skips the table, every table
+that holds its index data and the receipts, then builds its indexes again over no
+rows. The rows cannot reach freed pages, a log or a receipt. With change capture on,
+the `turso_cdc` table is left empty too. A table of your own that copies rows is not
+found this way, so name it as well. A migration script is kept as it is, so a value
+written in a script stays in the migration history. `sqlite_sequence` and
+`sqlite_stat1` keep their numbers.
+
+A copy with a new identity gets its ID the first time a service opens it, and its
+sequence starts at 0. `x-romedb-sequence` is still the source database's sequence at
+the snapshot, and `x-romedb-database-id` is still the source's ID. `serve --directory`
+accepts such a file under any `{id}.romedb` name.
 
 How a copy is made:
 

@@ -19734,6 +19734,7 @@ fn op_vacuum_into_inner(program: &Program, state: &mut ProgramState, insn: &Insn
                     target_mvcc_enabled: source_db.mvcc_enabled(),
                     target_auto_vacuum_mode: source_auto_vacuum_mode,
                     copy_mvcc_metadata_table: false,
+                    tables_without_rows: program.connection.vacuum_into_tables_without_rows(),
                 };
 
                 vacuum_state._output_db = Some(output_db);

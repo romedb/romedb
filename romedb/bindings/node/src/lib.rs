@@ -507,6 +507,8 @@ impl NativeDatabase {
         &self,
         destination: String,
         cancellation_key: Option<String>,
+        empty_tables: Option<Vec<String>>,
+        new_identity: Option<bool>,
     ) -> napi::Result<NativeFileExport> {
         let (_, db) = self
             .inner
@@ -521,8 +523,12 @@ impl NativeDatabase {
                 .ok_or_else(|| error("unknown cancellation token"))?,
             None => romedb::CancellationToken::new(),
         };
+        let options = romedb::FileExportOptions {
+            empty_tables: empty_tables.unwrap_or_default(),
+            new_identity: new_identity.unwrap_or(false),
+        };
         let pending = db
-            .start_file_export(std::path::Path::new(&destination), &token)
+            .start_file_export(std::path::Path::new(&destination), &options, &token)
             .map_err(coded_error)?;
         Ok(NativeFileExport {
             pending: Some(pending),

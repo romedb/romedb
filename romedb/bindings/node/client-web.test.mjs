@@ -113,3 +113,13 @@ test('sequenceKnown starts false on a deferred Cloud connection and cloud is tru
 test('saveRequest needs Node.js file access outside Node', async () => {
   await assert.rejects(saveRequest('/tmp/request.json', {}), /Node\.js file access/);
 });
+
+test('a Record prints as table:key and compares by table and key', () => {
+  const record = new Record('posts', 'a');
+  assert.equal(String(record), 'posts:a');
+  assert.equal(`${new Record('posts', 7n)}`, 'posts:7');
+  assert.equal(record.equals(new Record('posts', 'a')), true);
+  assert.equal(record.equals(new Record('pages', 'a')), false);
+  assert.equal(new Record('posts', '7').equals(new Record('posts', 7n)), false);
+  assert.equal(record.equals({ table: 'posts', key: 'a' }), false);
+});

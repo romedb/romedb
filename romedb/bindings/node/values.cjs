@@ -18,6 +18,8 @@ class Record {
     this.key = key;
     Object.freeze(this);
   }
+  toString() { return `${this.table}:${this.key}`; }
+  equals(other) { return other instanceof Record && other.table === this.table && other.key === this.key; }
 }
 
 class Vector {
@@ -204,8 +206,16 @@ function checkDepth(depth) {
   if (depth > 64) throw new RangeError('value nesting exceeds 64');
 }
 
+function checkCopyOptions(options) {
+  const { emptyTables, newIdentity } = options;
+  if (emptyTables !== undefined && (!Array.isArray(emptyTables) || emptyTables.length > 256 || emptyTables.some(name => typeof name !== 'string' || !name || name.length > 255 || /[,\0]/.test(name)))) {
+    throw new TypeError('emptyTables takes up to 256 table names without commas');
+  }
+  if (newIdentity !== undefined && typeof newIdentity !== 'boolean') throw new TypeError('newIdentity must be a boolean');
+}
+
 function plainObject(value) {
   return value !== null && typeof value === 'object' && (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null);
 }
 
-module.exports = { Float64, Record, Vector, encodeValue, decodeValue, plainObject, text };
+module.exports = { Float64, Record, Vector, encodeValue, decodeValue, plainObject, text, checkCopyOptions };

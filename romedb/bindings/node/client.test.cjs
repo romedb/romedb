@@ -598,6 +598,27 @@ test('a loopback organization URL negotiates a local service and keeps Cloud run
   }
 });
 
+test('exportFile sends what to leave out in the query and checks it first', async () => {
+  const bytes = new Uint8Array(16);
+  const urls = [];
+  const db = await connect({ url: 'http://127.0.0.1:4321', token: 'test-token', fetch: async url => {
+    if (!url.includes('/file')) return json(details(2));
+    urls.push(url);
+    return new Response(bytes, { headers: { 'content-type': 'application/vnd.romedb.database', 'content-length': '16', 'x-romedb-sequence': '7', 'x-romedb-database-id': 'local-test' } });
+  } });
+  try {
+    await (await db.exportFile()).body.cancel();
+    await (await db.exportFile({ newIdentity: true })).body.cancel();
+    await (await db.exportFile({ emptyTables: ['sessions', 'caché'] })).body.cancel();
+    await (await db.exportFile({ emptyTables: [], newIdentity: false })).body.cancel();
+    assert.deepEqual(urls.map(url => url.slice(url.indexOf('/file'))), ['/file', '/file?identity=new', '/file?empty=sessions,cach%C3%A9', '/file']);
+    await assert.rejects(db.exportFile({ emptyTables: ['a,b'] }), TypeError);
+    await assert.rejects(db.exportFile({ emptyTables: [''] }), TypeError);
+    await assert.rejects(db.exportFile({ newIdentity: 'yes' }), TypeError);
+    await assert.rejects(db.exportFile({ other: true }), TypeError);
+  } finally { await db.close(); }
+});
+
 test('exportFile downloads the database file with its sequence and checks the size and identity', async () => {
   const bytes = new Uint8Array(4096).map((_, i) => i % 251);
   const file = (headers = {}, body = bytes) => new Response(body, { headers: { 'content-type': 'application/vnd.romedb.database', 'content-length': String(bytes.byteLength), 'x-romedb-sequence': '7', 'x-romedb-database-id': 'local-test', ...headers } });
@@ -636,7 +657,16 @@ test('exportFile downloads the database file with its sequence and checks the si
     aborted.abort();
     await assert.rejects(db.exportFile({ signal: aborted.signal }), error => error.code === 'RDB_CANCELLED' && error.outcome === 'not-sent');
   } finally { await db.close(); }
-  const remote = await connect({ url: cloud, token: 'test-token', warm: false, fetch: async () => { throw new Error('Cloud exports must not be sent'); } });
-  try { await assert.rejects(remote.exportFile(), error => error.code === 'RDB_UNSUPPORTED' && error.outcome === 'not-sent'); }
-  finally { await remote.close(); }
+  const requested = [];
+  const remote = await connect({ url: cloud, token: 'test-token', warm: false, fetch: async url => {
+    requested.push(url);
+    const id = /databases\/([0-9a-f-]{36})/.exec(url)[1];
+    return new Response(bytes, { headers: { 'content-type': 'application/vnd.romedb.database', 'content-length': String(bytes.byteLength), 'x-romedb-sequence': '7', 'x-romedb-database-id': id } });
+  } });
+  try {
+    const exported = await remote.exportFile({ emptyTables: ['sessions'], timeoutMs: 5000 });
+    assert.equal(exported.sequence, 7);
+    assert.equal((await new Response(exported.body).arrayBuffer()).byteLength, bytes.byteLength);
+    assert.match(requested.at(-1), /\/file\?empty=sessions$/);
+  } finally { await remote.close(); }
 });

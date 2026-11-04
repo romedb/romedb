@@ -185,6 +185,32 @@ impl Index {
     pub(crate) fn text_directory(&self) -> String {
         format!("__turso_internal_fts_dir_{}", self.name)
     }
+    /// Every table that holds data for this index. `drop_index_storage`
+    /// removes the same tables.
+    pub(crate) fn storage_tables(&self) -> Vec<String> {
+        let mut tables = vec![self.storage.clone()];
+        match self.kind {
+            IndexKind::FullText => {
+                tables.push(self.text_directory());
+                if self
+                    .fulltext
+                    .as_ref()
+                    .is_some_and(|config| config.storage_version == 1)
+                {
+                    tables.push(self.text_stats());
+                }
+            }
+            IndexKind::Vector => tables.extend([self.ann_state(), self.ann_log()]),
+            IndexKind::Scalar | IndexKind::Spatial | IndexKind::Array => {}
+        }
+        tables.extend(
+            self.extra_schema()
+                .into_iter()
+                .filter(|object| object.kind == "table")
+                .map(|object| object.name),
+        );
+        tables
+    }
     pub(crate) fn text_directory_ddl(&self) -> String {
         format!(
             "CREATE TABLE {} (path TEXT NOT NULL, chunk_no INTEGER NOT NULL, bytes BLOB NOT NULL)",

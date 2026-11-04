@@ -266,7 +266,28 @@ impl DatabaseService {
     /// Copy the database into a new file at the current sequence. Reads,
     /// writes and schema changes continue. The copy is built beside the
     /// database file and has no name when returned.
-    pub fn export_file(&self) -> Result<FileDownload> {
+    pub fn export_file(&self, options: &romedb::FileExportOptions) -> Result<FileDownload> {
+        let (export, sequence) = self
+            .copy(|database| database.start_file_snapshot(&self.folder, options, &self.stopping))?;
+        Ok(FileDownload {
+            file: export.file,
+            bytes: export.bytes,
+            sequence,
+            database_id: self.database_id.clone(),
+        })
+    }
+
+    /// Copy this database into a new file at `destination`.
+    pub fn copy_to(&self, destination: &Path, options: &romedb::FileExportOptions) -> Result<u64> {
+        let (export, _) =
+            self.copy(|database| database.start_file_export(destination, options, &self.stopping))?;
+        Ok(export.bytes)
+    }
+
+    fn copy(
+        &self,
+        start: impl FnOnce(&romedb::Database) -> romedb::Result<romedb::PendingFileExport>,
+    ) -> Result<(romedb::FileExport, u64)> {
         let started = deadline();
         self.check_fence()?;
         if self.stopping.is_cancelled() {
@@ -284,18 +305,9 @@ impl DatabaseService {
         };
         let (pending, sequence) = {
             let publication = self.lock_before(started, || self.publication.try_lock())?;
-            let pending = self
-                .database
-                .start_file_snapshot(&self.folder, &self.stopping)?;
-            (pending, publication.sequence)
+            (start(&self.database)?, publication.sequence)
         };
-        let export = pending.finish()?;
-        Ok(FileDownload {
-            file: export.file,
-            bytes: export.bytes,
-            sequence,
-            database_id: self.database_id.clone(),
-        })
+        Ok((pending.finish()?, sequence))
     }
 
     pub fn query(&self, body: &str) -> Result<String> {

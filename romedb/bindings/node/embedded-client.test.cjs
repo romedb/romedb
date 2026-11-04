@@ -356,6 +356,56 @@ test('exportFile copies the database at the sequence it reports while writes con
   await assert.rejects(db.exportFile(destination, { afterSequence: 1 }), TypeError);
 });
 
+test('exportFile leaves named tables empty in both forms and refuses unknown names', async t => {
+  const { directory, file } = await fixture(t);
+  const db = await openEmbedded({ path: file, create: true });
+  t.after(() => db.close());
+  for (const sql of ['CREATE TABLE sessions', 'CREATE UNIQUE INDEX sessions_token ON sessions(token)', 'CREATE TABLE posts']) await db.writeAtomic([{ sql }]);
+  await db.writeAtomic([{ sql: "INSERT INTO sessions {token: 'marker-session-token'}" }]);
+  await db.writeAtomic([{ sql: "INSERT INTO posts {title: 'marker-kept-title'}" }]);
+
+  const destination = path.join(directory, 'emptied.romedb');
+  await db.exportFile(destination, { emptyTables: ['sessions'] });
+  const bytes = await fs.readFile(destination);
+  assert.equal(bytes.includes('marker-session-token'), false);
+  assert.equal(bytes.includes('marker-kept-title'), true);
+
+  const { body, size } = await db.exportFile({ emptyTables: ['sessions'] });
+  const streamed = Buffer.from(await new Response(body).arrayBuffer());
+  assert.equal(streamed.length, size);
+  assert.equal(streamed.includes('marker-session-token'), false);
+
+  const copy = await openEmbedded({ path: destination });
+  t.after(() => copy.close());
+  const count = async sql => (await copy.read([{ sql }])).results[0].rows[0][0];
+  assert.equal(await count('SELECT count() FROM sessions'), 0n);
+  assert.equal(await count('SELECT count() FROM posts'), 1n);
+  assert.notEqual((await copy.info()).id, (await db.info()).id);
+  await copy.writeAtomic([{ sql: "INSERT INTO sessions {token: 'marker-session-token'}" }]);
+
+  await assert.rejects(db.exportFile(path.join(directory, 'unknown.romedb'), { emptyTables: ['missing'] }), { code: 'RDB_VALIDATION' });
+  await assert.rejects(db.exportFile({ emptyTables: ['missing'] }), { code: 'RDB_VALIDATION' });
+  await assert.rejects(db.exportFile(path.join(directory, 'bad.romedb'), { emptyTables: 'sessions' }), TypeError);
+  await assert.rejects(db.exportFile(path.join(directory, 'bad.romedb'), { emptyTables: ['a,b'] }), TypeError);
+  await assert.rejects(db.exportFile(path.join(directory, 'bad.romedb'), { newIdentity: 1 }), TypeError);
+});
+
+test('exportFile with a new identity keeps the rows of a database with a new id and sequence 0', async t => {
+  const { directory, file } = await fixture(t);
+  const db = await openEmbedded({ path: file, create: true });
+  t.after(() => db.close());
+  await db.writeAtomic([{ sql: 'CREATE TABLE posts' }]);
+  await db.writeAtomic([{ sql: "INSERT INTO posts {title: 'kept'}" }]);
+  const destination = path.join(directory, 'duplicate.romedb');
+  await db.exportFile(destination, { newIdentity: true });
+  const copy = await openEmbedded({ path: destination });
+  t.after(() => copy.close());
+  const info = await copy.info();
+  assert.notEqual(info.id, (await db.info()).id);
+  assert.equal(info.sequence, 0);
+  assert.equal((await copy.read([{ sql: 'SELECT count() FROM posts' }])).results[0].rows[0][0], 1n);
+});
+
 test('exportFile streams a copy that leaves nothing on disk and stops when cancelled', async t => {
   const { directory, file } = await fixture(t);
   const db = await openEmbedded({ path: file, create: true });

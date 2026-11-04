@@ -5,45 +5,51 @@ impl Connection {
         let name = crate::canonical(name)?;
         self.atomic(|| {
             self.validate_storage_schema()?;
-            for mut collection in self.collections()? {
-                let Some(position) = collection
-                    .indexes
-                    .iter()
-                    .position(|index| index.name == name)
-                else {
-                    continue;
-                };
-                let documents = self.reindex_documents(&collection)?;
-                let index = &mut collection.indexes[position];
-                self.drop_index_storage(index)?;
-                if let Some(config) = &mut index.fulltext {
-                    config.storage_version = 2;
-                }
-                // Upgrade the released latitude format; keep current formats,
-                // including region indexes, as they are.
-                if index.kind == IndexKind::Spatial && index.spatial.is_none() {
-                    index.spatial = Some(crate::spatial::Config::current());
-                }
-                match index.kind {
-                    IndexKind::FullText => self.build_text_storage(index, &documents)?,
-                    IndexKind::Vector => self.build_vector_storage(index, &documents)?,
-                    IndexKind::Scalar | IndexKind::Spatial | IndexKind::Array => {
-                        self.run(&index.table_ddl(), &[])?;
-                        self.run(&index.index_ddl(), &[])?;
-                        for object in index.extra_schema() {
-                            self.run(&object.ddl, &[])?;
-                        }
-                        for document in &documents {
-                            self.insert_index(index, document)?;
-                        }
+            self.rebuild_index(&name)?;
+            self.validate_storage_schema()
+        })
+    }
+
+    /// Build one index again from its collection's rows. The caller checks the
+    /// schema: a file export rebuilds indexes that have no state yet.
+    pub(crate) fn rebuild_index(&self, name: &str) -> Result<()> {
+        for mut collection in self.collections()? {
+            let Some(position) = collection
+                .indexes
+                .iter()
+                .position(|index| index.name == name)
+            else {
+                continue;
+            };
+            let documents = self.reindex_documents(&collection)?;
+            let index = &mut collection.indexes[position];
+            self.drop_index_storage(index)?;
+            if let Some(config) = &mut index.fulltext {
+                config.storage_version = 2;
+            }
+            // Upgrade the released latitude format; keep current formats,
+            // including region indexes, as they are.
+            if index.kind == IndexKind::Spatial && index.spatial.is_none() {
+                index.spatial = Some(crate::spatial::Config::current());
+            }
+            match index.kind {
+                IndexKind::FullText => self.build_text_storage(index, &documents)?,
+                IndexKind::Vector => self.build_vector_storage(index, &documents)?,
+                IndexKind::Scalar | IndexKind::Spatial | IndexKind::Array => {
+                    self.run(&index.table_ddl(), &[])?;
+                    self.run(&index.index_ddl(), &[])?;
+                    for object in index.extra_schema() {
+                        self.run(&object.ddl, &[])?;
+                    }
+                    for document in &documents {
+                        self.insert_index(index, document)?;
                     }
                 }
-                self.save_catalog(&collection)?;
-                self.validate_storage_schema()?;
-                return Ok(());
             }
-            Err(Error::NotFound(format!("managed index {name}")))
-        })
+            self.save_catalog(&collection)?;
+            return Ok(());
+        }
+        Err(Error::NotFound(format!("managed index {name}")))
     }
 
     fn reindex_documents(&self, collection: &Collection) -> Result<Vec<Document>> {

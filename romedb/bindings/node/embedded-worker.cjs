@@ -35,7 +35,8 @@ if (database) parentPort.on('message', ({ id, operation, body, cancellationKey }
     if (fenced) fail('RDB_STORAGE', 'Embedded outcome is uncertain; close and reconcile the database', 'unknown');
     if (operation === 'export') {
       // Writes run on this thread, so none commits between the start of the copy's snapshot and reading the sequence.
-      const pending = database.startFileExport(JSON.parse(body).destination, cancellationKey);
+      const copy = JSON.parse(body);
+      const pending = database.startFileExport(copy.destination, cancellationKey, copy.emptyTables, copy.newIdentity);
       const snapshot = sequence;
       const finished = pending.finish().then(
         bytes => parentPort.postMessage({ id, result: { sequence: snapshot, bytes: Number(bytes) } }),

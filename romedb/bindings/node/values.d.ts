@@ -1,5 +1,5 @@
 export class Float64 { constructor(value: number); readonly value: number; }
-export class Record { constructor(table: string, key: string | bigint); readonly table: string; readonly key: string | bigint; }
+export class Record { constructor(table: string, key: string | bigint); readonly table: string; readonly key: string | bigint; /** `table:key`. */ toString(): string; /** The same table and key, including the key's type. */ equals(other: unknown): boolean; }
 export class Vector {
   constructor(bytes: Uint8Array);
   /** A copy of the encoded bytes. */

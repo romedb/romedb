@@ -2,6 +2,18 @@ import type { Value } from './values';
 export { Float64, Record, Vector, Value, PortableValue, encodeValue, decodeValue } from './values';
 export interface Statement { sql: string; params?: { [key: string]: Value }; }
 export interface RequestOptions { signal?: AbortSignal; timeoutMs?: number; }
+/** What a copy of the database leaves out. */
+export interface CopyOptions {
+  /**
+   * These tables keep their schema and indexes but no rows. Their rows are never read, so
+   * they cannot reach the file. Unknown names fail with RDB_VALIDATION. The copy also gets
+   * a new identity, because a receipt can hold row data.
+   */
+  emptyTables?: readonly string[];
+  /** Leave out the database ID, the sequence and the receipts: the copy is a new database. */
+  newIdentity?: boolean;
+}
+export interface FileExportOptions extends RequestOptions, CopyOptions {}
 export interface WorkLimits { rowsRead?: number; rowMutations?: number; vmSteps?: number; }
 export interface ReadOptions extends RequestOptions { afterSequence?: number; workLimits?: WorkLimits; }
 export interface WriteOptions extends ReadOptions { requestId?: string; ifSequence?: number; }
@@ -73,7 +85,7 @@ export class RemoteDatabase implements Client {
    * Download the database as a .romedb file (romedb serve and serve --directory; not Cloud yet).
    * timeoutMs covers building the copy, until the file starts arriving; signal also stops the download.
    */
-  exportFile(options?: RequestOptions): Promise<DatabaseFile>;
+  exportFile(options?: FileExportOptions): Promise<DatabaseFile>;
   readonly sequence: number;
   readonly databaseId: string;
   info(options?: RequestOptions): Promise<DatabaseInfo>;

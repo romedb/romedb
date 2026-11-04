@@ -2,7 +2,7 @@ use crate::{DatabaseService, Error, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     fs::{DirBuilder, File, OpenOptions},
     io::{ErrorKind, Read, Write},
     os::unix::{
@@ -32,6 +32,8 @@ struct State {
     open: HashMap<String, OpenDatabase>,
     clock: u64,
     closing: bool,
+    /// Names of copies that are still being built.
+    copying: HashSet<String>,
 }
 
 struct OpenDatabase {
@@ -56,9 +58,14 @@ struct Entry {
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 struct CreateRequest {
     name: String,
+    /// Copy this database instead of creating an empty one.
+    #[serde(default)]
+    from: Option<String>,
+    #[serde(default)]
+    empty_tables: Vec<String>,
 }
 
 impl DirectoryService {
@@ -115,6 +122,7 @@ impl DirectoryService {
                 open: HashMap::new(),
                 clock: 0,
                 closing: false,
+                copying: HashSet::new(),
             }),
             _lock: lock,
         })
@@ -141,6 +149,15 @@ impl DirectoryService {
         if !valid_name(&request.name) {
             return Err(Error::new("RDB_VALIDATION", "Invalid database name"));
         }
+        if let Some(source) = request.from {
+            return self.copy(request.name, &source, request.empty_tables, origin);
+        }
+        if !request.empty_tables.is_empty() {
+            return Err(Error::new(
+                "RDB_VALIDATION",
+                "emptyTables applies to a copy, so it needs from",
+            ));
+        }
         let mut state = self.state()?;
         if state.closing {
             return Err(Error::new("RDB_CLOSED", "service is stopping"));
@@ -152,6 +169,9 @@ impl DirectoryService {
             .find(|entry| entry.name == request.name)
         {
             return Ok(self.describe(entry, origin));
+        }
+        if state.copying.contains(&request.name) {
+            return Err(name_taken());
         }
         if state.open.len() >= self.max_open {
             self.close_least_recent(&mut state)?;
@@ -166,6 +186,49 @@ impl DirectoryService {
         state.clock += 1;
         let used = state.clock;
         state.open.insert(id, OpenDatabase { service, used });
+        state.manifest.databases.push(entry.clone());
+        write_manifest(&self.root, &state.manifest)?;
+        Ok(self.describe(&entry, origin))
+    }
+
+    /// A copy is a new database. Asking again for a name that exists is a
+    /// conflict, not the same database: the caller expects a fresh copy.
+    fn copy(
+        &self,
+        name: String,
+        source: &str,
+        empty_tables: Vec<String>,
+        origin: &str,
+    ) -> Result<Value> {
+        if !valid_id(source) {
+            return Err(not_found());
+        }
+        let source = self.open_database(source)?.0;
+        {
+            let mut state = self.state()?;
+            if state.closing {
+                return Err(Error::new("RDB_CLOSED", "service is stopping"));
+            }
+            if state.manifest.databases.iter().any(|e| e.name == name)
+                || !state.copying.insert(name.clone())
+            {
+                return Err(name_taken());
+            }
+        }
+        let id = uuid::Uuid::new_v4().to_string();
+        let options = romedb::FileExportOptions {
+            empty_tables,
+            new_identity: true,
+        };
+        let copied = source.copy_to(&self.path(&id), &options);
+        let mut state = self.state()?;
+        state.copying.remove(&name);
+        copied?;
+        let entry = Entry {
+            id,
+            name,
+            created_at: timestamp(SystemTime::now()),
+        };
         state.manifest.databases.push(entry.clone());
         write_manifest(&self.root, &state.manifest)?;
         Ok(self.describe(&entry, origin))
@@ -324,6 +387,10 @@ fn valid_name(name: &str) -> bool {
         && bytes
             .iter()
             .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || *b == b'-')
+}
+
+fn name_taken() -> Error {
+    Error::new("RDB_CONFLICT", "a database with this name already exists")
 }
 
 fn not_found() -> Error {

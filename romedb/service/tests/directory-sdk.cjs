@@ -80,6 +80,53 @@ async function exportWhileWriting(remote, root, binary) {
       await again.body.cancel();
     } finally { await client.close(); }
   } finally { await stop(served.child); }
+  const emptied = await downloadWithoutSessions(binary, root, remote);
+  await readSlowly(remote);
+  return { during, size: exported.size, emptied };
+}
+
+// Node's fetch crashes the process if the socket closes while a reader is paused.
+async function readSlowly(remote) {
+  const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+  for (let round = 0; round < 8; round++) {
+    const { body, size } = await remote.exportFile({ timeoutMs: 120000 });
+    await wait(150);
+    let bytes = 0;
+    for await (const chunk of body) { bytes += chunk.length; await wait(1); }
+    assert.equal(bytes, size);
+  }
+}
+
+async function downloadWithoutSessions(binary, root, remote) {
+  await remote.writeAtomic([{ sql: 'CREATE TABLE cms_auth_sessions' }]);
+  await remote.writeAtomic([{ sql: 'CREATE UNIQUE INDEX cms_auth_sessions_token ON cms_auth_sessions(token)' }]);
+  await remote.writeAtomic([{ sql: "INSERT INTO cms_auth_sessions {token: 'marker-session-token'}" }]);
+  let exported;
+  const exporting = remote.exportFile({ timeoutMs: 120000, emptyTables: ['cms_auth_sessions'] }).then(file => { exported = file; });
+  let during = 0;
+  for (let n = 1_000_000; exported === undefined; n++) {
+    await remote.writeAtomic([{ sql: `INSERT INTO cms_auth_sessions {token: 'marker-later-${n}'}` }]);
+    if (exported === undefined) during++;
+  }
+  await exporting;
+  assert.ok(during > 0, 'no write finished while the file was built');
+  const file = path.join(root, 'without-sessions.romedb');
+  await save(file, exported.body);
+  const bytes = await fs.readFile(file);
+  assert.equal(bytes.includes('marker-session-token'), false);
+  assert.equal(bytes.includes('marker-later-'), false);
+  const embedded = await openEmbedded({ path: file, maxOpen: 32 });
+  try {
+    assert.deepEqual(await rows(embedded, 'SELECT count() FROM cms_auth_sessions'), [[0n]]);
+    await embedded.writeAtomic([{ sql: "INSERT INTO cms_auth_sessions {token: 'new'}" }]);
+    await embedded.writeAtomic([{ sql: "DELETE FROM cms_auth_sessions" }]);
+  } finally { await embedded.close(); }
+  const served = await start(binary, file, await freePort(), false);
+  try {
+    const client = await connect({ url: served.url, token: served.token });
+    try { assert.deepEqual(await rows(client, 'SELECT count() FROM cms_auth_sessions'), [[0n]]); }
+    finally { await client.close(); }
+  } finally { await stop(served.child); }
   return { during, size: exported.size };
 }
 
