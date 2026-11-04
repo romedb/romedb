@@ -1,0 +1,35 @@
+{
+  "version": "0.2.14",
+  "verifiedAtUtc": "2026-11-04T12:04:20.748678+00:00",
+  "releaseUrl": "https://github.com/romedb/romedb/releases/tag/romedb-v0.2.14",
+  "archiveUrl": "https://github.com/romedb/romedb/releases/download/romedb-v0.2.14/romedb-0.2.14-linux-x64.tar.gz",
+  "archiveSha256": "cd76d05360bf13bd30bb98321628721b46dab631c71f523b2d05dbbff6e705db",
+  "archiveBytes": 105166424,
+  "archiveReproduced": "the downloaded tar.gz is byte-identical to the archive built from the assembled bundle (fixed owner and commit-time mtimes)",
+  "sourceCommit": "6afc3100a83dc6a9a6f40f9f790cc8735208f07e",
+  "sourceArchiveSha256": "f14a896f792d3b56cf9e8acac411130c6458cf60068b3d98b0e50d10754d4275",
+  "anonymousDownload": true,
+  "outerChecksumMatches": true,
+  "internalChecksumsPass": true,
+  "internalFiles": 87,
+  "sourceArchiveMatchesTag": true,
+  "cAbiSmoke": "passed",
+  "cliVersion": "bin/romedb --version prints 'romedb 0.2.14'",
+  "nodePackageAsset": {
+    "url": "https://github.com/romedb/romedb/releases/download/romedb-v0.2.14/romedb-node-0.2.14.tgz",
+    "sha256": "4dc9fdc00c7d55c0fb5294bde50c12be1bdc6714c1967f4b75a04d57e4d935cd",
+    "bytes": 16029010,
+    "matchesBundle": "byte-identical to packages/romedb-node-0.2.14.tgz in the archive"
+  },
+  "npmPackage": {
+    "url": "https://www.npmjs.com/package/@romedb/node/v/0.2.14",
+    "tarball": "https://registry.npmjs.org/@romedb/node/-/node-0.2.14.tgz",
+    "matchesAsset": "the registry tarball is byte-identical to romedb-node-0.2.14.tgz",
+    "publishedBy": "GitHub Actions run https://github.com/romedb/romedb/actions/runs/41823053909 of npm-publish.yml through npm trusted publishing, without an npm token",
+    "provenance": "npm audit signatures reports a verified attestation; transparency log https://search.sigstore.dev/?logIndex=3689201634"
+  },
+  "consumerChecks": "from clean npm and pnpm installs of @romedb/node 0.2.14, on Node 22.0.0 and 24.19.0: exportFile with emptyTables leaves no emptied value in the file and a later read finds 0 rows; exportFile with newIdentity keeps the rows at sequence 0; an unknown table fails with RDB_VALIDATION; Record.toString and Record.equals; serve --directory creates, copies and downloads a database; the 0.2.13 checks of DELETE posts:a, RDB_ codes, WAL refusal, embedded reads and writes and 0600 modes",
+  "workersCheck": "a Worker bundled by esbuild (platform neutral) from the installed @romedb/node/client uses client.mjs and values.mjs, has no node: import and ran in Miniflare against serve --directory, including exportFile",
+  "cloudCheck": "the same npm package ran against cloud.romedb.com on engine 0.2.14: exportFile with emptyTables, a copy, an import of the exported file and a group key",
+  "manifestSha256": "d9e7e5f8a9802dac3773ffb399edfd2795e8f7ef225290b7a8fc464794b77923"
+}
