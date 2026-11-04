@@ -1,0 +1,113 @@
+{
+  "version": "0.2.13",
+  "qualified": true,
+  "qualifiedAtUtc": "2026-11-03T16:19:47.221372+00:00",
+  "sourceCommit": "54514891294992c65458b4e90ee2f1de6352cd63",
+  "sourceArchiveSha256": "c71f4c90106c569a8a9b55cb813771203651f753b7b727127442fd0db1af42b1",
+  "cargoLockSha256": "092e973bbc52cf5defe48c0c1c1cf5bc8755b603f5a6ef47927c31bfa5276aa3",
+  "buildManifestSha256": "96bfeadb22ec495985d10d5f4ad9dbbcc30e388a633dc5f63fcdb06b3c3f173f",
+  "buildChecksumsSha256": "3959439790aa46203a65e665b6ef0b095e16abd95bce7b811dcb3c8df982c054",
+  "buildProfile": "romedb-production",
+  "sourceCi": "https://github.com/romedb/romedb/actions/runs/41658105011",
+  "sourceTests": {
+    "rust": 1132,
+    "rustIgnored": 4,
+    "node": 209,
+    "cAbi": 5,
+    "releasePolicy": 2,
+    "upgradeTable": 4,
+    "formatting": "passed",
+    "scopedClippy": "passed",
+    "strictTypeScript": "passed"
+  },
+  "installedGroups": [
+    "c-abi",
+    "cli",
+    "cli-v22",
+    "cli-graph",
+    "cli-spatial",
+    "sqlite-adoption",
+    "cli-elf",
+    "c-elf",
+    "node-0",
+    "node-1",
+    "python-0",
+    "python-1",
+    "python-2",
+    "php-package",
+    "go-package",
+    "swift-package",
+    "node-upgrade-install",
+    "node-ownership-0",
+    "node-ownership-1",
+    "nuget-package"
+  ],
+  "nodeVersions": [
+    "22.0.0",
+    "24.19.0"
+  ],
+  "pythonVersions": [
+    "3.10.21",
+    "3.12.3",
+    "3.14.7"
+  ],
+  "standaloneRustConsumer": "passed with the romedb-production profile; 336 registry/git package identities match the workspace lockfile",
+  "upgradeRestore": "None. 0.2.13 changed the stored value prefix from FDB to RDB and does not open files from 0.2.12 or earlier (format break in scripts/upgrade_matrix.py). A database written by the released 0.2.12 Node package was refused by the 0.2.13 bundle with RDB_UNSUPPORTED and left byte-identical (see formatBreak).",
+  "engine": {
+    "upstream": "Turso v0.8.3",
+    "upstreamCommit": "607bff9fd0e547a25a97b3bf06e83bcc5d99d53c",
+    "previousUpstream": "607bff9fd0e547a25a97b3bf06e83bcc5d99d53c",
+    "exceptions": "the nine maintained engine exceptions retained (romedb/docs/core-exceptions.md), including the MVCC savepoint commit resume patch from 0.2.12",
+    "storageFormat": "__romedb_ schema prefix, .romedb extension, stored values prefixed RDB 01 (FDB 01 before 0.2.13); openEmbedded and serve use MVCC files; collections with a * array path index use catalog version 8, others keep version 7 or earlier",
+    "sync": "romedb/romedb#30",
+    "change": "unchanged engine and patches from 0.2.12 (Turso v0.8.3, Tantivy 0.27.0)"
+  },
+  "spatial": {
+    "catalogVersion": 7,
+    "explainReadsNoData": "metered EXPLAIN reports zero rows read for every spatial form (spatial_explain_reads_no_documents_or_index_entries)",
+    "cliSpatialCheck": "passed"
+  },
+  "supportedScope": {
+    "platform": "Linux x64",
+    "clients": [
+      "rust",
+      "node",
+      "python",
+      "php",
+      "swift",
+      "csharp",
+      "go"
+    ],
+    "ownership": "One owning process per database file; shared clients connect to its service"
+  },
+  "security": {
+    "unresolvedFindings": 0,
+    "acceptedInformational": [],
+    "advisoryDatabase": "6c5fedf8ff03c485ed674d8f941e0180f3f72d70",
+    "resolvedForRelease": []
+  },
+  "documentationOverrides": {
+    "ENVELOPE.md": "Historical 2.1.0 measurements; the raw-evidence link points to the immutable fastdb-v2.1.0 release"
+  },
+  "performance": "Historical 2.1.0 operating envelope retained; fresh bounded application sample, not capacity guarantees",
+  "buildHost": "Built and qualified under scripts/romedb-heavy (shared lock, two jobs, cgroup memory ceiling)",
+  "publication": "Qualified for publication; anonymous public-download verification is separate",
+  "formatBreak": [
+    {
+      "previous": "0.2.12",
+      "candidate": "0.2.13",
+      "code": "RDB_UNSUPPORTED",
+      "message": "unsupported: this database was written by RomeDB 0.2.12 or earlier, whose stored values RomeDB 0.2.13 does not read; create a new database",
+      "fileUnchanged": true,
+      "node": "v22.0.0"
+    },
+    {
+      "previous": "0.2.12",
+      "candidate": "0.2.13",
+      "code": "RDB_UNSUPPORTED",
+      "message": "unsupported: this database was written by RomeDB 0.2.12 or earlier, whose stored values RomeDB 0.2.13 does not read; create a new database",
+      "fileUnchanged": true,
+      "node": "v24.19.0"
+    }
+  ]
+}
