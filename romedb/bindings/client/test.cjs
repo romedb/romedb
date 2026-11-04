@@ -37,7 +37,11 @@ test('the package holds the client and no native code', () => {
 
 test('a supplied package holds the files of this source', { skip: !supplied }, () => {
   assert.deepEqual(fs.readdirSync(installed).sort(), PACKAGE_FILES);
-  for (const name of PACKAGE_FILES) assert.ok(fs.readFileSync(path.join(installed, name)).equals(fs.readFileSync(path.join(__dirname, name))), name);
+  const readManifest = directory => JSON.parse(fs.readFileSync(path.join(directory, 'package.json'), 'utf8'));
+  assert.deepEqual(readManifest(installed), readManifest(__dirname));
+  for (const name of PACKAGE_FILES.filter(file => file !== 'package.json')) {
+    assert.ok(fs.readFileSync(path.join(installed, name)).equals(fs.readFileSync(path.join(__dirname, name))), name);
+  }
 });
 
 test('the version and the identity match the release, and @romedb/node asks for this version', () => {
