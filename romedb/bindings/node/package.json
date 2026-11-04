@@ -1,6 +1,6 @@
 {
   "name": "@romedb/node",
-  "version": "0.2.14",
+  "version": "0.2.15",
   "description": "RomeDB for Node.js: the embedded database (Linux x64 native addon) and a Web-API client for romedb serve and RomeDB Cloud",
   "main": "index.cjs",
   "types": "index.d.ts",
@@ -12,12 +12,15 @@
     "./*": "./*"
   },
   "scripts": {
-    "test": "node build-esm.cjs --check && node --test --test-concurrency=2 test.cjs client.test.cjs client-web.test.mjs client-native.test.cjs embedded-client.test.cjs",
+    "test": "node --test --test-concurrency=2 test.cjs client-native.test.cjs embedded-client.test.cjs shared-classes.test.cjs",
     "typecheck": "tsc --noEmit --strict --target ES2022 --module Node16 types.test.ts client.types.test.ts embedded-client.types.test.ts values.types.test.ts",
     "prepack": "node -e \"require('./romedb.node')\""
   },
   "engines": {
     "node": ">=22"
+  },
+  "dependencies": {
+    "@romedb/client": "0.2.15"
   },
   "devDependencies": {
     "typescript": "5.8.3"
@@ -37,14 +40,12 @@
     "client.cjs",
     "client.mjs",
     "client.d.ts",
-    "client-internal.cjs",
     "embedded-client.cjs",
     "embedded-client.d.ts",
     "embedded-worker.cjs",
     "values.cjs",
     "values.mjs",
     "values.d.ts",
-    "request-journal.cjs",
     "worker.cjs",
     "native.cjs",
     "index.d.ts",

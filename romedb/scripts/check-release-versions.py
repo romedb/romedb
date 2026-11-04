@@ -20,6 +20,9 @@ for crate in crates:
 assert json.loads((ROOT / "romedb/bindings/php/composer.json").read_text())["version"] == version
 node = json.loads((ROOT / "romedb/bindings/node/package.json").read_text())
 assert node["version"] == version
+client = json.loads((ROOT / "romedb/bindings/client/package.json").read_text())
+assert client["version"] == version
+assert node["dependencies"]["@romedb/client"] == version
 npm = json.loads((ROOT / "romedb/bindings/node/package-lock.json").read_text())
 assert npm["version"] == npm["packages"][""]["version"] == version
 python = tomllib.loads((ROOT / "romedb/bindings/python/pyproject.toml").read_text())

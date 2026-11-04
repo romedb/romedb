@@ -166,10 +166,12 @@ for name, file in [("cli-elf", bundle / "bin/romedb-cli"), ("c-elf", bundle / "l
     run(name, ["python3", "romedb/scripts/inspect-node-elf.py", str(file), str(evidence / f"{name}.json")])
 
 for index, node in enumerate(args.node):
-    env = dict(base_env, ROMEDB_PACKAGE_TARBALL=str(bundle / "packages" / f"romedb-node-{version}.tgz"))
+    env = dict(base_env, ROMEDB_PACKAGE_TARBALL=str(bundle / "packages" / f"romedb-node-{version}.tgz"),
+               ROMEDB_CLIENT_TARBALL=str(bundle / "packages" / f"romedb-client-{version}.tgz"))
     # pnpm's child Node process must use this runtime too.
     env["PATH"] = str(Path(node).resolve().parent) + ":" + env.get("PATH", "")
     run(f"node-{index}", [node, "romedb/scripts/check-node-package.cjs"], env=env)
+    run(f"node-client-{index}", [node, "--test", "romedb/bindings/client/test.cjs"], env=env)
 wheel, = (bundle / "packages").glob("*.whl")
 for index, python in enumerate(args.python):
     run(f"python-{index}", ["python3", "romedb/scripts/check-python-wheel.py", str(wheel), "--python", python, "--uv", args.uv])
@@ -189,6 +191,9 @@ with tempfile.TemporaryDirectory(prefix="romedb-v2-bundle-") as temp:
     consumer = temporary / "node-consumer"
     consumer.mkdir()
     (consumer / "package.json").write_text('{"name":"v2-upgrade-check","private":true}')
+    # @romedb/client of this release is not on npm yet.
+    client_tarball = bundle / "packages" / f"romedb-client-{version}.tgz"
+    (consumer / "pnpm-workspace.yaml").write_text(f"overrides:\n  '@romedb/client': file:{client_tarball}\n")
     run("node-upgrade-install", ["pnpm", "add", "--offline", "--ignore-scripts", str(bundle / "packages" / f"romedb-node-{version}.tgz")], cwd=consumer)
     installed_node = consumer / "node_modules/@romedb/node"
 

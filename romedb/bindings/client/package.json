@@ -1,0 +1,55 @@
+{
+  "name": "@romedb/client",
+  "version": "0.2.15",
+  "description": "RomeDB client for Node.js, Cloudflare Workers and browsers. Connects by URL to romedb serve or RomeDB Cloud, with no native addon.",
+  "main": "client.cjs",
+  "types": "client.d.ts",
+  "exports": {
+    ".": {
+      "types": "./client.d.ts",
+      "node": "./client.cjs",
+      "default": "./client.mjs"
+    },
+    "./values": {
+      "types": "./values.d.ts",
+      "node": "./values.cjs",
+      "default": "./values.mjs"
+    },
+    "./internal": {
+      "node": "./client-internal.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "client.cjs",
+    "client.mjs",
+    "client.d.ts",
+    "client-internal.cjs",
+    "values.cjs",
+    "values.mjs",
+    "values.d.ts",
+    "request-journal.cjs",
+    "LICENSE.md",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "MIT",
+  "keywords": [
+    "romedb",
+    "romeql",
+    "database",
+    "client",
+    "cloudflare-workers"
+  ],
+  "homepage": "https://github.com/romedb/romedb/tree/main/romedb/bindings/client#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/romedb/romedb.git",
+    "directory": "romedb/bindings/client"
+  },
+  "bugs": {
+    "url": "https://github.com/romedb/romedb/issues"
+  }
+}

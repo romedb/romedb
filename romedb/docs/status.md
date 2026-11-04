@@ -45,6 +45,9 @@ Create new databases for 0.2.13. The C ABI functions are now `rdb_*`.
 - [Copies that leave named tables empty or start a new identity](service-protocol.md#database-files)
   (`emptyTables`, `newIdentity`), and copies between databases in
   `romedb serve --directory`, from 0.2.14.
+- [`@romedb/client`](../bindings/client/README.md), the URL client with no native addon,
+  on npm from 0.2.14. From 0.2.15, `@romedb/node` depends on it, so both share one set of
+  value classes.
 
 ## Release verification
 

@@ -23,8 +23,11 @@ version, 0.2.12, differs from its asset only in `package.json` and this README. 
 project can also depend on the asset of a GitHub release by URL:
 
 ```sh
-pnpm add https://github.com/romedb/romedb/releases/download/romedb-v0.2.14/romedb-node-0.2.14.tgz
+pnpm add https://github.com/romedb/romedb/releases/download/romedb-v0.2.15/romedb-node-0.2.15.tgz
 ```
+
+From 0.2.15, `@romedb/node` depends on `@romedb/client` at the same version, so that
+asset also needs npm or the `romedb-client` asset of the same release.
 
 ## A first database
 
@@ -812,8 +815,9 @@ Results use positional rows and keep duplicate columns. Integer results are `big
 Number results are `Float64` instances with a `.value` number. They keep their exact
 float type when you bind them again, integral floats and negative zero included.
 
-This entry exports its own `Record`, `Vector` and value codec. Use those types for its
-parameters. Encoded vectors and the dense float32, float64 and sparse-entry factories
+This entry exports `Record`, `Vector` and the value codec of `@romedb/client`, which
+`@romedb/node/embedded-client` also uses. The main `@romedb/node` entry has its own
+`Record` and `Vector`, so do not pass those to this client. Encoded vectors and the dense float32, float64 and sparse-entry factories
 work without native code. `null` is a present field. `undefined` and array holes are
 refused, so no data disappears without an error.
 
@@ -855,9 +859,9 @@ From 0.2.12, `@romedb/node/client` and `@romedb/node/values` use only Web APIs:
 `fetch`, `crypto.randomUUID`, `TextEncoder`, `AbortSignal`, `atob` and `btoa`. Node.js
 loads the CommonJS files through the `node` export condition. Every other runtime and
 bundler gets the ES modules `client.mjs` and `values.mjs`, for example Cloudflare
-Workers, browsers and Deno with a bundler. They run the same code: `build-esm.cjs`
-writes them from `client.cjs` and `values.cjs`, and the package tests fail when they
-are out of date.
+Workers, browsers and Deno with a bundler. They run the same code: `build-esm.cjs` in
+`@romedb/client` writes them from `client.cjs` and `values.cjs`, and the package tests
+fail when they are out of date.
 
 Workers need no `nodejs_compat`. The client calls `fetch` without a `this` value, so
 `globalThis.fetch` and your own `fetch` both work in Workers.
@@ -885,7 +889,11 @@ runtimes. There, store the `PreparedWrite` object yourself, for example in a Dur
 Object.
 
 The package also contains the native addon. So installing it for a Workers app also
-downloads the addon, but the Workers bundle never includes it.
+downloads the addon, but the Workers bundle never includes it. To skip that download,
+install [`@romedb/client`](https://www.npmjs.com/package/@romedb/client). It holds this
+code: `@romedb/node` depends on it, and `@romedb/node/client` and `@romedb/node/values`
+pass it through. A project that uses both packages gets one set of value classes when
+both are at the same version.
 
 ## Load errors
 

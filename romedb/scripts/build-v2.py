@@ -140,12 +140,13 @@ copy(target / "libromedb_node.so", ROOT / "romedb/bindings/node/romedb.node")
 run(["strip", "--strip-debug", str(out / "bin/romedb-cli"), str(out / "lib/libromedb_c.so"),
      str(ROOT / "romedb/bindings/node/romedb.node")])
 copy(out / "bin/romedb-cli", out / "bin/romedb")
-packed = json.loads(capture(["pnpm", "pack", "--json", "--pack-destination", str(out / "packages")], ROOT / "romedb/bindings/node"))
-node = Path(packed["filename"])
-if not node.is_absolute():
-    node = out / "packages" / node
-if node.resolve().parent != out / "packages" or not node.is_file():
-    raise ValueError("pnpm returned an invalid package location")
+for binding in ["node", "client"]:
+    packed = json.loads(capture(["pnpm", "pack", "--json", "--pack-destination", str(out / "packages")], ROOT / "romedb/bindings" / binding))
+    package = Path(packed["filename"])
+    if not package.is_absolute():
+        package = out / "packages" / package
+    if package.resolve().parent != out / "packages" or not package.is_file():
+        raise ValueError("pnpm returned an invalid package location")
 python_command = ["maturin", "build", "--locked", "--profile", PROFILE, "--strip", "--manifest-path", "romedb/bindings/python/Cargo.toml", "--out", str(out / "packages")]
 run(python_command)
 run(["dotnet", "pack", "romedb/bindings/csharp/RomeDB/RomeDB.csproj", "-c", "Release", "-o", str(out / "packages")],

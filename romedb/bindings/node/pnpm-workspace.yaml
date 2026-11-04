@@ -1,0 +1,4 @@
+# A release of @romedb/node is built and tested before its @romedb/client exists on
+# npm, so this folder uses the client in the same checkout.
+overrides:
+  '@romedb/client': link:../client
