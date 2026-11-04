@@ -4,9 +4,16 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  '@romedb/client': link:../client
+
 importers:
 
   .:
+    dependencies:
+      '@romedb/client':
+        specifier: link:../client
+        version: link:../client
     devDependencies:
       typescript:
         specifier: 5.8.3

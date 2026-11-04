@@ -266,7 +266,7 @@ test('a lost acknowledgement recovers the exact write against the real embedded 
   const backend = await openEmbedded({ path: file, create: true });
   t.after(() => backend.close());
   await backend.writeAtomic([{ sql: 'CREATE TABLE data (n INTEGER)' }, { sql: 'INSERT INTO data VALUES(0)' }]);
-  const { createEmbeddedClient } = require('./client-internal.cjs');
+  const { createEmbeddedClient } = require('@romedb/client/internal');
   let loseAcknowledgement = true;
   const bodies = [];
   const client = await createEmbeddedClient({ url: backend.url }, async (route, body) => {

@@ -19,19 +19,24 @@ try {
   const packed = JSON.parse(run(pnpm, ['pack', '--json', '--pack-destination', temporary], packageDir));
   assert.deepEqual(packed.files.map(file => file.path).sort(), [
     'LICENSE.md', 'THIRD_PARTY_NOTICES.md', 'THIRD_PARTY_CRATE_NOTICES.md', 'RUST-LIBRARY-NOTICES.html', 'README.md', 'romedb.node', 'index.cjs', 'index.d.ts', 'package.json', 'worker.cjs', 'native.cjs',
-    'client.cjs', 'client.mjs', 'client.d.ts', 'values.cjs', 'values.mjs', 'values.d.ts', 'request-journal.cjs',
-    'client-internal.cjs', 'embedded-client.cjs', 'embedded-client.d.ts', 'embedded-worker.cjs',
+    'client.cjs', 'client.mjs', 'client.d.ts', 'values.cjs', 'values.mjs', 'values.d.ts',
+    'embedded-client.cjs', 'embedded-client.d.ts', 'embedded-worker.cjs',
   ].sort());
   assert(fs.statSync(path.join(packageDir, 'romedb.node')).size > 0);
   for (const file of ['client.mjs', 'values.mjs']) {
-    assert.doesNotMatch(fs.readFileSync(path.join(packageDir, file), 'utf8'), /node:|\bBuffer\b|\bprocess\./, `${file} must use Web APIs only`);
+    assert.doesNotMatch(fs.readFileSync(path.join(packageDir, '../client', file), 'utf8'), /node:|\bBuffer\b|\bprocess\./, `${file} must use Web APIs only`);
   }
+  const clientPacked = JSON.parse(run(pnpm, ['pack', '--json', '--pack-destination', temporary], path.join(packageDir, '../client')));
+  const clientTarball = process.env.ROMEDB_CLIENT_TARBALL || path.resolve(temporary, clientPacked.filename);
+  if (process.env.ROMEDB_CLIENT_TARBALL) assert(fs.readFileSync(clientTarball).equals(fs.readFileSync(path.resolve(temporary, clientPacked.filename))), 'Supplied client differs from current pack');
   const generated = path.resolve(temporary, packed.filename);
   const supplied = process.env.ROMEDB_PACKAGE_TARBALL;
   if (supplied) assert(fs.readFileSync(supplied).equals(fs.readFileSync(generated)), 'Supplied candidate differs from current package');
   const consumer = path.join(temporary, 'consumer');
   fs.mkdirSync(consumer);
   fs.writeFileSync(path.join(consumer, 'package.json'), JSON.stringify({ name: 'romedb-package-smoke', version: '0.0.0', private: true }));
+  // @romedb/client of this release is not on npm yet.
+  fs.writeFileSync(path.join(consumer, 'pnpm-workspace.yaml'), `overrides:\n  '@romedb/client': file:${clientTarball}\n`);
   run(pnpm, ['add', '--offline', '--ignore-scripts', supplied || generated], consumer);
   fs.writeFileSync(path.join(consumer, 'remote-smoke.cjs'), `
 const assert = require('node:assert/strict');
@@ -42,6 +47,8 @@ Module._load = function(id, ...args) {
   return load.call(this, id, ...args);
 };
 const { Float64, Record, Vector, encodeValue, decodeValue } = require('@romedb/node/client');
+const shared = require(require.resolve('@romedb/client', { paths: [require.resolve('@romedb/node/client')] }));
+assert.equal(Record, shared.Record);
 for (const value of [new Float64(1), new Float64(-0), new Record('posts', 1n), Vector.float32([1,2]), Vector.sparse32Entries(4, [[3,-1]])]) {
   const wire = encodeValue(value);
   assert.deepEqual(encodeValue(decodeValue(wire)), wire);

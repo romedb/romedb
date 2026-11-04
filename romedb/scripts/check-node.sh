@@ -32,8 +32,11 @@ if $strip_debug; then
   # Strip only the package copy; retain the full Cargo artifact for diagnostics.
   strip --strip-debug romedb/bindings/node/romedb.node
 fi
-node romedb/bindings/node/build-esm.cjs --check
-node --test --test-concurrency=2 romedb/bindings/node/test.cjs romedb/bindings/node/ownership.test.cjs romedb/bindings/node/client.test.cjs romedb/bindings/node/client-web.test.mjs romedb/bindings/node/client-native.test.cjs romedb/bindings/node/embedded-client.test.cjs romedb/examples/node-task-tracker/test.cjs
+# The Node package needs its client. pnpm makes the same link, but not every job installs.
+mkdir -p romedb/bindings/node/node_modules/@romedb
+ln -sfn ../../../client romedb/bindings/node/node_modules/@romedb/client
+node romedb/bindings/client/build-esm.cjs --check
+node --test --test-concurrency=2 romedb/bindings/client/test.cjs romedb/bindings/node/test.cjs romedb/bindings/node/ownership.test.cjs romedb/bindings/node/shared-classes.test.cjs romedb/bindings/client/client.test.cjs romedb/bindings/client/client-web.test.mjs romedb/bindings/node/client-native.test.cjs romedb/bindings/node/embedded-client.test.cjs romedb/examples/node-task-tracker/test.cjs
 if [[ "${ROMEDB_SKIP_TYPECHECK:-}" != 1 ]]; then
   pnpm --dir romedb/bindings/node run typecheck
 fi

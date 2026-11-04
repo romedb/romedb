@@ -12,7 +12,7 @@ permissions:
   contents: read
 jobs:
   publish:
-    name: Publish @romedb/node
+    name: Publish @romedb/client and @romedb/node
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     # Must exactly match the environment in the npm trusted publisher.
@@ -27,9 +27,9 @@ jobs:
       # Trusted publishing needs npm 11.5.1 or later.
       - name: Install npm
         run: npm install --global npm@11.17.0
-      # Publish the release's own Node package asset, so npm and the GitHub release
-      # carry the same qualified file. The release flow builds and checks it.
-      - name: Download and check the release's Node package
+      # Publish the release's own package assets, so npm and the GitHub release
+      # carry the same qualified files. The release flow builds and checks them.
+      - name: Download and check the release's packages
         env:
           GH_TOKEN: ${{ github.token }}
           EVENT_NAME: ${{ github.event_name }}
@@ -43,35 +43,42 @@ jobs:
             exit 1
           fi
           version="${BASH_REMATCH[1]}"
-          asset="romedb-node-$version.tgz"
-          # Assets can finish uploading after the release is published.
-          for attempt in $(seq 1 30); do
-            if gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern "$asset" --pattern "$asset.sha256" --clobber; then break; fi
-            if [ "$attempt" = 30 ]; then
-              echo "::error::$tag has no $asset"
-              exit 1
-            fi
-            sleep 20
+          for package in client node; do
+            asset="romedb-$package-$version.tgz"
+            # Assets can finish uploading after the release is published.
+            for attempt in $(seq 1 30); do
+              if gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern "$asset" --pattern "$asset.sha256" --clobber; then break; fi
+              if [ "$attempt" = 30 ]; then
+                echo "::error::$tag has no $asset"
+                exit 1
+              fi
+              sleep 20
+            done
+            sha256sum --check "$asset.sha256"
+            rm -rf package
+            tar -xzf "$asset" package/package.json
+            PACKAGE="$package" VERSION="$version" node -e '
+              const pkg = require("./package/package.json");
+              const problems = [];
+              if (pkg.name !== `@romedb/${process.env.PACKAGE}`) problems.push(`name is ${pkg.name}`);
+              if (pkg.version !== process.env.VERSION) problems.push(`version is ${pkg.version}`);
+              if (pkg.private) problems.push("package is private");
+              if (pkg.repository?.url !== "git+https://github.com/romedb/romedb.git") problems.push("repository does not name romedb/romedb");
+              const client = process.env.PACKAGE === "node" ? process.env.VERSION : undefined;
+              if (pkg.dependencies?.["@romedb/client"] !== client) problems.push("@romedb/client dependency is not this version");
+              if (problems.length) { console.error(`::error::${problems.join("; ")}`); process.exit(1); }'
           done
-          sha256sum --check "$asset.sha256"
-          tar -xzf "$asset" package/package.json
-          VERSION="$version" node -e '
-            const pkg = require("./package/package.json");
-            const problems = [];
-            if (pkg.name !== "@romedb/node") problems.push(`name is ${pkg.name}`);
-            if (pkg.version !== process.env.VERSION) problems.push(`version is ${pkg.version}`);
-            if (pkg.private) problems.push("package is private");
-            if (pkg.repository?.url !== "git+https://github.com/romedb/romedb.git") problems.push("repository does not name romedb/romedb");
-            if (problems.length) { console.error(`::error::${problems.join("; ")}`); process.exit(1); }'
           echo "VERSION=$version" >> "$GITHUB_ENV"
-          echo "ASSET=$asset" >> "$GITHUB_ENV"
       # No npm token: npm accepts this workflow's identity (OIDC) and adds provenance.
       # A version that is already on npm is skipped, so a failed run can be re-run.
+      # @romedb/node depends on this exact @romedb/client, so the client goes first.
       - name: Publish
         run: |
           set -euo pipefail
-          if [ "$(npm view "@romedb/node@$VERSION" version 2>/dev/null)" = "$VERSION" ]; then
-            echo "@romedb/node@$VERSION is already on npm"
-            exit 0
-          fi
-          npm publish "./$ASSET" --access public
+          for package in client node; do
+            if [ "$(npm view "@romedb/$package@$VERSION" version 2>/dev/null)" = "$VERSION" ]; then
+              echo "@romedb/$package@$VERSION is already on npm"
+              continue
+            fi
+            npm publish "./romedb-$package-$VERSION.tgz" --access public
+          done

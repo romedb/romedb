@@ -419,6 +419,9 @@ async function main() {
     fs.writeFileSync(path.join(consumer,'package.json'), '{"private":true}');
     const archive = path.join(bundle, 'packages', `romedb-node-${manifest.version}.tgz`);
     assert(expected.has(path.relative(bundle,archive)), 'Node package must be checksummed');
+    const clientArchive = path.join(bundle, 'packages', `romedb-client-${manifest.version}.tgz`);
+    assert(expected.has(path.relative(bundle,clientArchive)), 'Client package must be checksummed');
+    fs.writeFileSync(path.join(consumer,'pnpm-workspace.yaml'), `overrides:\n  '@romedb/client': file:${clientArchive}\n`);
     execFileSync('pnpm', ['add','--offline','--ignore-scripts',archive], {cwd:consumer,stdio:['ignore',process.stderr,process.stderr]});
     const installed = fs.realpathSync(path.join(consumer,'node_modules/@romedb/node'));
     const extract = path.join(temporary, 'expected'); fs.mkdirSync(extract);

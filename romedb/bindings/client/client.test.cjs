@@ -95,10 +95,10 @@ test('remote entry and vector factories never load the native addon', () => {
       if (id.endsWith('.node') || /native\\.cjs|worker\\.cjs/.test(id)) throw Error('native load forbidden');
       return original.call(this, id, ...args);
     };
-    const { Vector, Float64, encodeValue } = require('@romedb/node/client');
+    const { Vector, Float64, encodeValue } = require('@romedb/client');
     encodeValue(new Float64(1));
     Vector.float32([1]); Vector.float64([1]); Vector.sparse32Entries(3, [[2,1]]);
-    import('@romedb/node/client').then(m => { if (typeof m.connect !== 'function') process.exit(2); });
+    import('@romedb/client').then(m => { if (typeof m.connect !== 'function') process.exit(2); });
   `], { cwd: __dirname, encoding: 'utf8' });
   assert.equal(child.status, 0, child.stderr);
 });
