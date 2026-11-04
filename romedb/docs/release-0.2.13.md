@@ -16,9 +16,11 @@ RomeDB 0.2.13 copies an open database into a new file, finishes the rename from 
 
 Upgrading. 0.2.13 does not open databases from 0.2.12 or earlier. Create new databases, and change your code for the new names:
 
-- Error codes start with `RDB_` instead of `FDB_`, for example `RDB_CONFLICT`, `RDB_VALIDATION` and `RDB_UNSUPPORTED`. This applies to every client, `romedb serve` and RomeDB Cloud. Code that compares codes or matches `/^FDB_/` must change.
+- Error codes start with `RDB_` instead of `FDB_`, for example `RDB_CONFLICT`, `RDB_VALIDATION` and `RDB_UNSUPPORTED`. This applies to every client and `romedb serve`. Code that compares codes or matches `/^FDB_/` must change.
 - Every stored value now starts with the bytes `RDB` and `01` instead of `FDB` and `01`. 0.2.13 refuses a file from 0.2.12 or earlier whose collections hold documents, with `RDB_UNSUPPORTED`, and does not write to it. Files with only relational tables still open.
 - The C ABI functions are `rdb_abi_version`, `rdb_open`, `rdb_call`, `rdb_interrupt`, `rdb_close` and `rdb_free`, instead of `fdb_*`. The Python, PHP, Go, Swift and C# clients in this release use the new names.
+
+RomeDB Cloud has not moved yet. It still runs the 0.2.11 engine and sends `FDB_*` codes, and the 0.2.13 clients accept only `RDB_*` codes. Against Cloud, a 0.2.13 client handles successful requests normally. A write that Cloud rejects fails with `RDB_PROTOCOL` and outcome `unknown`, and a read that Cloud rejects fails with `RDB_REMOTE`. If your application uses Cloud, stay on `@romedb/node` 0.2.12 until Cloud is updated. Local files and `romedb serve` are not affected.
 
 The copy runs in its own read transaction, so automatic checkpoints wait while a copy is built, and the MVCC log grows during a long export. The first checkpoint after the export merges it. A copy needs room for one more database file on the disk beside the database or the destination.
 
