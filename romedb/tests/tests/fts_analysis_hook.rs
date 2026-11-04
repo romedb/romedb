@@ -68,7 +68,7 @@ fn token_visitors_stop_on_the_callers_error_and_reject_unknown_configurations() 
         }
     })
     .unwrap_err();
-    assert_eq!(error.code(), "FDB_LIMIT");
+    assert_eq!(error.code(), "RDB_LIMIT");
     assert_eq!(seen, 3);
     for (name, window) in [("missing", (2, 3)), ("ngram", (0, 3)), ("ngram", (3, 2))] {
         assert!(

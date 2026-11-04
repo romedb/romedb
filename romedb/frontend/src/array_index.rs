@@ -285,7 +285,7 @@ mod tests {
                 crate::catalog::decode(&changed.to_string(), "docs")
                     .unwrap_err()
                     .code(),
-                "FDB_STORAGE"
+                "RDB_STORAGE"
             );
         }
         c.run(
@@ -383,7 +383,7 @@ mod tests {
         let result = c.create_array_index("docs", "tags", vec!["tags".into()], false);
         c.engine.set_progress_handler(0, None);
         assert!(fired.load(Ordering::SeqCst));
-        assert_eq!(result.unwrap_err().code(), "FDB_CANCELLED");
+        assert_eq!(result.unwrap_err().code(), "RDB_CANCELLED");
         assert!(c.catalog("docs").unwrap().indexes.is_empty());
         c.validate_storage_schema().unwrap();
         c.execute("COMMIT", &Default::default()).unwrap();

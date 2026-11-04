@@ -122,6 +122,33 @@ fn collection_and_records() {
         })
     );
     assert!(parse("SELECT posts:9223372036854775808").is_err());
+    for statement in ["DELETE posts:p1", "DELETE FROM posts:p1"] {
+        assert_eq!(
+            parse(statement).expect("record delete"),
+            Statement::Delete {
+                target: Record {
+                    table: "posts".into(),
+                    key: Key::String("p1".into())
+                },
+                returning: None
+            },
+            "{statement}"
+        );
+    }
+    assert_eq!(
+        parse("DELETE posts:7 RETURNING title").expect("record delete with returning"),
+        Statement::Delete {
+            target: Record {
+                table: "posts".into(),
+                key: Key::Integer(7)
+            },
+            returning: Some("title".into())
+        }
+    );
+    assert_eq!(
+        parse("DELETE posts").expect("plain SQL"),
+        Statement::Sql("DELETE posts".into())
+    );
 }
 #[test]
 fn document_nested_arrays_and_duplicate_keys() {

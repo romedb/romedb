@@ -160,7 +160,7 @@ fn field_references_without_a_source_document_suggest_single_quotes() {
         ),
     ] {
         let error = c.execute(sql, &Parameters::new()).unwrap_err();
-        assert_eq!(error.code(), "FDB_VALIDATION", "{sql}");
+        assert_eq!(error.code(), "RDB_VALIDATION", "{sql}");
         assert_eq!(
             error.to_string(),
             format!(

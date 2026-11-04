@@ -22,7 +22,8 @@ async function checkAsync() {
   const asyncDb = await AsyncDatabase.open();
   const result: Value[][] = await asyncDb.all('SELECT 1');
   const exported: string = await asyncDb.exportDocuments('docs');
-  void result; void exported;
+  const file: { bytes: number } = await asyncDb.exportFile('/tmp/copy.romedb', { timeoutMs: 1000 });
+  void result; void exported; void file;
   await asyncDb.close();
 }
 void checkAsync;

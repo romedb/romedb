@@ -173,7 +173,7 @@ mod tests {
                 sql: "CREATE TABLE docs;".into(),
             }];
             let error = c.migrate(&plan).unwrap_err();
-            assert_eq!(error.code(), "FDB_STORAGE", "{error:?}");
+            assert_eq!(error.code(), "RDB_STORAGE", "{error:?}");
             assert_eq!(c.transaction_state(), TransactionState::Autocommit);
             assert!(c.execute("SELECT * FROM docs", &Parameters::new()).is_err());
             assert!(c
@@ -200,7 +200,7 @@ mod tests {
             .unwrap();
         // An externally added trigger must never run through the managed runner.
         c.run("CREATE TRIGGER unexpected_history_trigger AFTER INSERT ON __romedb_migrations BEGIN DELETE FROM audit; END", &[]).unwrap();
-        assert_eq!(c.migrate(&plan).unwrap_err().code(), "FDB_STORAGE");
+        assert_eq!(c.migrate(&plan).unwrap_err().code(), "RDB_STORAGE");
         assert_eq!(c.transaction_state(), TransactionState::Autocommit);
         assert_eq!(
             c.run("SELECT version,name,script FROM __romedb_migrations", &[])
@@ -265,7 +265,7 @@ mod tests {
             sql: "CREATE TABLE docs;".into(),
         }];
         let error = c.migrate(&plan).unwrap_err();
-        assert_eq!(error.code(), "FDB_VALIDATION");
+        assert_eq!(error.code(), "RDB_VALIDATION");
         assert!(error.to_string().contains("omits applied history"));
         assert_eq!(c.transaction_state(), TransactionState::Autocommit);
         assert!(c.execute("SELECT * FROM docs", &Parameters::new()).is_err());
@@ -278,13 +278,13 @@ mod tests {
     #[test]
     fn oversized_history_values_reject_before_text_materialization() {
         for (name, script, code) in [
-            ("é".repeat(128), "".to_owned(), "FDB_LIMIT"),
+            ("é".repeat(128), "".to_owned(), "RDB_LIMIT"),
             (
                 "valid".to_owned(),
                 "x".repeat(4 * 1024 * 1024 + 1),
-                "FDB_LIMIT",
+                "RDB_LIMIT",
             ),
-            ("".to_owned(), "".to_owned(), "FDB_STORAGE"),
+            ("".to_owned(), "".to_owned(), "RDB_STORAGE"),
         ] {
             let db = crate::Database::open(":memory:").unwrap();
             let c = db.connect().unwrap();
@@ -330,14 +330,14 @@ mod tests {
             .unwrap();
         }
         let error = c.migrate(&plan).unwrap_err();
-        assert_eq!(error.code(), "FDB_LIMIT");
+        assert_eq!(error.code(), "RDB_LIMIT");
         assert!(error.to_string().contains("history SQL exceeds 16 MiB"));
         assert_eq!(c.transaction_state(), TransactionState::Autocommit);
         c.run("DELETE FROM __romedb_migrations WHERE version>1", &[])
             .unwrap();
         c.run("UPDATE __romedb_migrations SET script=x'00'", &[])
             .unwrap();
-        assert_eq!(c.migrate(&plan[..1]).unwrap_err().code(), "FDB_STORAGE");
+        assert_eq!(c.migrate(&plan[..1]).unwrap_err().code(), "RDB_STORAGE");
         assert_eq!(c.transaction_state(), TransactionState::Autocommit);
     }
 }

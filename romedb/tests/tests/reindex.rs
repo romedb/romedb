@@ -60,7 +60,7 @@ fn rebuild_preserves_definitions_dependencies_snapshots_and_reopen() {
         assert_eq!(evidence(&c), before);
         c.check_collection_integrity("docs", Default::default())
             .unwrap();
-        assert_eq!(c.reindex("missing").unwrap_err().code(), "FDB_NOT_FOUND");
+        assert_eq!(c.reindex("missing").unwrap_err().code(), "RDB_NOT_FOUND");
         q(&c, "CREATE TABLE native(n INTEGER)");
         q(&c, "CREATE INDEX native_n ON native(n)");
         q(&c, "REINDEX native_n");
@@ -113,7 +113,7 @@ fn rebuild_metering_and_source_buffer_limits_preserve_caller_work() {
                 },
             )
             .unwrap();
-        assert_eq!(measured.outcome.unwrap_err().code(), "FDB_CANCELLED");
+        assert_eq!(measured.outcome.unwrap_err().code(), "RDB_CANCELLED");
         q(&c, "COMMIT");
         assert_eq!(q(&c, "SELECT * FROM prior").rows.len(), 1);
         q(&c, "DELETE FROM prior");
@@ -124,7 +124,7 @@ fn rebuild_metering_and_source_buffer_limits_preserve_caller_work() {
         max_payload_bytes: 65536,
     });
     for name in ["scalar", "words", "vec", "loc"] {
-        assert_eq!(c.reindex(name).unwrap_err().code(), "FDB_LIMIT");
+        assert_eq!(c.reindex(name).unwrap_err().code(), "RDB_LIMIT");
     }
     assert_eq!(evidence(&c), before);
 }

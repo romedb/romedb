@@ -91,7 +91,7 @@ fn candidate_and_outer_budgets_retain_failure_work_and_preserve_caller_transacti
     // Limits 0..4 stop within candidate lookup. 5..9 stop in the outer scan.
     for cap in 0..10 {
         let m = read(&c, &sql(5), Some(cap));
-        assert_eq!(m.outcome.unwrap_err().code(), "FDB_CANCELLED", "cap={cap}");
+        assert_eq!(m.outcome.unwrap_err().code(), "RDB_CANCELLED", "cap={cap}");
         assert_eq!(m.work.rows_read, cap + 1, "cap={cap}");
         assert!(m.work.read_budget_exhausted);
         assert_eq!(c.transaction_state(), TransactionState::Active);
@@ -112,7 +112,7 @@ fn candidate_and_outer_budgets_retain_failure_work_and_preserve_caller_transacti
             max_vm_steps: Some(0),
         },
     );
-    assert_eq!(vm.outcome.unwrap_err().code(), "FDB_CANCELLED");
+    assert_eq!(vm.outcome.unwrap_err().code(), "RDB_CANCELLED");
     assert_eq!(vm.work.rows_read, 0);
     assert_eq!(vm.work.vm_steps, 0);
     assert!(vm.work.vm_budget_exhausted);
@@ -125,7 +125,7 @@ fn candidate_and_outer_budgets_retain_failure_work_and_preserve_caller_transacti
         },
         Default::default(),
     );
-    assert_eq!(result.outcome.unwrap_err().code(), "FDB_LIMIT");
+    assert_eq!(result.outcome.unwrap_err().code(), "RDB_LIMIT");
     assert_eq!(
         result.work.rows_read, 6,
         "five candidates then first emitted row"

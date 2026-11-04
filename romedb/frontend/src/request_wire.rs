@@ -44,7 +44,7 @@ pub struct RequestWorkLimits {
 impl RequestEnvelope {
     pub fn parse(body: &str, read_only: bool) -> Result<Self> {
         if body.len() > 65_536 {
-            return Err(Error::new("FDB_LIMIT", "request exceeds 64 KiB"));
+            return Err(Error::new("RDB_LIMIT", "request exceeds 64 KiB"));
         }
         let request: Self = crate::decode_wire_json(body)?;
         if request.request_id.is_empty()
@@ -61,7 +61,7 @@ impl RequestEnvelope {
             || request.statements.len() > 32
         {
             return Err(Error::new(
-                "FDB_VALIDATION",
+                "RDB_VALIDATION",
                 "invalid request identity, sequence or statement count",
             ));
         }
@@ -69,7 +69,7 @@ impl RequestEnvelope {
             || (!read_only && request.read_version.is_some())
         {
             return Err(Error::new(
-                "FDB_VALIDATION",
+                "RDB_VALIDATION",
                 "reads require readVersion 2 without ifSequence; writes omit readVersion",
             ));
         }

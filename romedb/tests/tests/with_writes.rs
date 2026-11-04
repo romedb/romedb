@@ -398,7 +398,7 @@ fn self_read_assignments_and_late_validation_preserve_atomic_candidates() {
     q(&c, "INSERT INTO docs(id,n) VALUES(docs:z,9)");
     let changes_before = q(&c, "SELECT total_changes()").rows;
     let error=c.execute("UPDATE docs SET n=CASE WHEN n=1 THEN n+10 ELSE (SELECT n FROM native WHERE 0) END RETURNING n",&Parameters::new()).unwrap_err();
-    assert_eq!(error.code(), "FDB_VALIDATION");
+    assert_eq!(error.code(), "RDB_VALIDATION");
     let changes_after = q(&c, "SELECT total_changes()").rows;
     assert!(
         matches!((&changes_before[0][0], &changes_after[0][0]), (Value::Integer(before), Value::Integer(after)) if after > before)

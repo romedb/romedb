@@ -321,17 +321,17 @@ mod tests {
         let after = Document::from([("x".repeat(16_385), Value::Integer(2))]);
         assert_eq!(
             diff(Some(&before), Some(&after)).unwrap_err().code(),
-            "FDB_LIMIT"
+            "RDB_LIMIT"
         );
         let before = Document::from([("items".into(), Value::Array(vec![Value::Null; 1_000_001]))]);
         assert_eq!(
             diff(Some(&before), Some(&before)).unwrap_err().code(),
-            "FDB_LIMIT"
+            "RDB_LIMIT"
         );
         let before = Document::from([("text".into(), Value::String("x".repeat(32 * 1024 * 1024)))]);
         assert_eq!(
             diff(Some(&before), Some(&before)).unwrap_err().code(),
-            "FDB_LIMIT"
+            "RDB_LIMIT"
         );
     }
 

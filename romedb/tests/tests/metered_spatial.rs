@@ -76,7 +76,7 @@ fn nearest_rounds_and_planning_reads_count_toward_metered_work() {
         let exact = read(&c, &sql, Some(used));
         assert_eq!(exact.outcome.unwrap().rows, profile.result.rows, "{sql}");
         let short = read(&c, &sql, Some(used - 1));
-        assert_eq!(short.outcome.unwrap_err().code(), "FDB_CANCELLED", "{sql}");
+        assert_eq!(short.outcome.unwrap_err().code(), "RDB_CANCELLED", "{sql}");
         assert!(short.work.read_budget_exhausted, "{sql}");
     }
 }

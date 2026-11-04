@@ -184,9 +184,9 @@ fn leading_with_insert_preserves_validation_conflicts_and_scope_boundaries() {
     q(&c, "CREATE TABLE a(n INTEGER)");
     q(&c, "INSERT INTO a VALUES (99)");
     let error=c.execute("WITH a AS (SELECT n FROM docs) INSERT OR REPLACE INTO native SELECT n FROM a RETURNING (SELECT n FROM a LIMIT 1)",&Parameters::new()).unwrap_err();
-    assert_eq!(error.code(), "FDB_UNSUPPORTED");
+    assert_eq!(error.code(), "RDB_UNSUPPORTED");
     let error=c.execute("WITH a AS (SELECT n FROM docs) INSERT OR REPLACE INTO native SELECT n FROM a RETURNING n IN a",&Parameters::new()).unwrap_err();
-    assert_eq!(error.code(), "FDB_UNSUPPORTED");
+    assert_eq!(error.code(), "RDB_UNSUPPORTED");
 
     assert_eq!(
         q(&c, "SELECT n FROM native ORDER BY n").rows,
@@ -272,7 +272,7 @@ fn values_ctes_and_leading_with_values_insert_atomically() {
         "WITH unused AS (SELECT 1) INSERT INTO docs(id,n) VALUES (docs:c,3) RETURNING id,n",
     );
     let error=c.execute("WITH input(id,n) AS (VALUES (docs:d,4),(docs:e,2)) INSERT INTO docs(id,n) SELECT id,n FROM input",&Parameters::new()).unwrap_err();
-    assert_eq!(error.code(), "FDB_CONSTRAINT");
+    assert_eq!(error.code(), "RDB_CONSTRAINT");
     assert_eq!(c.transaction_state(), romedb::TransactionState::Active);
     assert_eq!(
         q(&c, "SELECT n FROM docs ORDER BY n").rows,
@@ -288,7 +288,7 @@ fn values_ctes_and_leading_with_values_insert_atomically() {
             &Parameters::new(),
         )
         .unwrap_err();
-    assert_eq!(error.code(), "FDB_VALIDATION");
+    assert_eq!(error.code(), "RDB_VALIDATION");
     assert!(c
         .lookup_index("docs", "docs_n", &Value::Integer(4))
         .unwrap()
@@ -319,7 +319,7 @@ fn values_rows_preserve_mixed_types_and_parameter_identity() {
         key: romedb::Key::Integer(7),
     });
     let bytes = Value::Binary(
-        b"FDB\x01{\"type\":\"Record\",\"value\":{\"table\":\"docs\",\"key\":{\"Integer\":7}}}"
+        b"RDB\x01{\"type\":\"Record\",\"value\":{\"table\":\"docs\",\"key\":{\"Integer\":7}}}"
             .to_vec(),
     );
     let array = Value::Array(vec![Value::Integer(1), Value::Null]);
@@ -523,7 +523,7 @@ fn duplicate_native_cte_parameters_preserve_binary_nulls_and_writes() {
     q(&c, "CREATE TABLE copied(a,b)");
     for (first, second) in [
         (
-            Value::Binary(b"FDB\x01{\"type\":\"Integer\",\"value\":7}".to_vec()),
+            Value::Binary(b"RDB\x01{\"type\":\"Integer\",\"value\":7}".to_vec()),
             Value::Null,
         ),
         (Value::Null, Value::Binary(vec![0, 255, 49])),
@@ -775,7 +775,7 @@ fn recursive_collection_queries_observe_limits_snapshots_and_write_atomicity() {
     assert!(c.execute(&format!("EXPLAIN {sql}"), &params).is_ok());
     let mut extra = params.clone();
     extra.insert("$unused".into(), Value::Integer(1));
-    assert_eq!(c.execute(&sql, &extra).unwrap_err().code(), "FDB_PARAMETER");
+    assert_eq!(c.execute(&sql, &extra).unwrap_err().code(), "RDB_PARAMETER");
     let limits = romedb::ResultLimits {
         max_rows: 2,
         max_payload_bytes: 100000,
@@ -786,13 +786,13 @@ fn recursive_collection_queries_observe_limits_snapshots_and_write_atomicity() {
         c.select_with_limits(&sql, &params, limits)
             .unwrap_err()
             .code(),
-        "FDB_LIMIT"
+        "RDB_LIMIT"
     );
     assert_eq!(
         c.profile_select_with_limits(&sql, &params, limits)
             .unwrap_err()
             .code(),
-        "FDB_LIMIT"
+        "RDB_LIMIT"
     );
     let infinite="WITH RECURSIVE r(n) AS (SELECT n FROM docs UNION ALL SELECT n+1 FROM r) SELECT sum(n) FROM r";
     let stopped = c.select_metered(
@@ -804,13 +804,13 @@ fn recursive_collection_queries_observe_limits_snapshots_and_write_atomicity() {
             max_vm_steps: Some(1000),
         },
     );
-    assert_eq!(stopped.outcome.unwrap_err().code(), "FDB_CANCELLED");
+    assert_eq!(stopped.outcome.unwrap_err().code(), "RDB_CANCELLED");
     assert!(stopped.work.vm_steps >= 1000);
     assert_eq!(
         c.execute(&format!("{infinite} TIMEOUT 10ms"), &Parameters::new())
             .unwrap_err()
             .code(),
-        "FDB_CANCELLED"
+        "RDB_CANCELLED"
     );
     let insert =
         format!("INSERT INTO sink(n,payload) {prefix} SELECT n,payload FROM r RETURNING n");
@@ -818,7 +818,7 @@ fn recursive_collection_queries_observe_limits_snapshots_and_write_atomicity() {
         c.write_with_result_limits(&insert, &params, limits)
             .unwrap_err()
             .code(),
-        "FDB_LIMIT"
+        "RDB_LIMIT"
     );
     assert_eq!(
         q(&c, "SELECT n FROM sink").rows,

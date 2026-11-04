@@ -37,11 +37,11 @@ async function qualify(client) {
   const snapshot = await client.read([{ sql: 'SELECT n FROM fixture_rows' }]);
   const stale = client.prepareWrite([{ sql: 'UPDATE fixture_rows SET n=4 WHERE id=1' }], { ifSequence: snapshot.sequence });
   await client.writeAtomic([{ sql: 'UPDATE fixture_rows SET n=3 WHERE id=1' }]);
-  await assert.rejects(client.submit(stale), error => error.code === 'FDB_CONFLICT' && error.outcome === 'rolled-back');
+  await assert.rejects(client.submit(stale), error => error.code === 'RDB_CONFLICT' && error.outcome === 'rolled-back');
   await assert.rejects(client.writeAtomic([
     { sql: "UPDATE fixture_docs:a SET title='changed'" },
     { sql: 'INSERT INTO fixture_rows VALUES(2,3)' },
-  ]), error => error.code === 'FDB_CONSTRAINT' && error.outcome === 'rolled-back');
+  ]), error => error.code === 'RDB_CONSTRAINT' && error.outcome === 'rolled-back');
   assert.deepEqual((await client.read([{ sql: "SELECT title FROM fixture_docs WHERE title='original'" }])).results[0].rows, [['original']]);
   assert.deepEqual((await client.read([{ sql: "SELECT title FROM fixture_docs WHERE title='changed'" }])).results[0].rows, []);
   await client.writeAtomic([
@@ -60,7 +60,7 @@ async function qualify(client) {
   await assert.rejects(client.writeAtomic([
     { sql: "UPDATE fixture_search:original SET title='changedterm',v=vector32('[10,0]'),location=geo::point(10,10)" },
     { sql: 'INSERT INTO fixture_search {id:fixture_search:invalid,title:123}' },
-  ]), error => error.code === 'FDB_VALIDATION' && error.outcome === 'rolled-back');
+  ]), error => error.code === 'RDB_VALIDATION' && error.outcome === 'rolled-back');
   const searches = [
     ["SELECT id FROM fixture_search WHERE title='originalterm'", 'fixture_scalar'],
     ["SELECT id FROM search::text('fixture_text','originalterm',10)", 'QUERY INDEX METHOD fts'],
@@ -71,7 +71,7 @@ async function qualify(client) {
     const rows = (await client.read([{ sql }])).results[0].rows;
     assert.deepEqual(rows.map(row => encodeValue(row[0])), [encodeValue(new Record('fixture_search', 'original'))]);
     if (index === null) {
-      await assert.rejects(client.read([{ sql: `EXPLAIN QUERY PLAN ${sql}` }]), error => error.code === 'FDB_UNSUPPORTED');
+      await assert.rejects(client.read([{ sql: `EXPLAIN QUERY PLAN ${sql}` }]), error => error.code === 'RDB_UNSUPPORTED');
     } else {
       const plan = (await client.read([{ sql: `EXPLAIN QUERY PLAN ${sql}` }])).results[0];
       assert(JSON.stringify(plan, (_, value) => typeof value === 'bigint' ? value.toString() : value).includes(index), `index absent from plan: ${index}`);
@@ -81,12 +81,12 @@ async function qualify(client) {
   await assert.rejects(client.writeAtomic([
     { sql: 'INSERT INTO fixture_rows VALUES(2,4)' },
     { sql: 'INSERT INTO fixture_rows VALUES(3,5)' },
-  ], { workLimits: { rowMutations: 1 } }), error => error.code === 'FDB_LIMIT' && error.outcome === 'rolled-back');
+  ], { workLimits: { rowMutations: 1 } }), error => error.code === 'RDB_LIMIT' && error.outcome === 'rolled-back');
   await assert.rejects(client.writeAtomic([
     { sql: 'INSERT INTO fixture_rows VALUES(2,4)' },
     { sql: 'SELECT hex(zeroblob(80000))' },
     { sql: 'SELECT hex(zeroblob(80000))' },
-  ]), error => error.code === 'FDB_LIMIT' && error.outcome === 'rolled-back');
+  ]), error => error.code === 'RDB_LIMIT' && error.outcome === 'rolled-back');
   assert.deepEqual((await client.read([{ sql: 'SELECT id,n FROM fixture_rows' }])).results[0].rows, [[1n, 3n]]);
   {
     await client.writeAtomic([
@@ -96,7 +96,7 @@ async function qualify(client) {
     await assert.rejects(client.writeAtomic([
       { sql: 'INSERT INTO fixture_parents VALUES(1)' },
       { sql: 'INSERT INTO fixture_children VALUES(1,999)' },
-    ]), error => error.code === 'FDB_CONSTRAINT' && error.outcome === 'rolled-back');
+    ]), error => error.code === 'RDB_CONSTRAINT' && error.outcome === 'rolled-back');
     assert.deepEqual((await client.read([{ sql: 'SELECT id FROM fixture_parents' }])).results[0].rows, []);
   }
   const metadata = (await client.read([{ sql: 'INFO FOR DB' }])).results[0].rows[0][0];

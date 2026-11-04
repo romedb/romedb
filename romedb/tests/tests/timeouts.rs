@@ -54,7 +54,7 @@ fn statement_deadlines_preserve_names_bindings_and_transaction_control() {
     ] {
         assert_eq!(
             c.execute(sql, &Parameters::new()).unwrap_err().code(),
-            "FDB_CANCELLED",
+            "RDB_CANCELLED",
             "{sql}"
         );
         assert_eq!(c.transaction_state(), TransactionState::Active);
@@ -89,20 +89,20 @@ fn limited_profile_and_every_metered_route_observe_deadlines() {
     for sql in ["SELECT n FROM docs TIMEOUT 0ms", "SELECT 1 TIMEOUT 0ms"] {
         assert_eq!(
             c.profile_select(sql, &p).unwrap_err().code(),
-            "FDB_CANCELLED"
+            "RDB_CANCELLED"
         );
         assert_eq!(
             c.select_with_limits(sql, &p, limits()).unwrap_err().code(),
-            "FDB_CANCELLED"
+            "RDB_CANCELLED"
         );
         assert_eq!(
             c.profile_select_with_limits(sql, &p, limits())
                 .unwrap_err()
                 .code(),
-            "FDB_CANCELLED"
+            "RDB_CANCELLED"
         );
         let measured = c.select_metered(sql, &p, limits(), Default::default());
-        assert_eq!(measured.outcome.unwrap_err().code(), "FDB_CANCELLED");
+        assert_eq!(measured.outcome.unwrap_err().code(), "RDB_CANCELLED");
         assert_eq!(measured.work.rows_read, 0);
     }
     assert_eq!(
@@ -115,13 +115,13 @@ fn limited_profile_and_every_metered_route_observe_deadlines() {
         .outcome
         .unwrap_err()
         .code(),
-        "FDB_CANCELLED"
+        "RDB_CANCELLED"
     );
     assert_eq!(
         c.write_with_result_limits("UPDATE docs SET n=2 RETURNING * TIMEOUT 0ms", &p, limits())
             .unwrap_err()
             .code(),
-        "FDB_CANCELLED"
+        "RDB_CANCELLED"
     );
     let write = c.write_metered(
         "DELETE FROM docs TIMEOUT 0ms",
@@ -129,7 +129,7 @@ fn limited_profile_and_every_metered_route_observe_deadlines() {
         limits(),
         Default::default(),
     );
-    assert_eq!(write.outcome.unwrap_err().code(), "FDB_CANCELLED");
+    assert_eq!(write.outcome.unwrap_err().code(), "RDB_CANCELLED");
     assert_eq!(write.work.row_mutations, 0);
     assert_eq!(
         c.create_metered(
@@ -142,7 +142,7 @@ fn limited_profile_and_every_metered_route_observe_deadlines() {
         .outcome
         .unwrap_err()
         .code(),
-        "FDB_CANCELLED"
+        "RDB_CANCELLED"
     );
     assert_eq!(
         c.schema_metered(
@@ -155,7 +155,7 @@ fn limited_profile_and_every_metered_route_observe_deadlines() {
         .outcome
         .unwrap_err()
         .code(),
-        "FDB_CANCELLED"
+        "RDB_CANCELLED"
     );
     assert_eq!(
         c.ddl_metered(
@@ -168,7 +168,7 @@ fn limited_profile_and_every_metered_route_observe_deadlines() {
         .outcome
         .unwrap_err()
         .code(),
-        "FDB_CANCELLED"
+        "RDB_CANCELLED"
     );
     assert_eq!(
         c.explain_metered(
@@ -181,7 +181,7 @@ fn limited_profile_and_every_metered_route_observe_deadlines() {
         .outcome
         .unwrap_err()
         .code(),
-        "FDB_CANCELLED"
+        "RDB_CANCELLED"
     );
     assert_eq!(
         c.info_metered(
@@ -193,7 +193,7 @@ fn limited_profile_and_every_metered_route_observe_deadlines() {
         .outcome
         .unwrap_err()
         .code(),
-        "FDB_CANCELLED"
+        "RDB_CANCELLED"
     );
     assert!(c
         .create_metered(
@@ -260,7 +260,7 @@ fn timeout_and_caller_cancellation_compose_and_leave_no_expiry_on_reuse() {
         c.execute_cancellable(&format!("{LONG} TIMEOUT 10ms"), &p, &generous)
             .unwrap_err()
             .code(),
-        "FDB_CANCELLED"
+        "RDB_CANCELLED"
     );
     eprintln!("SQL TIMEOUT 10ms observed {:?}", started.elapsed());
     assert!(started.elapsed() < Duration::from_secs(5));
@@ -276,7 +276,7 @@ fn timeout_and_caller_cancellation_compose_and_leave_no_expiry_on_reuse() {
         c.execute_cancellable(&format!("{LONG} TIMEOUT 5s"), &p, &caller)
             .unwrap_err()
             .code(),
-        "FDB_CANCELLED"
+        "RDB_CANCELLED"
     );
     request.join().unwrap();
     eprintln!(
@@ -295,6 +295,6 @@ fn timeout_and_caller_cancellation_compose_and_leave_no_expiry_on_reuse() {
         limits(),
         Default::default(),
     );
-    assert_eq!(measured.outcome.unwrap_err().code(), "FDB_CANCELLED");
+    assert_eq!(measured.outcome.unwrap_err().code(), "RDB_CANCELLED");
     assert!(measured.work.vm_steps > 0);
 }

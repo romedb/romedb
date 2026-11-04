@@ -230,7 +230,7 @@ mod evaluation_tests {
                         };
                         CALLS.store(0, Ordering::SeqCst);
                         let error = c.profile_select_with_limits(&sql, &p, limits).unwrap_err();
-                        assert_eq!(error.code(), "FDB_LIMIT");
+                        assert_eq!(error.code(), "RDB_LIMIT");
                         assert_eq!(
                             CALLS.load(Ordering::SeqCst),
                             accepted + 1,
@@ -271,7 +271,7 @@ mod evaluation_tests {
                         c.write_with_result_limits(write, &p, limits)
                             .unwrap_err()
                             .code(),
-                        "FDB_LIMIT"
+                        "RDB_LIMIT"
                     );
                     assert_eq!(
                         CALLS.load(Ordering::SeqCst),
@@ -300,7 +300,7 @@ mod evaluation_tests {
             )
             .unwrap_err()
             .code(),
-            "FDB_LIMIT"
+            "RDB_LIMIT"
         );
         assert_eq!(
             CALLS.load(Ordering::SeqCst),
@@ -320,7 +320,7 @@ mod evaluation_tests {
                 },
             )
             .unwrap_err();
-        assert_eq!(error.code(), "FDB_LIMIT");
+        assert_eq!(error.code(), "RDB_LIMIT");
         assert_eq!(
             CALLS.load(Ordering::SeqCst),
             0,
@@ -337,7 +337,7 @@ mod evaluation_tests {
                 },
             )
             .unwrap_err();
-        assert_eq!(error.code(), "FDB_LIMIT");
+        assert_eq!(error.code(), "RDB_LIMIT");
         assert_eq!(c.execute("SELECT n FROM native", &p).unwrap().rows.len(), 4);
         assert_eq!(c.transaction_state(), crate::TransactionState::Active);
         assert_eq!(
@@ -365,7 +365,7 @@ mod evaluation_tests {
             c.execute("UPDATE docs SET n=result_budget_tick(n)+10", &p)
                 .unwrap_err()
                 .code(),
-            "FDB_LIMIT"
+            "RDB_LIMIT"
         );
         assert_eq!(
             CALLS.load(Ordering::SeqCst),

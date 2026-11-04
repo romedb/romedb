@@ -108,7 +108,7 @@ class QueryResult:
 
     def exactly_one(self) -> list[Any]:
         if len(self.rows) != 1:
-            raise RomeDBError(f"expected exactly one row, got {len(self.rows)}", "FDB_CARDINALITY", self.transaction)
+            raise RomeDBError(f"expected exactly one row, got {len(self.rows)}", "RDB_CARDINALITY", self.transaction)
         return self.rows[0]
 
 
@@ -150,7 +150,7 @@ def _native_error(error):
         value = json.loads(str(error))
         return RomeDBError(value["message"], value["code"], migration=value.get("migration"))
     except (ValueError, KeyError, TypeError):
-        return RomeDBError(str(error), "FDB_STORAGE")
+        return RomeDBError(str(error), "RDB_STORAGE")
 
 
 def _integer(value):
@@ -280,7 +280,7 @@ class Database:
         payload = json.dumps(request, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
         with self._lock:
             if self._closed:
-                raise RomeDBError("database is closed", "FDB_CLOSED")
+                raise RomeDBError("database is closed", "RDB_CLOSED")
             report = json.loads(self._native.call(payload, token._native))
         if report.get("version") != 1:
             raise RuntimeError("unsupported native protocol version")
@@ -375,7 +375,7 @@ class Database:
                         self.execute(f"RELEASE {name}")
                     except RomeDBError as cleanup:
                         raise RomeDBError(
-                            f"rollback failed after {cause}: {cleanup}", "FDB_ROLLBACK", cleanup.transaction
+                            f"rollback failed after {cause}: {cleanup}", "RDB_ROLLBACK", cleanup.transaction
                         ) from cause
                 raise
 
@@ -394,7 +394,7 @@ class Database:
 
     def __enter__(self):
         if self._closed:
-            raise RomeDBError("database is closed", "FDB_CLOSED")
+            raise RomeDBError("database is closed", "RDB_CLOSED")
         return self
 
     def __exit__(self, *args):

@@ -4,7 +4,7 @@ import CRomeDB
 public struct RomeDBError: Error {
     public let diagnostic: [String: Any]
     public let transaction: [String: Any]?
-    public var code: String { diagnostic["code"] as? String ?? "FDB_PROTOCOL" }
+    public var code: String { diagnostic["code"] as? String ?? "RDB_PROTOCOL" }
 }
 public struct Value {
     public let wire: [String: Any]
@@ -27,11 +27,11 @@ public struct Value {
 public final class Database {
     private let handle: UInt64
     private static func protocolError(_ message: String) -> RomeDBError {
-        RomeDBError(diagnostic: ["code": "FDB_PROTOCOL", "message": message], transaction: nil)
+        RomeDBError(diagnostic: ["code": "RDB_PROTOCOL", "message": message], transaction: nil)
     }
     private static func receive(_ pointer: UnsafeMutablePointer<CChar>?) throws -> [String: Any] {
         guard let pointer else { throw protocolError("null RomeDB response") }
-        defer { fdb_free(pointer) }
+        defer { rdb_free(pointer) }
         let data = Data(String(cString: pointer).utf8)
         guard let response = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               response["version"] as? Int == 1,
@@ -42,8 +42,8 @@ public final class Database {
         return response
     }
     public init(path: String) throws {
-        guard !path.utf8.contains(0), fdb_abi_version() == 1 else { throw Self.protocolError("invalid path or ABI") }
-        let response = try path.withCString { try Self.receive(fdb_open($0)) }
+        guard !path.utf8.contains(0), rdb_abi_version() == 1 else { throw Self.protocolError("invalid path or ABI") }
+        let response = try path.withCString { try Self.receive(rdb_open($0)) }
         guard let execution = response["execution"] as? [String: Any],
               let text = execution["result"] as? String, let handle = UInt64(text) else { throw Self.protocolError("invalid handle") }
         self.handle = handle
@@ -52,7 +52,7 @@ public final class Database {
     public func call(_ request: [String: Any], timeoutMs: Int64 = -1) throws -> [String: Any] {
         let data = try JSONSerialization.data(withJSONObject: request)
         let text = String(decoding: data, as: UTF8.self)
-        return try text.withCString { try Self.receive(fdb_call(handle, $0, timeoutMs)) }
+        return try text.withCString { try Self.receive(rdb_call(handle, $0, timeoutMs)) }
     }
     public func execute(_ sql: String, parameters: [String: Value] = [:], timeoutMs: Int64 = -1) throws -> [String: Any] {
         let response = try call(["op": "execute", "sql": sql, "parameters": parameters.mapValues(\.wire)], timeoutMs: timeoutMs)
@@ -60,7 +60,7 @@ public final class Database {
         result["transaction"] = response["transaction"]
         return result
     }
-    public func interrupt() throws { _ = try Self.receive(fdb_interrupt(handle)) }
-    public func close() throws { _ = try Self.receive(fdb_close(handle)) }
-    deinit { fdb_free(fdb_close(handle)) }
+    public func interrupt() throws { _ = try Self.receive(rdb_interrupt(handle)) }
+    public func close() throws { _ = try Self.receive(rdb_close(handle)) }
+    deinit { rdb_free(rdb_close(handle)) }
 }

@@ -22,7 +22,7 @@ fn main() -> romedb::Result<()> {
     let error = connection
         .write_with_result_limits(write, &parameters, one)
         .unwrap_err();
-    assert_eq!(error.code(), "FDB_LIMIT");
+    assert_eq!(error.code(), "RDB_LIMIT");
     assert_eq!(connection.transaction_state(), TransactionState::Active);
     // Rejected output rolls back the UPDATE, preserving the prior pending insert.
     let two = ResultLimits {
@@ -44,7 +44,7 @@ fn main() -> romedb::Result<()> {
     let error = connection
         .write_with_result_limits_cancellable("DELETE FROM items", &parameters, one, &cancelled)
         .unwrap_err();
-    assert_eq!(error.code(), "FDB_CANCELLED");
+    assert_eq!(error.code(), "RDB_CANCELLED");
     assert_eq!(
         connection
             .select_with_limits("SELECT n FROM items", &parameters, one)?

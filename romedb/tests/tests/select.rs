@@ -701,7 +701,7 @@ fn deep_paths_handle_quoting_comments_and_depth_limits() {
             &Parameters::new(),
         )
         .unwrap_err();
-    assert_eq!(error.code(), "FDB_LIMIT");
+    assert_eq!(error.code(), "RDB_LIMIT");
     query(&c, "CREATE TABLE ordinary(value INTEGER)");
     query(&c, "INSERT INTO ordinary VALUES (9)");
     assert_eq!(
@@ -1483,7 +1483,7 @@ fn binary_literals_match_typed_fields_and_managed_index_keys() {
     );
     // Raw bytes that imitate a record encoding remain a binary value.
     let bytes =
-        b"FDB\x01{\"type\":\"Record\",\"value\":{\"table\":\"docs\",\"key\":{\"String\":\"a\"}}}";
+        b"RDB\x01{\"type\":\"Record\",\"value\":{\"table\":\"docs\",\"key\":{\"String\":\"a\"}}}";
     let hex = bytes.iter().map(|b| format!("{b:02x}")).collect::<String>();
     assert!(query(&c, &format!("SELECT id FROM docs WHERE id=X'{hex}'"))
         .rows
@@ -1603,7 +1603,7 @@ fn binary_membership_normalizes_literals_fields_and_function_results() {
         vec![vec![Value::Integer(0)]]
     );
     let bytes =
-        b"FDB\x01{\"type\":\"Record\",\"value\":{\"table\":\"docs\",\"key\":{\"String\":\"a\"}}}";
+        b"RDB\x01{\"type\":\"Record\",\"value\":{\"table\":\"docs\",\"key\":{\"String\":\"a\"}}}";
     let hex = bytes.iter().map(|b| format!("{b:02x}")).collect::<String>();
     assert_eq!(
         query(
@@ -1663,7 +1663,7 @@ fn native_function_membership_preserves_binary_and_collation() {
         );
     }
     let bytes =
-        b"FDB\x01{\"type\":\"Record\",\"value\":{\"table\":\"docs\",\"key\":{\"String\":\"a\"}}}";
+        b"RDB\x01{\"type\":\"Record\",\"value\":{\"table\":\"docs\",\"key\":{\"String\":\"a\"}}}";
     let hex = bytes.iter().map(|b| format!("{b:02x}")).collect::<String>();
     assert_eq!(
         query(
@@ -2054,7 +2054,7 @@ fn quoted_internal_functions_are_rejected_across_collection_queries_and_writes()
     ] {
         assert_eq!(
             c.execute(sql, &Parameters::new()).unwrap_err().code(),
-            "FDB_UNSUPPORTED",
+            "RDB_UNSUPPORTED",
             "{sql}"
         );
         assert_eq!(
@@ -2417,7 +2417,7 @@ fn native_column_between_document_bounds_matches_sql() {
     query(&c, "CREATE TABLE copied(n INTEGER CHECK(n<5))");
     query(&c, "BEGIN");
     let error = c.execute("INSERT INTO copied SELECT n.n FROM native n JOIN bounds d ON n.n BETWEEN d.nlo AND d.nhi", &Parameters::new()).unwrap_err();
-    assert_eq!(error.code(), "FDB_CONSTRAINT");
+    assert_eq!(error.code(), "RDB_CONSTRAINT");
     assert!(query(&c, "SELECT * FROM copied").rows.is_empty());
     query(&c, "INSERT INTO copied VALUES (1)");
     query(&c, "ROLLBACK");
@@ -2552,7 +2552,7 @@ fn document_between_native_bounds_preserves_payloads_and_affinity() {
             &Parameters::new(),
         )
         .unwrap_err();
-    assert_eq!(error.code(), "FDB_CONSTRAINT");
+    assert_eq!(error.code(), "RDB_CONSTRAINT");
     assert!(query(&c, "SELECT * FROM copied").rows.is_empty());
     query(&c, "ROLLBACK");
 }

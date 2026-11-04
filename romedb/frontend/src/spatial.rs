@@ -1693,12 +1693,12 @@ mod index_tests {
             let error = c
                 .execute_cancellable("REINDEX locations", &none, &cancelled)
                 .unwrap_err();
-            assert_eq!(error.code(), "FDB_CANCELLED");
+            assert_eq!(error.code(), "RDB_CANCELLED");
             let deadline = crate::CancellationToken::with_deadline(
                 std::time::Instant::now() + std::time::Duration::from_millis(2),
             );
             if let Err(error) = c.execute_cancellable("REINDEX locations", &none, &deadline) {
-                assert_eq!(error.code(), "FDB_CANCELLED");
+                assert_eq!(error.code(), "RDB_CANCELLED");
                 assert_eq!(c.catalog("places").unwrap().indexes[0].spatial, None);
             } else {
                 downgrade_to_latitude_format(&c);

@@ -157,7 +157,7 @@ fn ann_romeql_sources_keep_typed_hits_limits_and_filters() {
         )
         .unwrap_err()
         .code(),
-        "FDB_VALIDATION"
+        "RDB_VALIDATION"
     );
     insert(&c, "c", point(1., 0.));
     insert(&c, "a", point(1., 0.));

@@ -45,7 +45,7 @@ fn vector_explain_rejects_without_falling_back_to_unmetered_execution() {
             Default::default(),
         )
         .expect("unsupported vector explanation must retain measured rejection");
-    assert_eq!(measured.outcome.unwrap_err().code(), "FDB_UNSUPPORTED");
+    assert_eq!(measured.outcome.unwrap_err().code(), "RDB_UNSUPPORTED");
     assert_eq!(measured.work.rows_read, 0);
     assert_eq!(measured.work.row_mutations, 0);
     assert_eq!(c.transaction_state(), TransactionState::Active);
@@ -365,7 +365,7 @@ fn explain_search_distinguishes_nonexecuting_plans_from_materialized_ann() {
             let sql=format!("{prefix} {query}");
             if query.contains("search::vector") {
                 let rejected = c.explain_metered(&sql, &Parameters::new(), limits(), Default::default()).unwrap();
-                assert_eq!(rejected.outcome.unwrap_err().code(), "FDB_UNSUPPORTED");
+                assert_eq!(rejected.outcome.unwrap_err().code(), "RDB_UNSUPPORTED");
                 assert_eq!(rejected.work.rows_read, 0);
                 assert_eq!(rejected.work.row_mutations, 0);
                 assert!(!c.execute(&sql, &Parameters::new()).unwrap().rows.is_empty(), "ordinary compatibility path is preserved");

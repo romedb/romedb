@@ -139,7 +139,7 @@ fn content_and_merge_failures_restore_documents_indexes_and_prior_work() {
             },
         )
         .unwrap_err();
-    assert_eq!(error.code(), "FDB_LIMIT");
+    assert_eq!(error.code(), "RDB_LIMIT");
     assert_eq!(q(&c, "SELECT * FROM users ORDER BY id").rows, original);
     q(
         &c,
@@ -608,7 +608,7 @@ fn explicit_tuple_updates_preserve_snapshots_and_atomic_validation() {
     let error = c
         .execute("UPDATE docs SET (a,b)=(SELECT a+6,b+1)", &Parameters::new())
         .unwrap_err();
-    assert_eq!(error.code(), "FDB_VALIDATION");
+    assert_eq!(error.code(), "RDB_VALIDATION");
     assert_eq!(c.transaction_state(), romedb::TransactionState::Active);
     assert_eq!(q(&c, "SELECT a,b FROM docs ORDER BY a").rows, before);
     assert!(c
@@ -683,7 +683,7 @@ fn tuple_updates_preserve_typed_values_and_mixed_assignment_snapshots() {
         )
         .unwrap_err()
         .code(),
-        "FDB_PARAMETER"
+        "RDB_PARAMETER"
     );
     assert_eq!(q(&c, "SELECT a,b,c FROM docs").rows, before);
     let empty = c
@@ -788,7 +788,7 @@ fn tuple_select_parameters_and_conditional_rows_keep_types() {
         c.execute("UPDATE docs SET (a,b)=(SELECT $r,$o)", &Parameters::new())
             .unwrap_err()
             .code(),
-        "FDB_PARAMETER"
+        "RDB_PARAMETER"
     );
     assert_eq!(q(&c, "SELECT a,b,n FROM docs").rows, before);
 }
@@ -870,7 +870,7 @@ fn tuple_select_bound_pagination_matches_native_empty_rows() {
         )
         .unwrap_err()
         .code(),
-        "FDB_PARAMETER"
+        "RDB_PARAMETER"
     );
     assert_eq!(q(&c, "SELECT a,b FROM docs ORDER BY a").rows, before);
 }
@@ -996,7 +996,7 @@ fn tuple_lookup_validation_restores_indexes_and_allows_retry() {
                 sql
             };
             let error = c.execute(&sql, &Parameters::new()).unwrap_err();
-            assert_eq!(error.code(), "FDB_VALIDATION", "{sql}: {error:?}");
+            assert_eq!(error.code(), "RDB_VALIDATION", "{sql}: {error:?}");
             assert_eq!(c.transaction_state(), romedb::TransactionState::Active);
             assert_eq!(q(&c, "SELECT n,a,b FROM docs ORDER BY n").rows, before);
             assert!(c
@@ -1224,7 +1224,7 @@ fn ordered_tuple_lookup_reuses_bound_projection_and_pagination_values() {
     }
     assert_eq!(
         c.execute(sql, &Parameters::new()).unwrap_err().code(),
-        "FDB_PARAMETER"
+        "RDB_PARAMETER"
     );
     assert_eq!(
         q(&c, "SELECT a,b FROM docs").rows,
@@ -1371,8 +1371,8 @@ fn tuple_lookup_aliases_match_native() {
                     &Parameters::new(),
                 )
                 .unwrap_err();
-            assert_eq!(native.code(), "FDB_ENGINE");
-            assert_eq!(error.code(), "FDB_VALIDATION", "{source}: {order}");
+            assert_eq!(native.code(), "RDB_ENGINE");
+            assert_eq!(error.code(), "RDB_VALIDATION", "{source}: {order}");
             assert_eq!(q(&c, "SELECT n,a,b FROM docs ORDER BY n").rows, before);
             q(&c, "ROLLBACK");
         }
@@ -1582,7 +1582,7 @@ fn aggregate_tuple_validation_restores_indexes_and_allows_retry() {
         };
         assert_eq!(
             c.execute(&sql, &Parameters::new()).unwrap_err().code(),
-            "FDB_VALIDATION"
+            "RDB_VALIDATION"
         );
         assert_eq!(q(&c, "SELECT n,a,b FROM docs ORDER BY n").rows, before);
         assert!(c
@@ -1626,7 +1626,7 @@ fn filtered_tuple_parameters_validate_before_mutation() {
     let before = q(&c, "SELECT n,a,b FROM docs ORDER BY n").rows;
     assert_eq!(
         c.execute(sql, &Parameters::new()).unwrap_err().code(),
-        "FDB_PARAMETER"
+        "RDB_PARAMETER"
     );
     assert_eq!(q(&c, "SELECT n,a,b FROM docs ORDER BY n").rows, before);
     for (minimum, sum, count) in [
@@ -1784,7 +1784,7 @@ fn window_tuple_parameters_preserve_binding_and_rollback() {
     let before = q(&c, "SELECT n,a,b FROM docs ORDER BY n").rows;
     assert_eq!(
         c.execute(sql, &Parameters::new()).unwrap_err().code(),
-        "FDB_PARAMETER"
+        "RDB_PARAMETER"
     );
     assert_eq!(q(&c, "SELECT n,a,b FROM docs ORDER BY n").rows, before);
     for delta in [0, 3, -2] {
@@ -2004,7 +2004,7 @@ fn update_from_validation_restores_indexes_and_prior_work() {
     let sql = "UPDATE docs SET v=s.v FROM source s WHERE s.k=docs.n RETURNING n,v";
     assert_eq!(
         c.execute(sql, &Parameters::new()).unwrap_err().code(),
-        "FDB_VALIDATION"
+        "RDB_VALIDATION"
     );
     assert_eq!(c.transaction_state(), romedb::TransactionState::Active);
     assert_eq!(q(&c, "SELECT n,v FROM docs ORDER BY n").rows, before);
@@ -2107,7 +2107,7 @@ fn native_update_from_candidate_error_preserves_rows() {
             q(&c, "SELECT n,v FROM docs ORDER BY n").rows,
             q(&c, "SELECT n,v FROM target ORDER BY n").rows
         );
-        assert_eq!(error.code(), "FDB_ENGINE");
+        assert_eq!(error.code(), "RDB_ENGINE");
         assert!(error.to_string().contains("integer overflow"));
         assert_eq!(
             q(&c, "SELECT n,v FROM target ORDER BY n").rows,
@@ -2401,7 +2401,7 @@ fn grouped_update_from_retains_pinned_rejection_and_pending_work() {
             let sql=format!("UPDATE {table} SET v=100 FROM (source a LEFT JOIN source b ON a.k=b.k){alias} WHERE {table}.n=1");
             let error = c.execute(&sql, &Parameters::new()).unwrap_err();
             assert!(
-                matches!(error.code(), "FDB_ENGINE" | "FDB_UNSUPPORTED"),
+                matches!(error.code(), "RDB_ENGINE" | "RDB_UNSUPPORTED"),
                 "{sql}: {error}"
             );
             if table == "native" {
@@ -2519,7 +2519,7 @@ fn update_from_json_iterators_preserves_bound_candidates_and_pagination() {
     let sql = "UPDATE docs SET v=j.value FROM json_each($json) j WHERE docs.n=j.key RETURNING n,v";
     assert_eq!(
         c.execute(sql, &Parameters::new()).unwrap_err().code(),
-        "FDB_PARAMETER"
+        "RDB_PARAMETER"
     );
     assert_eq!(c.transaction_state(), romedb::TransactionState::Active);
     assert_eq!(q(&c, "SELECT n,v FROM docs ORDER BY n").rows, before);
@@ -2556,7 +2556,7 @@ fn malformed_joined_iterator_matches_native_transaction_abort_and_retry() {
         q(&c, &format!("INSERT INTO {table}(n) VALUES(2)"));
         let sql = format!("UPDATE {table} SET n=j.value FROM json_each($json) j RETURNING n");
         let bad = Parameters::from([("$json".into(), Value::String("bad".into()))]);
-        assert_eq!(c.execute(&sql, &bad).unwrap_err().code(), "FDB_ENGINE");
+        assert_eq!(c.execute(&sql, &bad).unwrap_err().code(), "RDB_ENGINE");
         assert_eq!(c.transaction_state(), romedb::TransactionState::Autocommit);
         assert_eq!(
             q(&c, &format!("SELECT n FROM {table}")).rows,
@@ -2609,7 +2609,7 @@ fn update_from_source_scope_excludes_target_and_preserves_local_aliases() {
                 format!("UPDATE {table} AS t SET v=b.v FROM a JOIN b ON {predicate} RETURNING n,v");
             let error = c.execute(&sql, &Parameters::new()).unwrap_err();
             assert!(
-                matches!(error.code(), "FDB_ENGINE" | "FDB_UNSUPPORTED"),
+                matches!(error.code(), "RDB_ENGINE" | "RDB_UNSUPPORTED"),
                 "{error}"
             );
             assert_eq!(c.transaction_state(), romedb::TransactionState::Active);
@@ -2743,7 +2743,7 @@ fn explicit_update_abort_preserves_native_statement_recovery() {
                     &Parameters::new(),
                 )
                 .unwrap_err();
-            assert_eq!(error.code(), "FDB_CONSTRAINT", "{table}/{from}: {error}");
+            assert_eq!(error.code(), "RDB_CONSTRAINT", "{table}/{from}: {error}");
             assert_eq!(c.transaction_state(), romedb::TransactionState::Active);
             assert_eq!(
                 q(&c, &format!("SELECT n,v FROM {table} ORDER BY n")).rows,
@@ -2760,9 +2760,9 @@ fn explicit_update_abort_preserves_native_statement_recovery() {
             assert_eq!(
                 error.code(),
                 if table == "docs" {
-                    "FDB_VALIDATION"
+                    "RDB_VALIDATION"
                 } else {
-                    "FDB_CONSTRAINT"
+                    "RDB_CONSTRAINT"
                 }
             );
             assert_eq!(c.transaction_state(), romedb::TransactionState::Active);
@@ -2818,7 +2818,7 @@ fn pinned_update_conflict_policies_have_distinct_recovery() {
             assert_eq!(result.affected, count);
             assert_eq!(result.rows.len(), count as usize);
         } else {
-            assert_eq!(result.unwrap_err().code(), "FDB_CONSTRAINT");
+            assert_eq!(result.unwrap_err().code(), "RDB_CONSTRAINT");
         }
         assert_eq!(
             c.transaction_state(),
@@ -2861,15 +2861,15 @@ fn explicit_update_rollback_aborts_mutation_failures_only() {
                     &Parameters::new(),
                 )
                 .unwrap_err();
-            assert!(!matches!(bad.code(), "FDB_ROLLBACK"));
+            assert!(!matches!(bad.code(), "RDB_ROLLBACK"));
             assert_eq!(c.transaction_state(), romedb::TransactionState::Active);
             let error=c.execute(&format!("UPDATE OR ROLLBACK docs SET {assignment}{from} WHERE docs.n>1 RETURNING n,v"),&Parameters::new()).unwrap_err();
             assert_eq!(
                 error.code(),
                 if assignment == "n=1" {
-                    "FDB_CONSTRAINT"
+                    "RDB_CONSTRAINT"
                 } else {
-                    "FDB_VALIDATION"
+                    "RDB_VALIDATION"
                 }
             );
             assert_eq!(c.transaction_state(), romedb::TransactionState::Autocommit);
@@ -2927,7 +2927,7 @@ fn update_conflict_recovery_matches_native_across_user_savepoints() {
                         &Parameters::new(),
                     )
                     .unwrap_err();
-                assert_eq!(error.code(), "FDB_CONSTRAINT");
+                assert_eq!(error.code(), "RDB_CONSTRAINT");
                 if policy == "ROLLBACK" {
                     assert_eq!(c.transaction_state(), romedb::TransactionState::Autocommit);
                     for name in ["inner_work", "outer_work"] {
@@ -2958,7 +2958,7 @@ fn update_conflict_recovery_matches_native_across_user_savepoints() {
                     )
                     .unwrap_err()
                     .code(),
-                    "FDB_CONSTRAINT"
+                    "RDB_CONSTRAINT"
                 );
                 assert_eq!(c.transaction_state(), romedb::TransactionState::Autocommit);
                 assert_eq!(
@@ -3074,7 +3074,7 @@ fn update_fail_retains_successful_prefix_without_partial_index_changes() {
                         &Parameters::new(),
                     )
                     .unwrap_err();
-                assert_eq!(error.code(), "FDB_CONSTRAINT");
+                assert_eq!(error.code(), "RDB_CONSTRAINT");
                 assert_eq!(
                     c.transaction_state(),
                     if active {
@@ -3145,7 +3145,7 @@ fn update_fail_validation_retains_prefix_but_limited_api_restores_statement() {
         } else {
             c.execute(sql, &Parameters::new()).unwrap_err()
         };
-        assert_eq!(error.code(), "FDB_VALIDATION");
+        assert_eq!(error.code(), "RDB_VALIDATION");
         assert_eq!(c.transaction_state(), romedb::TransactionState::Active);
         assert_eq!(
             q(&c, "SELECT n,v FROM docs ORDER BY n").rows,
@@ -3198,7 +3198,7 @@ fn fail_and_ignore_preserve_user_savepoint_recovery_like_native() {
                     &Parameters::new(),
                 );
                 if policy == "FAIL" {
-                    assert_eq!(result.unwrap_err().code(), "FDB_CONSTRAINT");
+                    assert_eq!(result.unwrap_err().code(), "RDB_CONSTRAINT");
                 } else {
                     assert_eq!(result.unwrap().rows, vec![vec![Value::Integer(10)]]);
                 }
@@ -3335,7 +3335,7 @@ fn update_replace_validation_failure_restores_deleted_conflicts() {
     let before = q(&c, "SELECT * FROM docs ORDER BY n").rows;
     for from in ["", " FROM (SELECT 1 AS k) source"] {
         let error=c.execute(&format!("UPDATE OR REPLACE docs SET n=docs.n+1,v=CASE WHEN docs.n=3 THEN 10 ELSE 1 END{from} WHERE docs.n<4 RETURNING n"),&Parameters::new()).unwrap_err();
-        assert_eq!(error.code(), "FDB_VALIDATION");
+        assert_eq!(error.code(), "RDB_VALIDATION");
         assert_eq!(c.transaction_state(), romedb::TransactionState::Active);
         assert_eq!(q(&c, "SELECT * FROM docs ORDER BY n").rows, before);
         assert_eq!(
@@ -3384,7 +3384,7 @@ fn replacement_conflicts_preserve_typed_nested_index_identity() {
     let keys = vec![
         reference.clone(),
         Value::Binary(
-            b"FDB\x01{\"type\":\"Record\",\"value\":{\"table\":\"refs\",\"key\":{\"Integer\":1}}}"
+            b"RDB\x01{\"type\":\"Record\",\"value\":{\"table\":\"refs\",\"key\":{\"Integer\":1}}}"
                 .to_vec(),
         ),
         Value::Record(Record {
@@ -3570,9 +3570,9 @@ fn insert_abort_preserves_prior_work_for_values_and_select_sources() {
             assert_eq!(
                 error.code(),
                 if collection && source.ends_with("3,10)") {
-                    "FDB_VALIDATION"
+                    "RDB_VALIDATION"
                 } else {
-                    "FDB_CONSTRAINT"
+                    "RDB_CONSTRAINT"
                 }
             );
             assert_eq!(c.transaction_state(), romedb::TransactionState::Active);
@@ -3643,9 +3643,9 @@ fn insert_rollback_discards_prior_transaction_on_candidate_failure() {
             assert_eq!(
                 error.code(),
                 if collection && source.ends_with("3,10") {
-                    "FDB_VALIDATION"
+                    "RDB_VALIDATION"
                 } else {
-                    "FDB_CONSTRAINT"
+                    "RDB_CONSTRAINT"
                 }
             );
             assert_eq!(c.transaction_state(), romedb::TransactionState::Autocommit);
@@ -3702,7 +3702,7 @@ fn insert_policies_match_native_user_savepoint_disposition() {
                         &Parameters::new(),
                     )
                     .unwrap_err();
-                assert_eq!(error.code(), "FDB_CONSTRAINT");
+                assert_eq!(error.code(), "RDB_CONSTRAINT");
                 if policy == "ROLLBACK" {
                     assert_eq!(c.transaction_state(), romedb::TransactionState::Autocommit);
                     for name in ["inner_work", "outer_work"] {
@@ -3772,7 +3772,7 @@ fn insert_conflict_policies_preserve_typed_record_primary_keys() {
                 key,
             });
             let error=c.execute(&format!("INSERT OR {policy} INTO docs(id,n) VALUES(docs:new,4),($id,5) RETURNING id,n"),&Parameters::from([("$id".into(),id)])).unwrap_err();
-            assert_eq!(error.code(), "FDB_CONSTRAINT");
+            assert_eq!(error.code(), "RDB_CONSTRAINT");
             let active = policy == "ABORT";
             assert_eq!(
                 c.transaction_state(),
@@ -3899,9 +3899,9 @@ fn insert_fail_retains_successful_candidates_like_native() {
                 assert_eq!(
                     error.code(),
                     if collection && source.contains("3,10") {
-                        "FDB_VALIDATION"
+                        "RDB_VALIDATION"
                     } else {
-                        "FDB_CONSTRAINT"
+                        "RDB_CONSTRAINT"
                     }
                 );
                 assert_eq!(
@@ -4015,7 +4015,7 @@ fn later_insert_replace_validation_failure_restores_prior_replacements() {
     ] {
         assert_eq!(
             c.execute(sql, &Parameters::new()).unwrap_err().code(),
-            "FDB_VALIDATION"
+            "RDB_VALIDATION"
         );
         assert_eq!(c.transaction_state(), romedb::TransactionState::Active);
         assert_eq!(q(&c, "SELECT * FROM docs ORDER BY n").rows, before);

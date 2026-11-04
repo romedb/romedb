@@ -79,7 +79,7 @@ fn managed_atomic_request_failure_restores_prior_rows_and_indexes() {
                 &romedb::CancellationToken::new(),
             )
             .unwrap_err();
-        assert_eq!(error.code(), "FDB_CONSTRAINT");
+        assert_eq!(error.code(), "RDB_CONSTRAINT");
         assert_eq!(connection.transaction_state(), State::Autocommit);
         assert_eq!(
             connection
@@ -161,7 +161,7 @@ fn managed_atomic_request_result_and_work_limits_roll_back_writes() {
         let error = connection
             .execute_atomic_request(body, &romedb::CancellationToken::new())
             .unwrap_err();
-        assert_eq!(error.code(), "FDB_LIMIT", "{body}: {error}");
+        assert_eq!(error.code(), "RDB_LIMIT", "{body}: {error}");
         assert_eq!(connection.transaction_state(), State::Autocommit);
         assert!(connection
             .execute("SELECT n FROM data", &Parameters::new())
@@ -184,7 +184,7 @@ fn managed_atomic_requests_preserve_caller_work_and_recover_after_cancellation()
             .execute_atomic_request(body, &romedb::CancellationToken::new())
             .unwrap_err()
             .code(),
-        "FDB_UNSUPPORTED"
+        "RDB_UNSUPPORTED"
     );
     assert_eq!(connection.transaction_state(), State::Active);
     q(&connection, "COMMIT");
@@ -195,7 +195,7 @@ fn managed_atomic_requests_preserve_caller_work_and_recover_after_cancellation()
             .execute_atomic_request(body, &token)
             .unwrap_err()
             .code(),
-        "FDB_CANCELLED"
+        "RDB_CANCELLED"
     );
     assert_eq!(connection.transaction_state(), State::Autocommit);
     connection
@@ -237,7 +237,7 @@ fn managed_atomic_fresh_reads_reject_mutations_and_invalid_envelopes() {
             .execute_atomic_request(&body, &romedb::CancellationToken::new())
             .unwrap_err()
             .code(),
-        "FDB_LIMIT"
+        "RDB_LIMIT"
     );
 }
 #[test]
@@ -258,7 +258,7 @@ fn validation_errors_preserve_outer_work_and_report_active_state() {
         );
         q(&c, "INSERT INTO posts {n:1}");
         let error = c.execute_report("INSERT INTO posts {n:'bad'}", &Parameters::new());
-        assert_eq!(error.result.unwrap_err().code(), "FDB_VALIDATION");
+        assert_eq!(error.result.unwrap_err().code(), "RDB_VALIDATION");
         assert_eq!(
             (error.transaction_before, error.transaction_after),
             (State::Active, State::Active)
@@ -340,7 +340,7 @@ fn native_constraint_categories_preserve_reports_and_statement_rollback() {
         "INSERT INTO items VALUES (2,'two',-1)",
     ] {
         let report = c.execute_report(sql, &Parameters::new());
-        assert_eq!(report.result.unwrap_err().code(), "FDB_CONSTRAINT", "{sql}");
+        assert_eq!(report.result.unwrap_err().code(), "RDB_CONSTRAINT", "{sql}");
         assert_eq!(report.transaction_after, State::Autocommit);
     }
     q(&c, "BEGIN");
@@ -349,7 +349,7 @@ fn native_constraint_categories_preserve_reports_and_statement_rollback() {
         "INSERT INTO items VALUES (3,'three',-1)",
         &Parameters::new(),
     );
-    assert_eq!(report.result.unwrap_err().code(), "FDB_CONSTRAINT");
+    assert_eq!(report.result.unwrap_err().code(), "RDB_CONSTRAINT");
     assert_eq!(report.transaction_after, State::Active);
     assert_eq!(
         c.execute("SELECT count(*) FROM items", &Parameters::new())
@@ -367,20 +367,20 @@ fn native_constraint_categories_preserve_reports_and_statement_rollback() {
         c.execute("INSERT INTO child VALUES (99)", &Parameters::new())
             .unwrap_err()
             .code(),
-        "FDB_CONSTRAINT"
+        "RDB_CONSTRAINT"
     );
     q(&c,"CREATE TRIGGER reject_item BEFORE INSERT ON items WHEN new.id=9 BEGIN SELECT RAISE(ABORT,'rejected item'); END");
     assert_eq!(
         c.execute("INSERT INTO items VALUES (9,'nine',9)", &Parameters::new())
             .unwrap_err()
             .code(),
-        "FDB_CONSTRAINT"
+        "RDB_CONSTRAINT"
     );
     assert_eq!(
         c.execute("SELECT missing_function()", &Parameters::new())
             .unwrap_err()
             .code(),
-        "FDB_ENGINE"
+        "RDB_ENGINE"
     );
 }
 
@@ -393,7 +393,7 @@ fn constraint_code_does_not_imply_full_rollback_for_native_fail_policy() {
         "INSERT OR FAIL INTO items VALUES (1),(2),(1),(3)",
         &Parameters::new(),
     );
-    assert_eq!(report.result.unwrap_err().code(), "FDB_CONSTRAINT");
+    assert_eq!(report.result.unwrap_err().code(), "RDB_CONSTRAINT");
     assert_eq!(report.transaction_after, State::Autocommit);
     assert_eq!(
         c.execute("SELECT n FROM items ORDER BY n", &Parameters::new())
@@ -419,7 +419,7 @@ fn excessive_sql_delimiters_fail_before_writes_and_preserve_outer_work() {
         format!("SELECT {deep} FROM docs"),
     ] {
         let report = c.execute_report(&statement, &Parameters::new());
-        assert_eq!(report.result.unwrap_err().code(), "FDB_SYNTAX");
+        assert_eq!(report.result.unwrap_err().code(), "RDB_SYNTAX");
         assert_eq!(report.transaction_after, State::Active);
         assert_eq!(
             c.execute("SELECT value FROM docs", &Parameters::new())
@@ -466,9 +466,9 @@ fn oversized_lexer_inputs_fail_before_mutation_and_preserve_active_work() {
         ),
     ] {
         let report = c.execute_report(&sql, &Parameters::new());
-        assert_eq!(report.result.unwrap_err().code(), "FDB_SYNTAX");
+        assert_eq!(report.result.unwrap_err().code(), "RDB_SYNTAX");
         assert_eq!(report.transaction_after, State::Active);
-        assert_eq!(c.execute_batch(&sql).unwrap_err().code(), "FDB_SYNTAX");
+        assert_eq!(c.execute_batch(&sql).unwrap_err().code(), "RDB_SYNTAX");
         assert_eq!(c.transaction_state(), State::Active);
         assert_eq!(
             c.lookup_index("docs", "docs_value", &Value::Integer(1))
@@ -507,7 +507,7 @@ fn recursive_sql_returns_depth_errors_on_a_small_caller_stack() {
                     let report =
                         c.execute_report(&format!("SELECT {expr}{suffix}"), &Parameters::new());
                     let error = report.result.unwrap_err();
-                    assert_eq!(error.code(), "FDB_ENGINE");
+                    assert_eq!(error.code(), "RDB_ENGINE");
                     assert!(error.to_string().contains("maximum depth 100"));
                     assert!(c
                         .profile_select(&format!("SELECT {expr}{suffix}"), &Parameters::new())
@@ -577,7 +577,7 @@ fn mvcc_opens_refuse_wal_files_before_writing_and_creation_needs_an_empty_file()
         .map(|name| std::fs::read(directory.path().join(name)).unwrap_or_default())
         .collect();
     let error = Database::open_mvcc(wal.to_str().unwrap()).err().unwrap();
-    assert_eq!(error.code(), "FDB_UNSUPPORTED");
+    assert_eq!(error.code(), "RDB_UNSUPPORTED");
     assert!(error.to_string().contains("migrate-to-mvcc"), "{error}");
     let after: Vec<_> = ["legacy.romedb", "legacy.romedb-wal"]
         .iter()
@@ -589,7 +589,7 @@ fn mvcc_opens_refuse_wal_files_before_writing_and_creation_needs_an_empty_file()
             .err()
             .unwrap()
             .code(),
-        "FDB_VALIDATION"
+        "RDB_VALIDATION"
     );
     let fresh = directory.path().join("fresh.romedb");
     std::fs::File::create(&fresh).unwrap();

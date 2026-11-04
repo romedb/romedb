@@ -246,7 +246,7 @@ fn managed_fulltext_counts_index_table_and_materialized_visits_separately() {
                 assert_eq!(m.outcome.unwrap().rows.len(), limit as usize);
                 assert_eq!(m.work.rows_read, expected);
             } else {
-                assert_eq!(m.outcome.unwrap_err().code(), "FDB_CANCELLED");
+                assert_eq!(m.outcome.unwrap_err().code(), "RDB_CANCELLED");
                 assert_eq!(m.work.rows_read, cap + 1);
                 assert!(m.work.read_budget_exhausted);
             }

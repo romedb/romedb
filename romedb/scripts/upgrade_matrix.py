@@ -37,9 +37,22 @@ UPGRADES = [
     Upgrade("v0211", "0.2.11", "check-v251-upgrade.cjs", "0.2.12"),
 ]
 
+# 0.2.13 changed the stored value prefix from FDB to RDB and does not open files
+# from 0.2.12 or earlier, so no package before a break applies to a candidate
+# at or after it.
+FORMAT_BREAKS = ["0.2.13"]
+
 
 def applicable(candidate):
-    return [u for u in UPGRADES if at_least(candidate, u.first) and parse(u.previous) < parse(candidate)]
+    breaks = [b for b in FORMAT_BREAKS if at_least(candidate, b)]
+    floor = max(breaks, key=parse) if breaks else "0.0.0"
+    return [
+        u
+        for u in UPGRADES
+        if at_least(candidate, u.first)
+        and parse(u.previous) < parse(candidate)
+        and at_least(u.previous, floor)
+    ]
 
 
 def previous_packages(values, candidate):

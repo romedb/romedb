@@ -239,7 +239,7 @@ fn fetch_bounds_references_traversal_bytes_and_expanded_value_depth() {
         let error = c
             .execute("SELECT * FROM docs FETCH items", &Parameters::new())
             .unwrap_err();
-        assert_eq!(error.code(), "FDB_LIMIT", "{error}");
+        assert_eq!(error.code(), "RDB_LIMIT", "{error}");
         assert_eq!(query(&c, "SELECT id FROM docs").rows.len(), 1);
     }
     c.execute(
@@ -259,7 +259,7 @@ fn fetch_bounds_references_traversal_bytes_and_expanded_value_depth() {
         c.execute("SELECT * FROM docs FETCH items", &Parameters::new())
             .unwrap_err()
             .code(),
-        "FDB_LIMIT"
+        "RDB_LIMIT"
     );
     let mut nested = Value::Integer(1);
     for _ in 0..60 {
@@ -278,7 +278,7 @@ fn fetch_bounds_references_traversal_bytes_and_expanded_value_depth() {
         )
         .unwrap_err()
         .code(),
-        "FDB_LIMIT"
+        "RDB_LIMIT"
     );
     c.check_collection_integrity("docs", Default::default())
         .unwrap();
@@ -321,7 +321,7 @@ fn fetch_keeps_snapshots_pending_writes_limits_cancellation_and_reopen() {
                 .execute_cancellable(sql, &Parameters::new(), &token)
                 .unwrap_err()
                 .code(),
-            "FDB_CANCELLED"
+            "RDB_CANCELLED"
         );
         assert_eq!(query(&reader, sql).rows, pending);
         query(&reader, "ROLLBACK");

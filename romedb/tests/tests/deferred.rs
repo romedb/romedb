@@ -16,7 +16,7 @@ fn documented_future_statements_report_versions_without_changing_work() {
     ] {
         let report = c.execute_report(sql, &Parameters::new());
         let error = report.result.unwrap_err();
-        assert_eq!(error.code(), "FDB_UNSUPPORTED", "{sql}");
+        assert_eq!(error.code(), "RDB_UNSUPPORTED", "{sql}");
         assert!(error.to_string().contains(version), "{error}");
         assert_eq!(report.transaction_after, TransactionState::Active);
     }

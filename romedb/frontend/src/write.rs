@@ -682,20 +682,20 @@ impl Connection {
                             // insert() has already restored the failed document
                             // and all index work through its candidate savepoint.
                             if or_conflict == Some(ResolveType::Fail)
-                                && matches!(cause.code(), "FDB_CONSTRAINT" | "FDB_VALIDATION")
+                                && matches!(cause.code(), "RDB_CONSTRAINT" | "RDB_VALIDATION")
                                 && !self.engine.get_auto_commit()
                             {
                                 retained_failure = Some(cause);
                                 return Ok(None);
                             }
                             if or_conflict == Some(ResolveType::Ignore)
-                                && matches!(cause.code(), "FDB_CONSTRAINT" | "FDB_VALIDATION")
+                                && matches!(cause.code(), "RDB_CONSTRAINT" | "RDB_VALIDATION")
                                 && !self.engine.get_auto_commit()
                             {
                                 continue;
                             }
                             if or_conflict == Some(ResolveType::Rollback)
-                                && matches!(cause.code(), "FDB_CONSTRAINT" | "FDB_VALIDATION")
+                                && matches!(cause.code(), "RDB_CONSTRAINT" | "RDB_VALIDATION")
                                 && !self.engine.get_auto_commit()
                             {
                                 if let Err(rollback) = self.run("ROLLBACK", &[]) {
@@ -1016,7 +1016,7 @@ impl Connection {
                     };
                     if let Err(cause) = mutation {
                         if update.or_conflict == Some(ResolveType::Fail)
-                            && matches!(cause.code(), "FDB_CONSTRAINT" | "FDB_VALIDATION")
+                            && matches!(cause.code(), "RDB_CONSTRAINT" | "RDB_VALIDATION")
                             && !self.engine.get_auto_commit()
                         {
                             // Release the statement frame before returning the error,
@@ -1025,14 +1025,14 @@ impl Connection {
                             return Ok(None);
                         }
                         if update.or_conflict == Some(ResolveType::Ignore)
-                            && matches!(cause.code(), "FDB_CONSTRAINT" | "FDB_VALIDATION")
+                            && matches!(cause.code(), "RDB_CONSTRAINT" | "RDB_VALIDATION")
                             && !self.engine.get_auto_commit()
                         {
                             continue;
                         }
 
                         if update.or_conflict == Some(ResolveType::Rollback)
-                            && matches!(cause.code(), "FDB_CONSTRAINT" | "FDB_VALIDATION")
+                            && matches!(cause.code(), "RDB_CONSTRAINT" | "RDB_VALIDATION")
                             && !self.engine.get_auto_commit()
                         {
                             if let Err(rollback) = self.run("ROLLBACK", &[]) {
@@ -1579,7 +1579,7 @@ mod candidate_cancellation_tests {
             c.coalesce_update_candidates(vec![first])
                 .unwrap_err()
                 .code(),
-            "FDB_LIMIT"
+            "RDB_LIMIT"
         );
         let c = c.with_write_buffer_limits(crate::ResultLimits {
             max_rows: 1,
@@ -1592,7 +1592,7 @@ mod candidate_cancellation_tests {
             ])
             .unwrap_err()
             .code(),
-            "FDB_LIMIT"
+            "RDB_LIMIT"
         );
         let c = c.with_write_buffer_limits(crate::ResultLimits {
             max_rows: 2,
@@ -1626,7 +1626,7 @@ mod candidate_cancellation_tests {
                 c.coalesce_update_candidates(vec![row.clone(), row.clone()])
             })
             .unwrap_err();
-        assert_eq!(error.code(), "FDB_CANCELLED");
+        assert_eq!(error.code(), "RDB_CANCELLED");
         let calls = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let observed = calls.clone();
         c.engine.set_progress_handler(
@@ -1637,7 +1637,7 @@ mod candidate_cancellation_tests {
         );
         let interrupted = c.coalesce_update_candidates(vec![row.clone(), row.clone(), row.clone()]);
         c.engine.set_progress_handler(0, None);
-        assert_eq!(interrupted.unwrap_err().code(), "FDB_CANCELLED");
+        assert_eq!(interrupted.unwrap_err().code(), "RDB_CANCELLED");
         assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 2);
         assert_eq!(
             c.coalesce_update_candidates(vec![row.clone(), row.clone()])
@@ -1668,14 +1668,14 @@ mod insert_source_oracle_tests {
                 &[],
             )
             .unwrap_err();
-        assert_eq!(error.code(), "FDB_CONSTRAINT", "{error:?}");
+        assert_eq!(error.code(), "RDB_CONSTRAINT", "{error:?}");
         let error = c
             .execute(
                 "INSERT OR ABORT INTO items(n,v) SELECT 2,0 UNION ALL SELECT 1,0",
                 &crate::Parameters::new(),
             )
             .unwrap_err();
-        assert_eq!(error.code(), "FDB_CONSTRAINT", "{error:?}");
+        assert_eq!(error.code(), "RDB_CONSTRAINT", "{error:?}");
     }
     #[test]
     fn native_insert_source_width_and_defaults_match_raw_engine() {

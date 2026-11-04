@@ -644,13 +644,13 @@ mod export_tests {
                 .into_portable_json()
                 .unwrap_err()
                 .code(),
-            "FDB_VALIDATION"
+            "RDB_VALIDATION"
         );
         let mut value = Value::Null;
         for _ in 0..65 {
             value = Value::Array(vec![value]);
         }
-        assert_eq!(value.into_portable_json().unwrap_err().code(), "FDB_LIMIT");
+        assert_eq!(value.into_portable_json().unwrap_err().code(), "RDB_LIMIT");
     }
 
     #[test]
@@ -677,7 +677,7 @@ mod export_tests {
             format!("{{\"header\":{header},\"documents\":[{document},{{\"type\":\"Integer\",\"value\":\"1\"}}]}}"),
             format!("{{\"header\":{header},\"documents\":[{document},invalid]}}"),
         ] {
-            assert_eq!(c.import_documents("docs", &input, TransferFormat::Json).unwrap_err().code(), "FDB_VALIDATION", "{input}");
+            assert_eq!(c.import_documents("docs", &input, TransferFormat::Json).unwrap_err().code(), "RDB_VALIDATION", "{input}");
             assert_eq!(c.engine.total_changes(), before);
             assert_eq!(c.transaction_state(), crate::TransactionState::Active);
         }
@@ -719,7 +719,7 @@ mod export_tests {
             })
             .unwrap_err()
             .code(),
-            "FDB_LIMIT"
+            "RDB_LIMIT"
         );
         assert_eq!(visited, MAX_DOCUMENTS);
     }
@@ -827,7 +827,7 @@ mod export_tests {
                     c.export_documents_bounded("docs", format, bytes, 2)
                         .unwrap_err()
                         .code(),
-                    "FDB_LIMIT"
+                    "RDB_LIMIT"
                 );
                 assert_eq!(c.transaction_state(), crate::TransactionState::Active);
             }
@@ -835,7 +835,7 @@ mod export_tests {
                 c.export_documents_bounded("docs", format, MAX_BYTES, 1)
                     .unwrap_err()
                     .code(),
-                "FDB_LIMIT"
+                "RDB_LIMIT"
             );
             assert_eq!(
                 c.check_collection_integrity("docs", Default::default())

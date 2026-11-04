@@ -41,7 +41,7 @@ test('malformed Unicode is rejected before dispatch and leaves the shared adapte
 
 test('embedded client explicitly creates files and round-trips portable values without a service', async t => {
   const { file } = await fixture(t);
-  await assert.rejects(openEmbedded({ path: file }), error => error.code === 'FDB_NOT_FOUND');
+  await assert.rejects(openEmbedded({ path: file }), error => error.code === 'RDB_NOT_FOUND');
   await assert.rejects(fs.stat(file), { code: 'ENOENT' });
   const db = await openEmbedded({ path: file, create: true });
   t.after(() => db.close());
@@ -62,7 +62,7 @@ test('embedded client explicitly creates files and round-trips portable values w
   assert.equal(Object.hasOwn(stored, 'absent'), false);
   assert.equal(Object.hasOwn(stored, 'present'), true);
   assert.equal((await db.read([{ sql: 'SELECT n FROM docs' }])).results[0].rows[0][0], (1n << 63n) - 1n);
-  await assert.rejects(db.read([{ sql: 'DELETE FROM docs' }]), error => error.code === 'FDB_UNSUPPORTED' && error.outcome === 'read-failed');
+  await assert.rejects(db.read([{ sql: 'DELETE FROM docs' }]), error => error.code === 'RDB_UNSUPPORTED' && error.outcome === 'read-failed');
 });
 
 test('two managed clients share one adapter and reject stale saves atomically', async t => {
@@ -75,7 +75,7 @@ test('two managed clients share one adapter and reject stale saves atomically', 
   const before = await second.read([{ sql: 'SELECT n FROM data' }]);
   await first.writeAtomic([{ sql: 'UPDATE data SET n=2 WHERE id=1' }]);
   const stale = second.prepareWrite([{ sql: 'UPDATE data SET n=3 WHERE id=1' }], { ifSequence: before.sequence });
-  await assert.rejects(second.submit(stale), error => error.code === 'FDB_CONFLICT' && error.outcome === 'rolled-back' && error.request === stale);
+  await assert.rejects(second.submit(stale), error => error.code === 'RDB_CONFLICT' && error.outcome === 'rolled-back' && error.request === stale);
   assert.equal((await second.read([{ sql: 'SELECT n FROM data' }])).results[0].rows[0][0], 2n);
   await first.close();
   await second.writeAtomic([{ sql: 'UPDATE data SET n=4 WHERE id=1' }]);
@@ -94,13 +94,13 @@ test('embedded replay keeps the exact body and expires when the last client clos
     const reply = await db.submit(request);
     assert.deepEqual(await db.recover(await loadRequest(journal)), reply);
     const changed = { ...request, body: request.body.replace('n=n+1', 'n=n+2') };
-    await assert.rejects(db.submit(changed), error => error.code === 'FDB_REQUEST_IDENTITY' && error.outcome === 'unknown');
+    await assert.rejects(db.submit(changed), error => error.code === 'RDB_REQUEST_IDENTITY' && error.outcome === 'unknown');
     assert.equal((await db.read([{ sql: 'SELECT n FROM data' }])).results[0].rows[0][0], 1n);
     await db.close();
     const reopened = await openEmbedded({ path: file });
     try {
       assert.notEqual(reopened.databaseId, request.databaseId);
-      await assert.rejects(reopened.submit(request), error => error.code === 'FDB_REQUEST_IDENTITY' && error.outcome === 'not-sent');
+      await assert.rejects(reopened.submit(request), error => error.code === 'RDB_REQUEST_IDENTITY' && error.outcome === 'not-sent');
       await assert.rejects(reopened.recover(request), error => error.outcome === 'unknown');
       assert.equal((await reopened.read([{ sql: 'SELECT n FROM data' }])).results[0].rows[0][0], 1n);
     } finally { await reopened.close(); }
@@ -113,16 +113,16 @@ test('embedded constraints, work limits and result limits restore the whole batc
   t.after(() => db.close());
   await db.writeAtomic([{ sql: 'CREATE TABLE data (id INTEGER PRIMARY KEY,n INTEGER)' }, { sql: 'INSERT INTO data VALUES(1,1)' }]);
   for (const [statements, options, code] of [
-    [[{ sql: 'INSERT INTO data VALUES(2,2)' }, { sql: 'INSERT INTO data VALUES(1,3)' }], {}, 'FDB_CONSTRAINT'],
-    [[{ sql: 'INSERT INTO data VALUES(2,2)' }, { sql: 'INSERT INTO data VALUES(3,3)' }], { workLimits: { rowMutations: 1 } }, 'FDB_LIMIT'],
-    [[{ sql: 'INSERT INTO data VALUES(2,2)' }, { sql: 'SELECT hex(zeroblob(80000))' }, { sql: 'SELECT hex(zeroblob(80000))' }], {}, 'FDB_LIMIT'],
-    [[{ sql: 'INSERT INTO data VALUES(2,2)' }, { sql: 'COMMIT' }], {}, 'FDB_UNSUPPORTED'],
+    [[{ sql: 'INSERT INTO data VALUES(2,2)' }, { sql: 'INSERT INTO data VALUES(1,3)' }], {}, 'RDB_CONSTRAINT'],
+    [[{ sql: 'INSERT INTO data VALUES(2,2)' }, { sql: 'INSERT INTO data VALUES(3,3)' }], { workLimits: { rowMutations: 1 } }, 'RDB_LIMIT'],
+    [[{ sql: 'INSERT INTO data VALUES(2,2)' }, { sql: 'SELECT hex(zeroblob(80000))' }, { sql: 'SELECT hex(zeroblob(80000))' }], {}, 'RDB_LIMIT'],
+    [[{ sql: 'INSERT INTO data VALUES(2,2)' }, { sql: 'COMMIT' }], {}, 'RDB_UNSUPPORTED'],
   ]) {
     await assert.rejects(db.writeAtomic(statements, options), error => error.code === code && error.outcome === 'rolled-back');
     assert.deepEqual((await db.read([{ sql: 'SELECT n FROM data ORDER BY n' }])).results[0].rows, [[1n]]);
   }
   await db.writeAtomic([{ sql: 'CREATE TABLE parents (id INTEGER PRIMARY KEY)' }, { sql: 'CREATE TABLE children (id INTEGER PRIMARY KEY,parent INTEGER REFERENCES parents(id))' }]);
-  await assert.rejects(db.writeAtomic([{ sql: 'INSERT INTO data VALUES(2,2)' }, { sql: 'INSERT INTO children VALUES(1,99)' }]), error => error.code === 'FDB_CONSTRAINT' && error.outcome === 'rolled-back');
+  await assert.rejects(db.writeAtomic([{ sql: 'INSERT INTO data VALUES(2,2)' }, { sql: 'INSERT INTO children VALUES(1,99)' }]), error => error.code === 'RDB_CONSTRAINT' && error.outcome === 'rolled-back');
   assert.deepEqual((await db.read([{ sql: 'SELECT n FROM data' }])).results[0].rows, [[1n]]);
 });
 
@@ -135,13 +135,13 @@ test('embedded cancellation retains a recoverable request and releases the worke
   const pending = db.submit(request, { signal: controller.signal });
   controller.abort();
   await assert.rejects(pending, error => error instanceof ClientError && error.outcome === 'unknown' && error.request === request);
-  await assert.rejects(db.recover(request), error => error.code === 'FDB_CANCELLED' && error.outcome === 'rolled-back');
+  await assert.rejects(db.recover(request), error => error.code === 'RDB_CANCELLED' && error.outcome === 'rolled-back');
   assert.deepEqual((await db.read([{ sql: 'SELECT n FROM data' }])).results[0].rows, []);
   const jobs = Array.from({ length: 4 }, () => db.read([{ sql: 'SELECT 1' }]));
   const settled = Promise.allSettled(jobs);
   await db.close();
   await settled;
-  await assert.rejects(db.read([{ sql: 'SELECT 1' }]), error => error.code === 'FDB_CLOSED');
+  await assert.rejects(db.read([{ sql: 'SELECT 1' }]), error => error.code === 'RDB_CLOSED');
   const reopened = await openEmbedded({ path: file });
   await reopened.close();
 });
@@ -152,12 +152,12 @@ test('embedded files retain single-process ownership and refuse file aliases', a
   t.after(() => db.close());
   const alias = path.join(directory, 'alias.romedb');
   await fs.symlink(file, alias);
-  await assert.rejects(openEmbedded({ path: alias }), error => error.code === 'FDB_VALIDATION');
+  await assert.rejects(openEmbedded({ path: alias }), error => error.code === 'RDB_VALIDATION');
   const hardlink = path.join(directory, 'hardlink.romedb');
   await fs.link(file, hardlink);
-  await assert.rejects(openEmbedded({ path: hardlink }), error => error.code === 'FDB_VALIDATION');
+  await assert.rejects(openEmbedded({ path: hardlink }), error => error.code === 'RDB_VALIDATION');
   await fs.unlink(hardlink);
-  assert.deepEqual(await openInChild(file), { code: 2, output: 'FDB_BUSY' });
+  assert.deepEqual(await openInChild(file), { code: 2, output: 'RDB_BUSY' });
   assert.equal((await db.info()).sequence, 0);
 });
 
@@ -170,7 +170,7 @@ test('embedded opens refuse WAL files without changing them and point to the mig
   legacy.close();
   const snapshot = async () => Object.fromEntries(await Promise.all((await fs.readdir(path.dirname(file))).map(async name => [name, (await fs.readFile(path.join(path.dirname(file), name))).toString('base64')])));
   const before = await snapshot();
-  await assert.rejects(openEmbedded({ path: file }), error => error.code === 'FDB_UNSUPPORTED' && error.outcome === 'not-sent' && /migrate-to-mvcc/.test(error.message));
+  await assert.rejects(openEmbedded({ path: file }), error => error.code === 'RDB_UNSUPPORTED' && error.outcome === 'not-sent' && /migrate-to-mvcc/.test(error.message));
   assert.deepEqual(await snapshot(), before);
 });
 
@@ -196,7 +196,7 @@ test('maxOpen bounds the files a process keeps open, and close checkpoints and r
   t.after(() => first.close());
   const second = await openEmbedded({ path: files[1], create: true, maxOpen: 2 });
   t.after(() => second.close());
-  await assert.rejects(openEmbedded({ path: files[2], create: true, maxOpen: 2 }), error => error.code === 'FDB_LIMIT' && error.outcome === 'not-sent');
+  await assert.rejects(openEmbedded({ path: files[2], create: true, maxOpen: 2 }), error => error.code === 'RDB_LIMIT' && error.outcome === 'not-sent');
   await assert.rejects(fs.stat(files[2]), { code: 'ENOENT' });
   const sameFile = await openEmbedded({ path: files[0], maxOpen: 2 });
   await sameFile.close();
@@ -242,7 +242,7 @@ test('an evicted embedded receipt cannot execute its write again', async t => {
   const request = db.prepareWrite([{ sql: 'UPDATE data SET n=n+1' }]);
   await db.submit(request);
   for (let index = 0; index < 64; index++) await db.writeAtomic([{ sql: 'SELECT 1' }]);
-  await assert.rejects(db.recover(request), error => error.code === 'FDB_CONFLICT' && error.outcome === 'unknown');
+  await assert.rejects(db.recover(request), error => error.code === 'RDB_CONFLICT' && error.outcome === 'unknown');
   assert.equal((await db.read([{ sql: 'SELECT n FROM data' }])).results[0].rows[0][0], 1n);
 });
 
@@ -254,7 +254,7 @@ test('embedded queue limits apply across clients that share the worker', async t
   const statements = [{ sql: 'SELECT 1' }];
   const jobs = Array.from({ length: 32 }, (_, index) => (index % 2 ? first : second).read(statements));
   const complete = Promise.all(jobs);
-  await assert.rejects(first.read([{ sql: 'SELECT 1' }]), error => error.code === 'FDB_LIMIT' && error.outcome === 'not-sent');
+  await assert.rejects(first.read([{ sql: 'SELECT 1' }]), error => error.code === 'RDB_LIMIT' && error.outcome === 'not-sent');
   const replies = await complete;
   assert.equal(replies.length, 32);
   for (const reply of replies) assert.equal(reply.results[0].rows[0][0], 1n);
@@ -288,7 +288,7 @@ test('a lost acknowledgement recovers the exact write against the real embedded 
 test('an embedded startup deadline returns promptly and its abandoned client releases ownership', async t => {
   const { file } = await fixture(t);
   await (await openEmbedded({ path: file, create: true })).close();
-  await assert.rejects(openEmbedded({ path: file, timeoutMs: 1 }), error => error.code === 'FDB_CANCELLED' && error.outcome === 'not-sent');
+  await assert.rejects(openEmbedded({ path: file, timeoutMs: 1 }), error => error.code === 'RDB_CANCELLED' && error.outcome === 'not-sent');
   const healthy = await openEmbedded({ path: file });
   assert.equal((await healthy.info()).sequence, 0);
   await healthy.close();
@@ -306,10 +306,93 @@ test('the embedded adapter preserves an existing MVCC file and its atomic rollba
   try {
     assert.equal((await client.info()).journalMode, 'mvcc');
     await client.writeAtomic([{ sql: 'CREATE TABLE data (id INTEGER PRIMARY KEY)' }, { sql: 'INSERT INTO data VALUES(1)' }]);
-    await assert.rejects(client.writeAtomic([{ sql: 'INSERT INTO data VALUES(2)' }, { sql: 'INSERT INTO data VALUES(1)' }]), error => error.code === 'FDB_CONSTRAINT' && error.outcome === 'rolled-back');
+    await assert.rejects(client.writeAtomic([{ sql: 'INSERT INTO data VALUES(2)' }, { sql: 'INSERT INTO data VALUES(1)' }]), error => error.code === 'RDB_CONSTRAINT' && error.outcome === 'rolled-back');
     assert.deepEqual((await client.read([{ sql: 'SELECT id FROM data' }])).results[0].rows, [[1n]]);
   } finally { await client.close(); }
   const reopened = await openEmbedded({ path: file });
   try { assert.equal((await reopened.info()).journalMode, 'mvcc'); }
   finally { await reopened.close(); }
+});
+
+async function fillPosts(db, count) {
+  await db.writeAtomic([{ sql: 'CREATE TABLE posts' }, { sql: 'CREATE TABLE marks' }]);
+  const body = 'x'.repeat(2000);
+  for (let start = 0; start < count; start += 25) {
+    const rows = Array.from({ length: 25 }, (_, i) => `{n:${start + i},body:'${body}'}`);
+    await db.writeAtomic(rows.map(row => ({ sql: `INSERT INTO posts ${row}` })));
+  }
+}
+
+async function names(directory) { return (await fs.readdir(directory)).sort(); }
+
+test('exportFile copies the database at the sequence it reports while writes continue', async t => {
+  const { directory, file } = await fixture(t);
+  const db = await openEmbedded({ path: file, create: true });
+  t.after(() => db.close());
+  await fillPosts(db, 2500);
+  const destination = path.join(directory, 'copy.romedb');
+  const mark = async n => [n, (await db.writeAtomic([{ sql: `INSERT INTO marks {n:${n}}` }])).sequence];
+  const written = [await mark(1), await mark(2), await mark(3)];
+  let exported;
+  const exporting = db.exportFile(destination).then(result => { exported = result; });
+  let during = 0;
+  for (let n = 4; exported === undefined; n++) {
+    written.push(await mark(n));
+    if (exported === undefined) during++;
+  }
+  await exporting;
+  assert.ok(during > 0, 'no write finished during the export');
+  assert.equal(exported.sequence, written[2][1]);
+  const stats = await fs.stat(destination);
+  assert.equal(stats.size, exported.bytes);
+  assert.equal(stats.mode & 0o777, 0o600);
+  const copy = await openEmbedded({ path: destination });
+  try {
+    const marks = (await copy.read([{ sql: 'SELECT n FROM marks ORDER BY n' }])).results[0].rows.map(([n]) => n);
+    assert.deepEqual(marks, written.filter(([, sequence]) => sequence <= exported.sequence).map(([n]) => BigInt(n)));
+    assert.deepEqual((await copy.read([{ sql: 'SELECT count() FROM posts' }])).results[0].rows, [[2500n]]);
+  } finally { await copy.close(); }
+  await assert.rejects(db.exportFile(destination), error => error instanceof ClientError && error.code === 'RDB_ALREADY_EXISTS' && error.outcome === 'read-failed');
+  await assert.rejects(db.exportFile(destination, { afterSequence: 1 }), TypeError);
+});
+
+test('exportFile streams a copy that leaves nothing on disk and stops when cancelled', async t => {
+  const { directory, file } = await fixture(t);
+  const db = await openEmbedded({ path: file, create: true });
+  t.after(() => db.close());
+  await fillPosts(db, 100);
+  const before = await names(directory);
+  const { sequence, size, body } = await db.exportFile();
+  assert.equal(sequence, db.sequence);
+  assert.deepEqual(await names(directory), before);
+  const bytes = new Uint8Array(await new Response(body).arrayBuffer());
+  assert.equal(bytes.byteLength, size);
+  const restored = path.join(directory, 'restored.romedb');
+  await fs.writeFile(restored, bytes, { mode: 0o600 });
+  const copy = await openEmbedded({ path: restored });
+  try { assert.deepEqual((await copy.read([{ sql: 'SELECT count() FROM posts' }])).results[0].rows, [[100n]]); }
+  finally { await copy.close(); }
+  for (const name of await names(directory)) if (name.startsWith('restored.')) await fs.rm(path.join(directory, name));
+  const cancelled = new AbortController();
+  const pending = db.exportFile(path.join(directory, 'cancelled.romedb'), { signal: cancelled.signal });
+  cancelled.abort();
+  await assert.rejects(pending, error => error.code === 'RDB_CANCELLED');
+  const late = await db.exportFile({ signal: cancelled.signal }).catch(error => error);
+  assert.equal(late.code, 'RDB_CANCELLED');
+  const drained = await db.exportFile();
+  await drained.body.cancel();
+  assert.deepEqual((await names(directory)).filter(name => !name.startsWith('app.')), []);
+});
+
+test('closing an embedded database cancels its running exports first', async t => {
+  const { directory, file } = await fixture(t);
+  const db = await openEmbedded({ path: file, create: true });
+  await fillPosts(db, 2500);
+  const destination = path.join(directory, 'copy.romedb');
+  const exporting = db.exportFile(destination).then(() => 'finished', error => error.code);
+  await db.close();
+  await assert.rejects(db.exportFile(), error => error.code === 'RDB_CLOSED' && error.outcome === 'not-sent');
+  const outcome = await exporting;
+  assert.ok(['RDB_CANCELLED', 'finished'].includes(outcome), outcome);
+  assert.deepEqual((await names(directory)).filter(name => !name.startsWith('app.')), outcome === 'finished' ? ['copy.romedb'] : []);
 });

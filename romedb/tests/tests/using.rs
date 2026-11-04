@@ -2602,7 +2602,7 @@ fn unordered_compound_binary_membership_matches_native_keys() {
     }
     let values = [
         Value::Binary(vec![0, 255]),
-        Value::Binary(b"FDB\x01{\"type\":\"Integer\",\"value\":7}".to_vec()),
+        Value::Binary(b"RDB\x01{\"type\":\"Integer\",\"value\":7}".to_vec()),
     ];
     for value in &values {
         let params = Parameters::from([("$value".into(), value.clone())]);
@@ -2651,7 +2651,7 @@ fn unordered_compound_membership_preserves_logical_value_identity() {
             table: "docs".into(),
             key: romedb::Key::Integer(7),
         }),
-        Value::Binary(b"FDB\x01{\"type\":\"Integer\",\"value\":7}".to_vec()),
+        Value::Binary(b"RDB\x01{\"type\":\"Integer\",\"value\":7}".to_vec()),
     ];
     for value in &values {
         let params = Parameters::from([("$same".into(), value.clone())]);
@@ -2742,7 +2742,7 @@ fn collated_correlated_compounds_preserve_typed_values() {
             table: "docs".into(),
             key: romedb::Key::Integer(7),
         }),
-        Value::Binary(b"FDB\x01{\"type\":\"Integer\",\"value\":7}".to_vec()),
+        Value::Binary(b"RDB\x01{\"type\":\"Integer\",\"value\":7}".to_vec()),
         Value::Array(vec![Value::Integer(1)]),
     ] {
         c.execute(
@@ -2990,7 +2990,7 @@ fn local_cte_parameters_preserve_typed_projections() {
             table: "docs".into(),
             key: romedb::Key::Integer(7),
         }),
-        Value::Binary(b"FDB\x01{\"type\":\"Integer\",\"value\":7}".to_vec()),
+        Value::Binary(b"RDB\x01{\"type\":\"Integer\",\"value\":7}".to_vec()),
         Value::Array(vec![Value::Integer(1)]),
     ] {
         let params = Parameters::from([("$value".into(), value.clone())]);

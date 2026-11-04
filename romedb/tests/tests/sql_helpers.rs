@@ -62,7 +62,7 @@ fn typed_parameters_and_binary_payloads_are_lossless() {
         .rows;
     assert!(matches!(&rows[0][0],Value::Array(a) if a[2]==object));
     assert_eq!(rows[0][1], Value::Integer(4));
-    let bytes = b"FDB\x01{\"type\":\"String\",\"value\":\"encoded-looking\"}".to_vec();
+    let bytes = b"RDB\x01{\"type\":\"String\",\"value\":\"encoded-looking\"}".to_vec();
     let params = Parameters::from([
         ("?1".into(), Value::Binary(bytes.clone())),
         ("?2".into(), Value::Integer(8)),

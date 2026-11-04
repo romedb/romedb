@@ -376,7 +376,7 @@ fn rejected_write_result_rolls_back_trigger_effects_across_reopen() {
                 },
             )
             .unwrap_err();
-        assert_eq!(error.code(), "FDB_LIMIT");
+        assert_eq!(error.code(), "RDB_LIMIT");
         for table in ["items", "audit"] {
             assert_eq!(
                 c.execute(&format!("SELECT n FROM {table} ORDER BY n"), &p)
@@ -452,7 +452,7 @@ fn collection_returning_star_uses_document_payload_budget() {
                 c.write_with_result_limits(write, &p, limits)
                     .unwrap_err()
                     .code(),
-                "FDB_LIMIT"
+                "RDB_LIMIT"
             );
             assert_eq!(c.execute("SELECT * FROM docs", &p).unwrap().rows, before);
             assert_eq!(c.transaction_state(), romedb::TransactionState::Active);
@@ -519,7 +519,7 @@ fn maximum_depth_payload_limits_preserve_atomic_returning_and_indexes() {
         c.write_with_result_limits(write, &params, short)
             .unwrap_err()
             .code(),
-        "FDB_LIMIT"
+        "RDB_LIMIT"
     );
     assert_eq!(c.transaction_state(), TransactionState::Active);
     assert_eq!(
@@ -561,13 +561,13 @@ fn maximum_depth_payload_limits_preserve_atomic_returning_and_indexes() {
         );
         assert_eq!(
             c.select_with_limits(sql, params, short).unwrap_err().code(),
-            "FDB_LIMIT"
+            "RDB_LIMIT"
         );
         assert_eq!(
             c.profile_select_with_limits(sql, params, short)
                 .unwrap_err()
                 .code(),
-            "FDB_LIMIT"
+            "RDB_LIMIT"
         );
         assert_eq!(c.transaction_state(), TransactionState::Active);
     }

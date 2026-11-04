@@ -8,10 +8,16 @@ one collection document and one relational account row.
 - Archive SHA-256: `94d8988ff82cb1649edf4065bd447f11e78ad26a5e558587b3736444ffd2e686`
 - Original fixture SHA-256: `df9e34128ec70a4468492728115ca1437d1f67e7ccb27c2bc2c29dee8138f9b1`
 - Renamed fixture SHA-256: `3c5f442055402e888e2394a8283f5d562710018165b0abbfbe011dd88365d7ea`
+- 0.2.13 fixture SHA-256: `5273a408ee65279fc2b2e0bb8a6d15d3d5b3f79e0ad4082f5443684adf10196e`
 
 For the RomeDB rename the file was patched byte for byte: `fastdb` became
 `romedb` (same length), so page layout, Turso 0.7.2 FTS format and every
 B-tree are unchanged. Only object names differ (`__romedb_*`).
+
+For 0.2.13 the file was patched byte for byte again: the five stored values
+that started with `FDB` and byte `01` now start with `RDB` and byte `01`, the
+value prefix from 0.2.13. The length, page layout, FTS format and B-trees are
+unchanged.
 
 ```sql
 CREATE TABLE articles;

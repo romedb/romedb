@@ -216,10 +216,10 @@ fn transfer_operation_failures_report_codes_without_polluting_data_output() {
         let original = run(&export, b"");
         assert!(original.status.success());
         for (output, code) in [
-            (run(&import, &original.stdout), "FDB_CONSTRAINT"),
-            (run(&import, b"invalid input"), "FDB_VALIDATION"),
-            (run(&import, &[0xff]), "FDB_VALIDATION"),
-            (run(&missing, b""), "FDB_NOT_FOUND"),
+            (run(&import, &original.stdout), "RDB_CONSTRAINT"),
+            (run(&import, b"invalid input"), "RDB_VALIDATION"),
+            (run(&import, &[0xff]), "RDB_VALIDATION"),
+            (run(&missing, b""), "RDB_NOT_FOUND"),
         ] {
             assert!(!output.status.success());
             assert!(
@@ -310,7 +310,7 @@ fn actual_import_byte_limit_accepts_exact_input_and_rejects_split_utf8_overflow(
                 assert!(!output.status.success());
                 assert!(output.stdout.is_empty());
                 let error: serde_json::Value = serde_json::from_slice(&output.stderr).unwrap();
-                assert_eq!(error["error"]["code"], "FDB_LIMIT");
+                assert_eq!(error["error"]["code"], "RDB_LIMIT");
                 assert_eq!(
                     error["transaction"],
                     serde_json::json!({"before":"autocommit","after":"autocommit"})

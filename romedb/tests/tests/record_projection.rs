@@ -75,7 +75,7 @@ fn omit_returns_typed_documents_without_changing_sources() {
         )
         .unwrap_err()
         .code(),
-        "FDB_LIMIT"
+        "RDB_LIMIT"
     );
     assert_eq!(q(&c, "SELECT * FROM posts").rows, original.rows);
 }
@@ -117,12 +117,12 @@ fn omit_rejects_ambiguous_forms_and_preserves_sql_names() {
     let depth = format!("SELECT * OMIT {} FROM posts", vec!["a"; 65].join("."));
     assert_eq!(
         c.execute(&depth, &Parameters::new()).unwrap_err().code(),
-        "FDB_LIMIT"
+        "RDB_LIMIT"
     );
     let width = format!("SELECT * OMIT {} FROM posts", vec!["a"; 1025].join(","));
     assert_eq!(
         c.execute(&width, &Parameters::new()).unwrap_err().code(),
-        "FDB_LIMIT"
+        "RDB_LIMIT"
     );
     assert_eq!(
         q(&c, "SELECT title FROM posts").rows,
@@ -171,7 +171,7 @@ fn omit_preserves_index_use_snapshot_and_pending_work() {
             )
             .unwrap_err()
             .code(),
-            "FDB_LIMIT"
+            "RDB_LIMIT"
         );
         let token = romedb::CancellationToken::new();
         token.cancel();
@@ -179,7 +179,7 @@ fn omit_preserves_index_use_snapshot_and_pending_work() {
             a.execute_cancellable(sql, &params, &token)
                 .unwrap_err()
                 .code(),
-            "FDB_CANCELLED"
+            "RDB_CANCELLED"
         );
         assert_eq!(a.transaction_state(), romedb::TransactionState::Active);
         assert_eq!(
@@ -363,7 +363,7 @@ fn ordinary_wildcard_aliases_preserve_snapshot_limits_and_reopen() {
             )
             .unwrap_err()
             .code(),
-            "FDB_LIMIT"
+            "RDB_LIMIT"
         );
         let token = romedb::CancellationToken::new();
         token.cancel();
@@ -371,7 +371,7 @@ fn ordinary_wildcard_aliases_preserve_snapshot_limits_and_reopen() {
             a.execute_cancellable(sql, &params, &token)
                 .unwrap_err()
                 .code(),
-            "FDB_CANCELLED"
+            "RDB_CANCELLED"
         );
         assert_eq!(a.transaction_state(), romedb::TransactionState::Active);
         assert_eq!(q(&a, sql).rows, pending);
@@ -476,7 +476,7 @@ fn brace_fetches_share_snapshots_limits_and_indexed_lookup() {
             c.select_with_limits(sql, &Parameters::new(), limits)
                 .unwrap_err()
                 .code(),
-            "FDB_LIMIT"
+            "RDB_LIMIT"
         );
     }
     // Exact final payload limit includes each fetched occurrence and column label.
@@ -516,7 +516,7 @@ fn brace_fetches_share_snapshots_limits_and_indexed_lookup() {
         )
         .unwrap_err()
         .code(),
-        "FDB_LIMIT"
+        "RDB_LIMIT"
     );
     assert_eq!(
         c.select_with_limits(
@@ -662,7 +662,7 @@ fn nested_object_and_array_dot_projections() {
     let depth = format!("SELECT posts{} FROM users", ".*".repeat(65));
     assert_eq!(
         c.execute(&depth, &Parameters::new()).unwrap_err().code(),
-        "FDB_LIMIT"
+        "RDB_LIMIT"
     );
     assert_eq!(
         q(
@@ -703,7 +703,7 @@ fn nested_object_and_array_dot_projections() {
         )
         .unwrap_err()
         .code(),
-        "FDB_LIMIT"
+        "RDB_LIMIT"
     );
     assert_eq!(
         q(&c, "SELECT count(*) FROM native").rows,
@@ -799,7 +799,7 @@ fn linked_projection_paths_fetch_in_batches_and_keep_indexing_separate() {
     ] {
         assert_eq!(
             c.execute(sql, &Parameters::new()).unwrap_err().code(),
-            "FDB_UNSUPPORTED"
+            "RDB_UNSUPPORTED"
         );
     }
     let first = q(&c, "SELECT * FROM posts WHERE id=posts:p1").rows[0][0].clone();
@@ -866,7 +866,7 @@ fn linked_projection_paths_fetch_in_batches_and_keep_indexing_separate() {
         )
         .unwrap_err()
         .code(),
-        "FDB_LIMIT"
+        "RDB_LIMIT"
     );
     assert_eq!(
         q(&c, "SELECT name FROM people").rows,
@@ -908,7 +908,7 @@ fn projection_cycles_are_finite_and_reference_expansion_is_bounded() {
         )
         .unwrap_err()
         .code(),
-        "FDB_LIMIT"
+        "RDB_LIMIT"
     );
     assert_eq!(
         q(&c, "SELECT posts[0] FROM users WHERE id=users:many").rows,

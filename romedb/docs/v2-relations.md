@@ -73,7 +73,7 @@ The position bound is shared by forward and inverse projections in the outer
 query. Forward and inverse resolvers each retain their 64 MiB target/output
 budgets; configured ResultLimits span both. Logical nesting is limited to 64,
 including the new outer result array. Array wrapping can therefore reject a
-maximum-depth source document with FDB_LIMIT. Result limits account for every
+maximum-depth source document with RDB_LIMIT. Result limits account for every
 expanded occurrence before duplicate output is cloned. They are not a process
 memory or total work cap.
 

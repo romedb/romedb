@@ -139,7 +139,7 @@ fn stale_edits_fail_atomically_and_changed_replay_bodies_are_rejected() {
     .unwrap();
     body["ifSequence"] = json!(1);
     let response: Value = serde_json::from_str(&service.query(&body.to_string()).unwrap()).unwrap();
-    assert_eq!(response["error"]["code"], "FDB_CONFLICT");
+    assert_eq!(response["error"]["code"], "RDB_CONFLICT");
     assert_eq!(
         read(&service, "SELECT value FROM items")["results"][0]["rows"][0][0]["value"],
         "other"
@@ -147,7 +147,7 @@ fn stale_edits_fail_atomically_and_changed_replay_bodies_are_rejected() {
     body["statements"][0]["sql"] = json!("DELETE FROM items");
     assert_eq!(
         service.query(&body.to_string()).unwrap_err().code,
-        "FDB_CONFLICT"
+        "RDB_CONFLICT"
     );
     assert_eq!(service.info().unwrap()["sequence"], 3);
 }
@@ -190,7 +190,7 @@ fn request_mutation_budgets_preserve_atomicity() {
     .unwrap();
     body["workLimits"] = json!({"rowMutations":1});
     let response: Value = serde_json::from_str(&service.query(&body.to_string()).unwrap()).unwrap();
-    assert_eq!(response["error"]["code"], "FDB_LIMIT", "{response}");
+    assert_eq!(response["error"]["code"], "RDB_LIMIT", "{response}");
     assert_eq!(
         read(&service, "SELECT id FROM items")["results"][0]["rows"],
         json!([])
@@ -225,7 +225,7 @@ fn creating_a_database_refuses_engine_journals_and_dangling_sidecars() {
     std::fs::write(&journal, b"preserve this journal").unwrap();
     assert_eq!(
         DatabaseService::create(&path).err().unwrap().code,
-        "FDB_CONFLICT"
+        "RDB_CONFLICT"
     );
     assert!(!path.exists());
     assert_eq!(std::fs::read(&journal).unwrap(), b"preserve this journal");
@@ -234,7 +234,7 @@ fn creating_a_database_refuses_engine_journals_and_dangling_sidecars() {
     std::os::unix::fs::symlink(directory.path().join("missing"), &dangling).unwrap();
     assert_eq!(
         DatabaseService::create(&path).err().unwrap().code,
-        "FDB_CONFLICT"
+        "RDB_CONFLICT"
     );
     assert!(!path.exists());
     assert!(std::fs::symlink_metadata(dangling).is_ok());
@@ -243,7 +243,7 @@ fn creating_a_database_refuses_engine_journals_and_dangling_sidecars() {
     std::fs::write(&journal, b"preserve this rollback journal").unwrap();
     assert_eq!(
         DatabaseService::create(&path).err().unwrap().code,
-        "FDB_CONFLICT"
+        "RDB_CONFLICT"
     );
     assert!(!path.exists());
     assert_eq!(
@@ -272,7 +272,7 @@ fn service_open_rejects_file_aliases_before_creating_another_journal() {
     std::os::unix::fs::symlink(&path, &symbolic).unwrap();
     assert_eq!(
         DatabaseService::open(&symbolic).err().unwrap().code,
-        "FDB_VALIDATION"
+        "RDB_VALIDATION"
     );
     assert!(!symbolic.with_extension("db-log").exists());
     assert_eq!(std::fs::read(&path).unwrap(), before);
@@ -281,11 +281,11 @@ fn service_open_rejects_file_aliases_before_creating_another_journal() {
     std::fs::hard_link(&path, &hard).unwrap();
     assert_eq!(
         DatabaseService::open(&hard).err().unwrap().code,
-        "FDB_VALIDATION"
+        "RDB_VALIDATION"
     );
     assert_eq!(
         DatabaseService::open(&path).err().unwrap().code,
-        "FDB_VALIDATION"
+        "RDB_VALIDATION"
     );
     assert!(!hard.with_extension("db-log").exists());
     assert_eq!(std::fs::read(&path).unwrap(), before);
@@ -337,7 +337,7 @@ fn independent_connections_publish_a_complete_sequence() {
         4
     );
     service.begin_shutdown();
-    assert_eq!(service.info().unwrap_err().code, "FDB_CLOSED");
+    assert_eq!(service.info().unwrap_err().code, "RDB_CLOSED");
 }
 
 #[test]
@@ -356,7 +356,7 @@ fn an_evicted_receipt_cannot_execute_an_old_request_again() {
     for index in 0..64 {
         assert!(query(&service, &format!("later_{index}"), &["SELECT 1"])["error"].is_null());
     }
-    assert_eq!(service.query(&original).unwrap_err().code, "FDB_CONFLICT");
+    assert_eq!(service.query(&original).unwrap_err().code, "RDB_CONFLICT");
     assert_eq!(service.info().unwrap()["sequence"], 65);
     assert_eq!(
         read(&service, "SELECT id FROM items")["results"][0]["rows"]
@@ -410,7 +410,7 @@ fn validation_failure_rolls_back_all_managed_indexes() {
         "UPDATE docs:original SET title='changedterm',v=vector32('[10,0]'),location=geo::point(10,10)",
         "INSERT INTO docs {id:docs:invalid,title:123}",
     ]);
-    assert_eq!(failed["error"]["code"], "FDB_VALIDATION", "{failed}");
+    assert_eq!(failed["error"]["code"], "RDB_VALIDATION", "{failed}");
     assert!(
         failed["executionWork"]["rowMutations"].as_u64().unwrap() > 0,
         "first mutation did not execute: {failed}"
@@ -575,7 +575,7 @@ fn malformed_parameters_fail_the_request_without_stopping_the_service() {
     {
         let body = json!({"requestId":format!("bad-{index}"),"afterSequence":index,"statements":[{"sql":"SELECT $v","params":{"$v":value}}]}).to_string();
         let reply: Value = serde_json::from_str(&service.query(&body).unwrap()).unwrap();
-        assert_eq!(reply["error"]["code"], "FDB_VALIDATION", "{reply}");
+        assert_eq!(reply["error"]["code"], "RDB_VALIDATION", "{reply}");
         assert_eq!(reply["sequence"], index + 1);
     }
     let after = query(&service, "after", &["SELECT 1"]);
@@ -602,5 +602,5 @@ fn a_record_target_insert_sets_the_document_id() {
         "target-duplicate",
         &["INSERT INTO posts:first {foo: 'again'}"],
     );
-    assert_eq!(duplicate["error"]["code"], "FDB_CONSTRAINT", "{duplicate}");
+    assert_eq!(duplicate["error"]["code"], "RDB_CONSTRAINT", "{duplicate}");
 }

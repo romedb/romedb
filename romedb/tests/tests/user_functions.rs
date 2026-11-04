@@ -126,7 +126,7 @@ fn typed_calls_select_writes_replacement_and_rollback() {
         c.execute("SELECT app::normalize('a')", &Parameters::new())
             .unwrap_err()
             .code(),
-        "FDB_NOT_FOUND"
+        "RDB_NOT_FOUND"
     );
 }
 #[test]
@@ -150,20 +150,20 @@ fn sandbox_limits_and_atomic_failure() {
         vec![Value::Integer(1); 2]
     );
     for (body, code) in [
-        ("while(true){}", "FDB_LIMIT"),
+        ("while(true){}", "RDB_LIMIT"),
         (
             "let a=[];while(true)a.push(new Array(100000).fill(1));",
-            "FDB_LIMIT",
+            "RDB_LIMIT",
         ),
-        ("function f(){return 1+f()} return f();", "FDB_LIMIT"),
-        ("return 'a'.repeat(100000);", "FDB_LIMIT"),
-        ("return undefined;", "FDB_VALIDATION"),
-        ("return NaN;", "FDB_VALIDATION"),
-        ("return 9223372036854775808n;", "FDB_VALIDATION"),
-        ("let v={};v.x=v;return v;", "FDB_VALIDATION"),
-        ("return Promise.resolve(1);", "FDB_VALIDATION"),
-        ("return {get x(){while(true){}}};", "FDB_VALIDATION"),
-        ("return '\\ud800';", "FDB_VALIDATION"),
+        ("function f(){return 1+f()} return f();", "RDB_LIMIT"),
+        ("return 'a'.repeat(100000);", "RDB_LIMIT"),
+        ("return undefined;", "RDB_VALIDATION"),
+        ("return NaN;", "RDB_VALIDATION"),
+        ("return 9223372036854775808n;", "RDB_VALIDATION"),
+        ("let v={};v.x=v;return v;", "RDB_VALIDATION"),
+        ("return Promise.resolve(1);", "RDB_VALIDATION"),
+        ("return {get x(){while(true){}}};", "RDB_VALIDATION"),
+        ("return '\\ud800';", "RDB_VALIDATION"),
     ] {
         define(&c, "bad", "", "any", body);
         let err = c
@@ -275,7 +275,7 @@ fn function_versions_follow_reader_snapshots_and_cancelled_writes_preserve_prior
         let error = writer
             .execute_cancellable(sql, &Parameters::new(), &token)
             .unwrap_err();
-        assert_eq!(error.code(), "FDB_CANCELLED", "{sql}: {error:?}");
+        assert_eq!(error.code(), "RDB_CANCELLED", "{sql}: {error:?}");
         assert_eq!(writer.transaction_state(), romedb::TransactionState::Active);
         assert_eq!(
             q(&writer, "SELECT n FROM docs").rows,

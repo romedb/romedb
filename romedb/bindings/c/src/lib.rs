@@ -45,7 +45,7 @@ fn boundary(f: impl FnOnce() -> romedb::Result<Value>) -> *mut c_char {
         Ok(Ok(value)) => value,
         Ok(Err(error)) => json!({"version":1,"execution":execution(Err(error))}),
         Err(_) => {
-            json!({"version":1,"execution":{"error":{"code":"FDB_INTERNAL","message":"native panic; close this handle"}}})
+            json!({"version":1,"execution":{"error":{"code":"RDB_INTERNAL","message":"native panic; close this handle"}}})
         }
     };
     // JSON serialization escapes embedded NUL bytes.
@@ -65,7 +65,7 @@ unsafe fn input<'a>(value: *const c_char) -> romedb::Result<&'a str> {
         .map_err(|_| invalid("input must be UTF-8"))
 }
 #[no_mangle]
-pub extern "C" fn fdb_abi_version() -> u32 {
+pub extern "C" fn rdb_abi_version() -> u32 {
     1
 }
 
@@ -73,7 +73,7 @@ pub extern "C" fn fdb_abi_version() -> u32 {
 /// # Safety
 /// `path` must be null or a valid NUL-terminated string for this call.
 #[no_mangle]
-pub unsafe extern "C" fn fdb_open(path: *const c_char) -> *mut c_char {
+pub unsafe extern "C" fn rdb_open(path: *const c_char) -> *mut c_char {
     boundary(|| {
         let db = romedb::Database::open(unsafe { input(path)? })?;
         let conn = db.connect()?;
@@ -99,7 +99,7 @@ pub unsafe extern "C" fn fdb_open(path: *const c_char) -> *mut c_char {
 /// # Safety
 /// `request` must be null or a valid NUL-terminated string for this call.
 #[no_mangle]
-pub unsafe extern "C" fn fdb_call(
+pub unsafe extern "C" fn rdb_call(
     handle: u64,
     request: *const c_char,
     timeout_ms: i64,
@@ -125,7 +125,7 @@ pub unsafe extern "C" fn fdb_call(
             .ok_or_else(|| invalid("database is closed"))?;
         let before = conn.transaction_state();
         let result = if token.is_cancelled() {
-            json!({"error":{"code":"FDB_CANCELLED","message":"deadline elapsed"}})
+            json!({"error":{"code":"RDB_CANCELLED","message":"deadline elapsed"}})
         } else {
             execution(
                 romedb::decode_wire_json(request)
@@ -139,12 +139,12 @@ pub unsafe extern "C" fn fdb_call(
 }
 
 #[no_mangle]
-pub extern "C" fn fdb_interrupt(handle: u64) -> *mut c_char {
+pub extern "C" fn rdb_interrupt(handle: u64) -> *mut c_char {
     boundary(|| Ok(success(json!(lookup(handle)?.interrupt.interrupt()))))
 }
 
 #[no_mangle]
-pub extern "C" fn fdb_close(handle: u64) -> *mut c_char {
+pub extern "C" fn rdb_close(handle: u64) -> *mut c_char {
     boundary(|| {
         let db = registry()
             .lock()
@@ -170,7 +170,7 @@ pub extern "C" fn fdb_close(handle: u64) -> *mut c_char {
 /// # Safety
 /// The pointer must be null or an unfreed response returned by this library.
 #[no_mangle]
-pub unsafe extern "C" fn fdb_free(response: *mut c_char) {
+pub unsafe extern "C" fn rdb_free(response: *mut c_char) {
     if !response.is_null() {
         drop(unsafe { CString::from_raw(response) });
     }

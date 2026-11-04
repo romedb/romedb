@@ -128,7 +128,7 @@ if (!phase) {
     assert.deepEqual(db.all("SELECT app::normalize(' ALICE ')"), [['alice']]);
     assert.deepEqual(db.all('SELECT * FROM event_view WHERE id=1'), [[1n, 'created in 2.0']]);
     assert.equal(db.migrate([migration]).alreadyApplied, 1);
-    assert.throws(() => db.migrate([{ ...migration, sql: migration.sql + ' ' }]), error => error.code === 'FDB_VALIDATION');
+    assert.throws(() => db.migrate([{ ...migration, sql: migration.sql + ' ' }]), error => error.code === 'RDB_VALIDATION');
     assert.deepEqual(db.all("SELECT d.id FROM docs d WHERE d.profile.city='Bangkok'"), [[new Record('docs', 'a')]]);
     assert.deepEqual(db.all("SELECT id FROM search::text('docs_text','river',10)"), [[new Record('docs', 'a')]]);
     assert.deepEqual(db.all("SELECT id FROM search::vector('docs_vec',vector32('[1,0,0]'),1)"), [[new Record('docs', 'a')]]);

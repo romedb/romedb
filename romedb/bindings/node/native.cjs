@@ -3,7 +3,7 @@ const minimumNodeMajor = 22;
 const nodeMajor = Number.parseInt(process.versions.node.split('.')[0], 10);
 if (nodeMajor < minimumNodeMajor) {
   const error = new Error(`RomeDB requires Node.js ${minimumNodeMajor} or newer; this process is running Node ${process.versions.node}.`);
-  error.code = 'FDB_RUNTIME_VERSION';
+  error.code = 'RDB_RUNTIME_VERSION';
   throw error;
 }
 try {
@@ -15,6 +15,6 @@ try {
     'See the package README for supported build and installation instructions.',
     { cause },
   );
-  error.code = 'FDB_NATIVE_LOAD';
+  error.code = 'RDB_NATIVE_LOAD';
   throw error;
 }

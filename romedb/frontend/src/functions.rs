@@ -1414,7 +1414,7 @@ mod vector_field_tests {
                     .unwrap(),
             ));
         }
-        inputs.push(turso_core::Value::Blob(b"FDB\x01{\"type\":\"Object\",\"value\":{\"v\":{\"type\":\"String\",\"value\":\"[1,2,3]\"},\"bad\":{\"type\":\"Vector\",\"value\":[255]}}}".to_vec()));
+        inputs.push(turso_core::Value::Blob(b"RDB\x01{\"type\":\"Object\",\"value\":{\"v\":{\"type\":\"String\",\"value\":\"[1,2,3]\"},\"bad\":{\"type\":\"Vector\",\"value\":[255]}}}".to_vec()));
         for input in inputs {
             for path in ["[\"v\"]", "[\"missing\"]", "[\"v\",\"nested\"]", "[]"] {
                 let run = |expr: &str| {
@@ -1460,9 +1460,9 @@ mod count_value_tests {
                 .unwrap();
             assert_eq!(result, vec![vec![expected]]);
         }
-        let mut invalid_vector = b"FDB\x01".to_vec();
+        let mut invalid_vector = b"RDB\x01".to_vec();
         invalid_vector.extend(serde_json::to_vec(&Value::Vector(vec![])).unwrap());
-        for bytes in [vec![], b"FDB\x01{".to_vec(), invalid_vector] {
+        for bytes in [vec![], b"RDB\x01{".to_vec(), invalid_vector] {
             assert!(c
                 .run(
                     "SELECT __romedb_count_value(?1)",

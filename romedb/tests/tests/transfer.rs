@@ -93,7 +93,7 @@ fn json_replay_preserves_constraint_errors_and_outer_work() {
         c.import_documents("docs", &payload, TransferFormat::Json)
             .unwrap_err()
             .code(),
-        "FDB_CONSTRAINT"
+        "RDB_CONSTRAINT"
     );
     assert_eq!(c.transaction_state(), romedb::TransactionState::Active);
     assert_eq!(
@@ -186,13 +186,13 @@ fn consuming_portable_values_preserve_lossless_wire_contract() {
             .into_portable_value()
             .unwrap_err()
             .code(),
-        "FDB_VALIDATION"
+        "RDB_VALIDATION"
     );
     let mut deep = Value::Null;
     for _ in 0..65 {
         deep = Value::Array(vec![deep]);
     }
-    assert_eq!(deep.into_portable_value().unwrap_err().code(), "FDB_LIMIT");
+    assert_eq!(deep.into_portable_value().unwrap_err().code(), "RDB_LIMIT");
 }
 
 #[test]
@@ -236,7 +236,7 @@ fn portable_json_writer_validates_before_output_and_propagates_sink_failure() {
             remaining: limit,
         };
         let error = value.clone().write_portable_json(&mut sink).unwrap_err();
-        assert_eq!(error.code(), "FDB_STORAGE");
+        assert_eq!(error.code(), "RDB_STORAGE");
         let romedb::Error::Encoding(error) = error else {
             panic!("lost sink error")
         };
@@ -250,9 +250,9 @@ fn portable_json_writer_validates_before_output_and_propagates_sink_failure() {
     for (invalid, code) in [
         (
             Value::Array(vec![Value::Integer(1), Value::Number(f64::INFINITY)]),
-            "FDB_VALIDATION",
+            "RDB_VALIDATION",
         ),
-        (deep, "FDB_LIMIT"),
+        (deep, "RDB_LIMIT"),
     ] {
         let mut output = b"unchanged".to_vec();
         assert_eq!(
@@ -309,7 +309,7 @@ fn maximum_document_depth_roundtrips_storage_and_both_transfer_formats() {
         c.insert("docs", [("payload".into(), too_deep)].into())
             .unwrap_err()
             .code(),
-        "FDB_LIMIT"
+        "RDB_LIMIT"
     );
     assert_eq!(c.get(id).unwrap().unwrap(), doc);
     let header = r#"{"format":"romedb.documents","version":1}"#;
@@ -331,7 +331,7 @@ fn maximum_document_depth_roundtrips_storage_and_both_transfer_formats() {
             c.import_documents("docs", &input, format)
                 .unwrap_err()
                 .code(),
-            "FDB_LIMIT"
+            "RDB_LIMIT"
         );
         assert_eq!(c.transaction_state(), romedb::TransactionState::Active);
         assert!(c.get(id).unwrap().is_none());

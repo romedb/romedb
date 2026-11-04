@@ -141,7 +141,7 @@ fn cancellable_batches_stop_at_statement_boundaries_and_preserve_prior_work() {
         );
         assert_eq!(
             entries[1].execution.result.as_ref().unwrap_err().code(),
-            "FDB_CANCELLED"
+            "RDB_CANCELLED"
         );
         assert_eq!(entries[1].execution.transaction_before, state);
         assert_eq!(entries[1].execution.transaction_after, state);
@@ -156,7 +156,7 @@ fn cancellable_batches_stop_at_statement_boundaries_and_preserve_prior_work() {
             c.execute_batch_cancellable("SELECT '", &token)
                 .unwrap_err()
                 .code(),
-            "FDB_CANCELLED"
+            "RDB_CANCELLED"
         );
         let retry = c
             .execute_batch_cancellable(

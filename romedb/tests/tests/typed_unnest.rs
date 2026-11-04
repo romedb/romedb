@@ -20,7 +20,7 @@ fn unnest_preserves_typed_elements_positions_and_null_empty_semantics() {
         Value::Object(Document::from([("x".into(), Value::Null)])),
         Value::Array(vec![Value::Integer(1)]),
         Value::Null,
-        Value::String("FDB\u{1}{\"Integer\":9}".into()),
+        Value::String("RDB\u{1}{\"Integer\":9}".into()),
     ];
     let params = Parameters::from([("$items".into(), Value::Array(values.clone()))]);
     let expected = values
@@ -96,7 +96,7 @@ fn unnest_limits_reject_products_even_when_aggregate_output_is_one_row() {
         c.execute("SELECT count(*) FROM array::unnest($items)", &huge)
             .unwrap_err()
             .code(),
-        "FDB_LIMIT"
+        "RDB_LIMIT"
     );
     let product =
         Parameters::from([("$items".into(), Value::Array(vec![Value::Integer(1); 1001]))]);
@@ -107,7 +107,7 @@ fn unnest_limits_reject_products_even_when_aggregate_output_is_one_row() {
         )
         .unwrap_err()
         .code(),
-        "FDB_LIMIT"
+        "RDB_LIMIT"
     );
     assert_eq!(
         query(&c, "SELECT count(*) FROM array::unnest(array::new(1,2))").rows,
@@ -168,7 +168,7 @@ fn unnest_preserves_source_indexes_snapshots_atomic_writes_limits_and_reopen() {
             )
             .unwrap_err()
             .code(),
-            "FDB_LIMIT"
+            "RDB_LIMIT"
         );
         let token = romedb::CancellationToken::new();
         token.cancel();
@@ -176,7 +176,7 @@ fn unnest_preserves_source_indexes_snapshots_atomic_writes_limits_and_reopen() {
             a.execute_cancellable(sql, &Parameters::new(), &token)
                 .unwrap_err()
                 .code(),
-            "FDB_CANCELLED"
+            "RDB_CANCELLED"
         );
         assert_eq!(a.transaction_state(), romedb::TransactionState::Active);
         expected = query(&a, sql).rows;
@@ -215,7 +215,7 @@ fn unnest_byte_limits_and_explain_preserve_caller_transaction_work() {
         assert!(!query(&c, &format!("{explain} {sql}")).rows.is_empty());
     }
     let error = c.execute(sql, &Parameters::new()).unwrap_err();
-    assert_eq!(error.code(), "FDB_LIMIT", "{error}");
+    assert_eq!(error.code(), "RDB_LIMIT", "{error}");
     assert_eq!(c.transaction_state(), romedb::TransactionState::Active);
     assert_eq!(
         query(&c, "SELECT count(*) FROM docs").rows,

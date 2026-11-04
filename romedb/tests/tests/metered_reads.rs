@@ -46,7 +46,7 @@ fn checked_reads_retain_failure_work_and_exclude_catalog_queries() {
             assert_eq!(result.work.rows_read, 5);
             assert!(!result.work.read_budget_exhausted);
             let failed = c.select_metered(sql, &p, limits(), reads(2));
-            assert_eq!(failed.outcome.unwrap_err().code(), "FDB_CANCELLED");
+            assert_eq!(failed.outcome.unwrap_err().code(), "RDB_CANCELLED");
             assert_eq!(failed.work.rows_read, 3);
             assert!(failed.work.read_budget_exhausted);
         }
@@ -89,7 +89,7 @@ fn result_budget_and_read_budget_errors_leave_outer_transaction_usable() {
         },
         reads(100),
     );
-    assert_eq!(limited.outcome.unwrap_err().code(), "FDB_LIMIT");
+    assert_eq!(limited.outcome.unwrap_err().code(), "RDB_LIMIT");
     assert_eq!(limited.work.rows_read, 1);
     let stopped = c.select_metered("SELECT n FROM docs", &p, limits(), reads(0));
     assert!(stopped.work.read_budget_exhausted);
@@ -196,7 +196,7 @@ fn direct_records_share_checked_result_and_work_limits() {
         },
         reads(2),
     );
-    assert_eq!(result_limited.outcome.unwrap_err().code(), "FDB_LIMIT");
+    assert_eq!(result_limited.outcome.unwrap_err().code(), "RDB_LIMIT");
     assert_eq!(result_limited.work.rows_read, 2);
     assert!(c
         .select_metered("SELECT docs:a", &p, limits(), reads(2))
@@ -340,7 +340,7 @@ fn info_failure_budgets_and_rejected_statements_preserve_caller_transaction() {
         },
         InfoWorkLimits::default(),
     );
-    assert_eq!(small.outcome.unwrap_err().code(), "FDB_LIMIT");
+    assert_eq!(small.outcome.unwrap_err().code(), "RDB_LIMIT");
     assert!(small.work.catalog_rows_read > 0);
     let missing = c.info_metered(
         "INFO FOR TABLE absent",
@@ -348,7 +348,7 @@ fn info_failure_budgets_and_rejected_statements_preserve_caller_transaction() {
         limits(),
         InfoWorkLimits::default(),
     );
-    assert_eq!(missing.outcome.unwrap_err().code(), "FDB_NOT_FOUND");
+    assert_eq!(missing.outcome.unwrap_err().code(), "RDB_NOT_FOUND");
     assert!(missing.work.catalog_rows_read > 0);
     for sql in [
         "DELETE FROM input",

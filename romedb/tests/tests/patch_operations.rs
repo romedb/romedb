@@ -204,7 +204,7 @@ fn patch_snapshots_returning_limits_cancellation_and_reopen() {
             c.execute_cancellable(sql, &Parameters::new(), &token)
                 .unwrap_err()
                 .code(),
-            "FDB_CANCELLED"
+            "RDB_CANCELLED"
         );
         query(&c, sql);
         assert_eq!(query(&reader, "SELECT * FROM docs").rows, before);

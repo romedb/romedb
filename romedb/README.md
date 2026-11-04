@@ -40,7 +40,7 @@ Use `connection.execute_report(sql, &params)` when error handling needs transact
 
 `connection.execute_batch(script)` returns per-statement execution reports with UTF-8 byte offsets and stops after the first failure. It does not wrap the script in a transaction: include BEGIN/COMMIT when needed and inspect transaction state after errors. Lexical splitting errors are detected before any statement runs. The final statement may omit its semicolon. Batch scripts currently use literal values; use `execute`/`execute_report` for bound parameters.
 
-A tested [offline backup and restore procedure](docs/backup-restore.md) preserves relational data, collection schema/indexes and migration history using an exclusive maintenance window and successful checkpoint. Online backup and interrupted-copy/recovery qualification remain pending.
+A tested [offline backup and restore procedure](docs/backup-restore.md) preserves relational data, collection schema/indexes and migration history using an exclusive maintenance window and successful checkpoint. An open MVCC database can also be [copied into a new file](docs/service-protocol.md#database-files) while reads and writes continue. Interrupted-copy/recovery qualification remains pending.
 
 `INFO FOR DB` lists tables and views. `INFO FOR TABLE name` reports logical collection validation/indexes or native relational column and index metadata. `INFO FOR INDEX name` includes explicit relational index SQL and key details such as expressions, direction and collation. See [inspection contracts](docs/contracts.md#relational-inspection-details) for the prototype result shape.
 
@@ -69,7 +69,7 @@ in line/interactive mode. In interactive mode, the SQL following the command and
 multiple lines; finish it with a semicolon. `.clear` discards the pending command.
 Piped standalone input can also contain multiline SQL. They use the same
 result accounting as the Rust/Node APIs: column names count even for empty results,
-FETCH output counts after expansion, and overflow emits `FDB_LIMIT` without partial
+FETCH output counts after expansion, and overflow emits `RDB_LIMIT` without partial
 rows or profile counters. Write-result rejection rolls back the operation through
 its savepoint, with transaction observations in the error report. `.write-limit`
 accepts data writes; transaction control and DDL use ordinary SQL commands.

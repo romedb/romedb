@@ -410,7 +410,7 @@ mod tests {
                     )
                 })
                 .unwrap_err();
-            assert_eq!(error.code(), "FDB_LIMIT");
+            assert_eq!(error.code(), "RDB_LIMIT");
             assert_eq!(
                 metrics.batches, 0,
                 "{table}: failed before completing the first chunk"
@@ -491,7 +491,7 @@ mod tests {
                 .err()
                 .unwrap()
                 .code(),
-            "FDB_LIMIT"
+            "RDB_LIMIT"
         );
         c.execute("ROLLBACK", &p).unwrap();
         assert!(c.execute("SELECT n FROM docs", &p).unwrap().rows.is_empty());
@@ -562,7 +562,7 @@ mod tests {
                 assert!(fired.load(Ordering::SeqCst), "stop {stop}/{total}");
                 assert_eq!(
                     result.unwrap_err().code(),
-                    "FDB_CANCELLED",
+                    "RDB_CANCELLED",
                     "stop {stop}/{total}, outer={outer}"
                 );
                 assert_eq!(c.transaction_state(), state);
@@ -628,7 +628,7 @@ mod tests {
                     })
                 })
                 .unwrap_err();
-            assert_eq!(error.code(), "FDB_LIMIT");
+            assert_eq!(error.code(), "RDB_LIMIT");
             assert_eq!(TARGET_CALLS.load(Ordering::SeqCst), accepted + 1);
             assert_eq!(c.transaction_state(), crate::TransactionState::Active);
             TARGET_CALLS.store(0, Ordering::SeqCst);
@@ -682,7 +682,7 @@ mod tests {
                     })
                 })
                 .unwrap_err();
-            assert_eq!(error.code(), "FDB_LIMIT");
+            assert_eq!(error.code(), "RDB_LIMIT");
             assert_eq!(TARGET_CALLS.load(Ordering::SeqCst), accepted + 1);
             assert_eq!(found.len(), accepted);
             assert_eq!(c.transaction_state(), crate::TransactionState::Active);
@@ -698,7 +698,7 @@ mod tests {
                 &params,
             )
             .unwrap_err();
-        assert_eq!(error.code(), "FDB_LIMIT", "{error}");
+        assert_eq!(error.code(), "RDB_LIMIT", "{error}");
         assert_eq!(
             TARGET_CALLS.load(Ordering::SeqCst),
             MAX_FETCH_REFERENCES + 1
@@ -762,7 +762,7 @@ mod tests {
                     c.atomic(|| c.fetch_records_inner(&references, limit))
                         .unwrap_err()
                         .code(),
-                    "FDB_LIMIT"
+                    "RDB_LIMIT"
                 );
                 assert_eq!(c.transaction_state(), crate::TransactionState::Active);
                 assert_eq!(c.fetch_records(&references).unwrap(), expected);
@@ -777,7 +777,7 @@ mod tests {
             c.fetch_records_inner(&[Value::Null], null_bytes - 1)
                 .unwrap_err()
                 .code(),
-            "FDB_LIMIT"
+            "RDB_LIMIT"
         );
         assert!(c.fetch_records_inner(&[], 0).unwrap().is_empty());
         c.execute("ROLLBACK", &params).unwrap();

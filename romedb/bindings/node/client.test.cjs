@@ -12,7 +12,7 @@ const result = (value = 1n) => ({ columns: ['value'], rows: [[encodeValue(value)
 const details = sequence => ({ id: 'local-test', sequence, serviceVersion: 1, capabilities: { readVersion: 2, atomicWrites: true, replayWindow: 64, exactSequenceCondition: true }, limits: { maxRequestBytes: 65_536 } });
 
 test('a shared transport failure preserves each pending write and its original outcome', async () => {
-  const failure = new ClientError('FDB_TRANSPORT', 'shared failure', 'unknown');
+  const failure = new ClientError('RDB_TRANSPORT', 'shared failure', 'unknown');
   let discovered = false;
   const db = await connect({ url: 'http://127.0.0.1:4321', token: 'test-token', fetch: async (url, options) => {
     if (!discovered) { discovered = true; return json(details(0)); }
@@ -35,7 +35,7 @@ test('a transport exception cannot manufacture a confirmed rollback receipt', as
   let discovered = false;
   const db = await connect({ url: 'http://127.0.0.1:4321', token: 'test-token', fetch: async () => {
     if (!discovered) { discovered = true; return json(details(0)); }
-    throw new ClientError('FDB_CONSTRAINT', 'unconfirmed failure with test-token', 'rolled-back', { sequence: 1 });
+    throw new ClientError('RDB_CONSTRAINT', 'unconfirmed failure with test-token', 'rolled-back', { sequence: 1 });
   } });
   try {
     const request = db.prepareWrite([{ sql: 'INSERT INTO data VALUES(1)' }]);
@@ -56,9 +56,9 @@ test('query version 2 confirms writes; unknown versions preserve the exact recov
   try {
     assert.equal((await db.writeAtomic([{ sql: 'INSERT INTO data VALUES(1)' }])).sequence, 1);
     version = '4';
-    await assert.rejects(db.read([{ sql: 'SELECT 1' }]), error => error.code === 'FDB_PROTOCOL' && error.outcome === 'read-failed');
+    await assert.rejects(db.read([{ sql: 'SELECT 1' }]), error => error.code === 'RDB_PROTOCOL' && error.outcome === 'read-failed');
     const saved = db.prepareWrite([{ sql: 'INSERT INTO data VALUES(2)' }]);
-    await assert.rejects(db.submit(saved), error => error.code === 'FDB_PROTOCOL' && error.outcome === 'unknown' && error.request === saved);
+    await assert.rejects(db.submit(saved), error => error.code === 'RDB_PROTOCOL' && error.outcome === 'unknown' && error.request === saved);
     assert.equal(db.sequence, 1);
     version = '2';
     assert.equal((await db.recover(saved)).sequence, 2);
@@ -66,11 +66,11 @@ test('query version 2 confirms writes; unknown versions preserve the exact recov
 });
 
 test('HTTP errors retain valid RomeDB codes without confirming an uncertain write', async () => {
-  const db = await connect({ url: 'http://localhost:4321', token: 'test-secret', fetch: async (_url, options) => options.method === 'GET' ? json(details(0)) : json({ error: { code: 'FDB_UNSUPPORTED', message: 'unsupported test-secret' } }, 400) });
+  const db = await connect({ url: 'http://localhost:4321', token: 'test-secret', fetch: async (_url, options) => options.method === 'GET' ? json(details(0)) : json({ error: { code: 'RDB_UNSUPPORTED', message: 'unsupported test-secret' } }, 400) });
   try {
-    await assert.rejects(db.read([{ sql: 'EXPLAIN QUERY PLAN SELECT 1' }]), error => error.code === 'FDB_UNSUPPORTED' && error.outcome === 'read-failed' && error.message === 'unsupported [redacted]');
+    await assert.rejects(db.read([{ sql: 'EXPLAIN QUERY PLAN SELECT 1' }]), error => error.code === 'RDB_UNSUPPORTED' && error.outcome === 'read-failed' && error.message === 'unsupported [redacted]');
     const request = db.prepareWrite([{ sql: 'CREATE TABLE data' }]);
-    await assert.rejects(db.submit(request), error => error.code === 'FDB_UNSUPPORTED' && error.outcome === 'unknown' && error.request === request && error.sequence === undefined);
+    await assert.rejects(db.submit(request), error => error.code === 'RDB_UNSUPPORTED' && error.outcome === 'unknown' && error.request === request && error.sequence === undefined);
   } finally { await db.close(); }
 });
 
@@ -79,11 +79,11 @@ test('typed fresh-read errors preserve frontend codes without claiming write rol
     if (options.method === 'GET') return json(details(0));
     const q = JSON.parse(options.body);
     return json({ requestId: q.requestId, readVersion: 2, sequence: 0,
-      error: { code: 'FDB_UNSUPPORTED', message: 'vector EXPLAIN unsupported' } });
+      error: { code: 'RDB_UNSUPPORTED', message: 'vector EXPLAIN unsupported' } });
   } });
   try {
     await assert.rejects(db.read([{ sql: 'EXPLAIN QUERY PLAN SELECT 1' }]),
-      error => error.code === 'FDB_UNSUPPORTED' && error.outcome === 'read-failed' && error.sequence === 0);
+      error => error.code === 'RDB_UNSUPPORTED' && error.outcome === 'read-failed' && error.sequence === 0);
   } finally { await db.close(); }
 });
 
@@ -163,7 +163,7 @@ test('read-v2 keeps duplicate columns, bigint affected counts, and monotonic con
 
 test('database identities must fit a bounded header-safe value', async () => {
   for (const id of ['', 'x'.repeat(81), 'line\nbreak', 'nonascii\u03bb']) {
-    await assert.rejects(connect({ url: 'http://localhost:4321', token: 'test-secret', fetch: async () => json({ ...details(0), id }) }), error => error.code === 'FDB_PROTOCOL');
+    await assert.rejects(connect({ url: 'http://localhost:4321', token: 'test-secret', fetch: async () => json({ ...details(0), id }) }), error => error.code === 'RDB_PROTOCOL');
   }
 });
 
@@ -210,7 +210,7 @@ test('lost write response recovers the exact saved body and never creates anothe
 test('unidentified write errors, including recovery rejections, remain unknown and redact bearer tokens', async () => {
   const db = await connect({ url: 'http://localhost:4321', token: 'test-secret', fetch: async (_url, options) => options.method === 'GET' ? json(details(0)) : json({ error: 'rejected test-secret' }, 409) });
   const prepared = db.prepareWrite([{ sql: 'SELECT 1' }]);
-  await assert.rejects(db.submit(prepared), error => error.code === 'FDB_CONFLICT' && error.outcome === 'unknown' && !error.message.includes('test-secret'));
+  await assert.rejects(db.submit(prepared), error => error.code === 'RDB_CONFLICT' && error.outcome === 'unknown' && !error.message.includes('test-secret'));
   const controller = new AbortController();
   controller.abort();
   await assert.rejects(db.recover(prepared, { signal: controller.signal }), error => error.outcome === 'unknown' && error.request === prepared);
@@ -221,9 +221,9 @@ test('valid failure receipts prove rollback and update the confirmed sequence', 
   const db = await connect({ url: 'http://localhost:4321', token: 'test', fetch: async (_url, options) => {
     if (options.method === 'GET') return json(details(0));
     const request = JSON.parse(options.body);
-    return json({ requestId: request.requestId, sequence: 1, error: { code: 'FDB_VALIDATION', message: 'title required' } }, 400);
+    return json({ requestId: request.requestId, sequence: 1, error: { code: 'RDB_VALIDATION', message: 'title required' } }, 400);
   } });
-  await assert.rejects(db.writeAtomic([{ sql: 'INSERT INTO posts DOCUMENT {}' }]), error => error.outcome === 'rolled-back' && error.code === 'FDB_VALIDATION' && error.sequence === 1);
+  await assert.rejects(db.writeAtomic([{ sql: 'INSERT INTO posts DOCUMENT {}' }]), error => error.outcome === 'rolled-back' && error.code === 'RDB_VALIDATION' && error.sequence === 1);
   assert.equal(db.sequence, 1);
   await db.close();
 });
@@ -235,7 +235,7 @@ test('mismatched identity, wrong result width, extra results and unsafe sequence
       const request = JSON.parse(options.body);
       return json(corrupt({ requestId: request.requestId, sequence: 1, results: [result()] }));
     } });
-    await assert.rejects(db.writeAtomic([{ sql: 'SELECT 1' }]), error => error.code === 'FDB_PROTOCOL' && error.outcome === 'unknown');
+    await assert.rejects(db.writeAtomic([{ sql: 'SELECT 1' }]), error => error.code === 'RDB_PROTOCOL' && error.outcome === 'unknown');
     assert.equal(db.sequence, 0);
     await db.close();
   }
@@ -247,9 +247,9 @@ test('request preparation rejects oversized input, unknown fields and changed da
   assert.throws(() => db.prepareWrite([{ sql: 'SELECT 1', arbitrary: 1 }]), /statement/);
   assert.throws(() => db.prepareWrite([{ sql: 'SELECT 1' }], { afterSequence: 2, ifSequence: 1 }), /ifSequence/);
   const write = db.prepareWrite([{ sql: 'SELECT 1' }]);
-  await assert.rejects(db.submit({ ...write, databaseId: 'another' }), error => error.code === 'FDB_REQUEST_IDENTITY' && error.outcome === 'not-sent');
+  await assert.rejects(db.submit({ ...write, databaseId: 'another' }), error => error.code === 'RDB_REQUEST_IDENTITY' && error.outcome === 'not-sent');
   await db.close();
-  assert.throws(() => db.prepareWrite([{ sql: 'SELECT 1' }]), error => error.code === 'FDB_CLOSED');
+  assert.throws(() => db.prepareWrite([{ sql: 'SELECT 1' }]), error => error.code === 'RDB_CLOSED');
 });
 
 test('private journals survive a new client, preserve exact body, and reject overwrite, symlinks and insecure modes', async t => {
@@ -311,7 +311,7 @@ test('real HTTP cancellation after dispatch leaves a write unknown; close cancel
   const db = await connect({ url: `http://127.0.0.1:${server.address().port}`, token: 'test' });
   const controller = new AbortController();
   const prepared = db.prepareWrite([{ sql: 'SELECT 1' }]);
-  const pending = assert.rejects(db.submit(prepared, { signal: controller.signal }), error => error.code === 'FDB_CANCELLED' && error.outcome === 'unknown');
+  const pending = assert.rejects(db.submit(prepared, { signal: controller.signal }), error => error.code === 'RDB_CANCELLED' && error.outcome === 'unknown');
   await admitted;
   controller.abort();
   await pending;
@@ -326,7 +326,7 @@ test('response streaming is bounded even without a content length', async () => 
     pull(controller) { controller.enqueue(new Uint8Array(65_536)); },
     cancel() { cancelled = true; },
   }), { headers: { 'content-type': 'application/json' } }) });
-  await assert.rejects(db.writeAtomic([{ sql: 'SELECT 1' }]), error => error.code === 'FDB_PROTOCOL' && error.outcome === 'unknown');
+  await assert.rejects(db.writeAtomic([{ sql: 'SELECT 1' }]), error => error.code === 'RDB_PROTOCOL' && error.outcome === 'unknown');
   assert.equal(cancelled, true);
   await db.close();
 });
@@ -343,7 +343,7 @@ test('client request timeout bounds fetch and pre-aborted writes never dispatch'
   controller.abort();
   await assert.rejects(db.submit(prepared, { signal: controller.signal }), error => error.outcome === 'not-sent');
   assert.equal(calls, 0);
-  await assert.rejects(db.submit(prepared, { timeoutMs: 5 }), error => error.code === 'FDB_CANCELLED' && error.outcome === 'unknown');
+  await assert.rejects(db.submit(prepared, { timeoutMs: 5 }), error => error.code === 'RDB_CANCELLED' && error.outcome === 'unknown');
   assert.equal(calls, 1);
   await db.close();
 });
@@ -356,9 +356,9 @@ test('unsupported capabilities and a changed database identity fail before mutat
     queries++;
     throw Error('unexpected dispatch');
   } });
-  assert.throws(() => db.prepareWrite([{ sql: 'SELECT 1' }]), error => error.code === 'FDB_UNSUPPORTED' && error.outcome === 'not-sent');
+  assert.throws(() => db.prepareWrite([{ sql: 'SELECT 1' }]), error => error.code === 'RDB_UNSUPPORTED' && error.outcome === 'not-sent');
   info = { ...details(0), id: 'replacement-database' };
-  await assert.rejects(db.info(), error => error.code === 'FDB_PROTOCOL');
+  await assert.rejects(db.info(), error => error.code === 'RDB_PROTOCOL');
   assert.equal(db.databaseId, 'local-test');
   assert.equal(queries, 0);
   await db.close();
@@ -370,7 +370,7 @@ test('result JSON budget is checked before decoding even inside the larger envel
     const request = JSON.parse(options.body);
     return json({ requestId: request.requestId, sequence: 1, results: [result('x'.repeat(262_144))] });
   } });
-  await assert.rejects(db.writeAtomic([{ sql: 'SELECT 1' }]), error => error.code === 'FDB_PROTOCOL' && error.outcome === 'unknown');
+  await assert.rejects(db.writeAtomic([{ sql: 'SELECT 1' }]), error => error.code === 'RDB_PROTOCOL' && error.outcome === 'unknown');
   await db.close();
 });
 
@@ -434,7 +434,7 @@ test('Cloud URLs skip the details request until a write needs a sequence', async
   const db = await connect({ url: cloud.replace('https://', 'romedb://'), token: 'test-token', warm: false, fetch });
   assert.equal(db.deferred, true); assert.deepEqual(calls, [], 'no request at connect');
   assert.equal(db.databaseId, '22222222-2222-4222-8222-222222222222');
-  assert.throws(() => db.prepareWrite([{ sql: 'UPDATE t SET n=1' }]), error => error.code === 'FDB_SEQUENCE_UNKNOWN' && error.outcome === 'not-sent');
+  assert.throws(() => db.prepareWrite([{ sql: 'UPDATE t SET n=1' }]), error => error.code === 'RDB_SEQUENCE_UNKNOWN' && error.outcome === 'not-sent');
   const write = await db.writeAtomic([{ sql: 'UPDATE t SET n=1' }]);
   assert.equal(write.sequence, 41); assert.deepEqual(calls, ['GET 22222222-2222-4222-8222-222222222222', 'POST query'], 'the first write fetches details once');
   calls.length = 0;
@@ -445,7 +445,7 @@ test('Cloud URLs skip the details request until a write needs a sequence', async
   await assert.rejects(connect({ url: 'http://127.0.0.1:4321', token: 'test-token', deferInfo: true, fetch }), /Cloud database URLs/);
   await assert.rejects(connect({ url: cloud, token: 'test-token', deferInfo: 'yes', fetch }), /boolean/);
   const mismatch = await connect({ url: cloud, token: 'test-token', warm: false, fetch: async () => json({ id: '33333333-3333-4333-8333-333333333333', sequence: 1 }) });
-  await assert.rejects(mismatch.info(), error => error.code === 'FDB_PROTOCOL', 'a different database id is still rejected');
+  await assert.rejects(mismatch.info(), error => error.code === 'RDB_PROTOCOL', 'a different database id is still rejected');
   calls.length = 0;
   const eager = await connect({ url: cloud, token: 'test-token', deferInfo: false, warm: false, fetch });
   assert.equal(eager.deferred, false); assert.equal(eager.sequence, 40);
@@ -472,7 +472,7 @@ test('Cloud connections warm the database in the background; warm() reports the 
   state = 'skipped';
   assert.deepEqual(await db.warm(), { state: 'skipped' });
   state = 'unknown';
-  await assert.rejects(db.warm(), error => error.code === 'FDB_PROTOCOL' && error.outcome === 'read-failed');
+  await assert.rejects(db.warm(), error => error.code === 'RDB_PROTOCOL' && error.outcome === 'read-failed');
   state = 'missing';
   await assert.rejects(db.warm(), error => error.status === 404 && error.outcome === 'read-failed');
   calls.length = 0;
@@ -490,7 +490,7 @@ test('Cloud connections warm the database in the background; warm() reports the 
   await pending.close();
   assert.equal(aborted, true, 'close cancels the background warm');
   const local = await connect({ url: 'http://127.0.0.1:4321', token: 'test-token', fetch: async () => json(details(0)) });
-  await assert.rejects(local.warm(), error => error.code === 'FDB_UNSUPPORTED' && error.outcome === 'not-sent');
+  await assert.rejects(local.warm(), error => error.code === 'RDB_UNSUPPORTED' && error.outcome === 'not-sent');
   await assert.rejects(connect({ url: 'http://127.0.0.1:4321', token: 'test-token', warm: true, fetch }), /Cloud database URLs/);
   await assert.rejects(connect({ url: cloud, token: 'test-token', warm: 'yes', fetch }), /boolean/);
   await Promise.all([db.close(), failing.close(), eager.close(), local.close()]);
@@ -596,4 +596,47 @@ test('a loopback organization URL negotiates a local service and keeps Cloud run
     assert.equal(requests[2].version, queryVersion);
     await db.close();
   }
+});
+
+test('exportFile downloads the database file with its sequence and checks the size and identity', async () => {
+  const bytes = new Uint8Array(4096).map((_, i) => i % 251);
+  const file = (headers = {}, body = bytes) => new Response(body, { headers: { 'content-type': 'application/vnd.romedb.database', 'content-length': String(bytes.byteLength), 'x-romedb-sequence': '7', 'x-romedb-database-id': 'local-test', ...headers } });
+  let reply = () => file();
+  const requests = [];
+  const db = await connect({ url: 'http://127.0.0.1:4321', token: 'test-token', fetch: async (url, options) => {
+    if (url.endsWith('/file')) { requests.push({ url, options }); return reply(); }
+    return json(details(2));
+  } });
+  try {
+    const exported = await db.exportFile({ timeoutMs: 5000 });
+    assert.equal(exported.sequence, 7);
+    assert.equal(exported.size, bytes.byteLength);
+    assert.deepEqual(new Uint8Array(await new Response(exported.body).arrayBuffer()), bytes);
+    assert.equal(db.sequence, 7);
+    assert.equal(requests[0].url, 'http://127.0.0.1:4321/v1/database/file');
+    assert.equal(requests[0].options.method, 'GET');
+    assert.equal(requests[0].options.redirect, 'manual');
+    assert.equal(requests[0].options.headers.authorization, 'Bearer test-token');
+    assert.equal(requests[0].options.headers['x-romedb-database-id'], 'local-test');
+    reply = () => file({}, bytes.subarray(0, 100));
+    const short = await db.exportFile();
+    await assert.rejects(new Response(short.body).arrayBuffer(), error => error.code === 'RDB_TRANSPORT' && error.outcome === 'read-failed');
+    reply = () => file({ 'content-length': '10' });
+    await assert.rejects(new Response((await db.exportFile()).body).arrayBuffer(), error => error.code === 'RDB_PROTOCOL');
+    reply = () => file({ 'x-romedb-database-id': 'other' });
+    await assert.rejects(db.exportFile(), error => error.code === 'RDB_REQUEST_IDENTITY');
+    reply = () => file({ 'content-type': 'application/octet-stream' });
+    await assert.rejects(db.exportFile(), error => error.code === 'RDB_PROTOCOL');
+    reply = () => Response.json({ error: { code: 'RDB_BUSY', message: 'already exporting, test-token' } }, { status: 503, headers: { 'retry-after': '2' } });
+    await assert.rejects(db.exportFile(), error => error.code === 'RDB_BUSY' && error.retryAfterMs === 2000 && error.status === 503 && !error.message.includes('test-token'));
+    reply = () => new Response(null, { status: 302, headers: { location: 'https://elsewhere.example' } });
+    await assert.rejects(db.exportFile(), error => error.code === 'RDB_PROTOCOL');
+    await assert.rejects(db.exportFile({ afterSequence: 1 }), TypeError);
+    const aborted = new AbortController();
+    aborted.abort();
+    await assert.rejects(db.exportFile({ signal: aborted.signal }), error => error.code === 'RDB_CANCELLED' && error.outcome === 'not-sent');
+  } finally { await db.close(); }
+  const remote = await connect({ url: cloud, token: 'test-token', warm: false, fetch: async () => { throw new Error('Cloud exports must not be sent'); } });
+  try { await assert.rejects(remote.exportFile(), error => error.code === 'RDB_UNSUPPORTED' && error.outcome === 'not-sent'); }
+  finally { await remote.close(); }
 });

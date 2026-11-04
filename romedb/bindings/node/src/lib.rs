@@ -501,6 +501,71 @@ impl NativeDatabase {
             Ok(serde_json::json!({"alreadyApplied":report.already_applied,"applied":report.applied.iter().map(i64::to_string).collect::<Vec<_>>()}))
         })
     }
+    /// Returns once the copy's snapshot has started; `finish` writes the file.
+    #[napi]
+    pub fn start_file_export(
+        &self,
+        destination: String,
+        cancellation_key: Option<String>,
+    ) -> napi::Result<NativeFileExport> {
+        let (_, db) = self
+            .inner
+            .as_ref()
+            .ok_or_else(|| error("database is closed"))?;
+        let token = match cancellation_key {
+            Some(key) => cancellations()
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .get(&key.parse::<u64>().map_err(error)?)
+                .cloned()
+                .ok_or_else(|| error("unknown cancellation token"))?,
+            None => romedb::CancellationToken::new(),
+        };
+        let pending = db
+            .start_file_export(std::path::Path::new(&destination), &token)
+            .map_err(coded_error)?;
+        Ok(NativeFileExport {
+            pending: Some(pending),
+        })
+    }
+}
+#[napi]
+pub struct NativeFileExport {
+    pending: Option<romedb::PendingFileExport>,
+}
+#[napi]
+impl NativeFileExport {
+    /// Resolves to the file size in bytes as a decimal string.
+    #[napi(ts_return_type = "Promise<string>")]
+    pub fn finish(&mut self) -> napi::Result<napi::bindgen_prelude::AsyncTask<FinishFileExport>> {
+        let pending = self
+            .pending
+            .take()
+            .ok_or_else(|| error("file export already finished"))?;
+        Ok(napi::bindgen_prelude::AsyncTask::new(FinishFileExport {
+            pending: Some(pending),
+        }))
+    }
+}
+pub struct FinishFileExport {
+    pending: Option<romedb::PendingFileExport>,
+}
+impl napi::Task for FinishFileExport {
+    type Output = u64;
+    type JsValue = String;
+    fn compute(&mut self) -> napi::Result<u64> {
+        let pending = self
+            .pending
+            .take()
+            .ok_or_else(|| error("file export already finished"))?;
+        pending
+            .finish()
+            .map(|export| export.bytes)
+            .map_err(coded_error)
+    }
+    fn resolve(&mut self, _env: napi::Env, bytes: u64) -> napi::Result<String> {
+        Ok(bytes.to_string())
+    }
 }
 fn transfer_format(format: &str) -> romedb::Result<romedb::TransferFormat> {
     match format {

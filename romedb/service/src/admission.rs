@@ -24,13 +24,13 @@ impl Admission {
         let mut state = self
             .state
             .lock()
-            .map_err(|_| Error::new("FDB_STORAGE", "admission state failed"))?;
+            .map_err(|_| Error::new("RDB_STORAGE", "admission state failed"))?;
         if state.closing {
-            return Err(Error::new("FDB_CLOSED", "service is stopping"));
+            return Err(Error::new("RDB_CLOSED", "service is stopping"));
         }
         if state.active >= 4 {
             if state.queued >= 32 {
-                return Err(Error::new("FDB_BUSY", "service queue is full"));
+                return Err(Error::new("RDB_BUSY", "service queue is full"));
             }
             state.queued += 1;
             while state.active >= 4 && !state.closing {
@@ -38,23 +38,23 @@ impl Admission {
                 if remaining.is_zero() {
                     state.queued -= 1;
                     return Err(Error::new(
-                        "FDB_CANCELLED",
+                        "RDB_CANCELLED",
                         "request deadline expired in queue",
                     ));
                 }
                 let waited = self
                     .changed
                     .wait_timeout(state, remaining)
-                    .map_err(|_| Error::new("FDB_STORAGE", "admission wait failed"))?;
+                    .map_err(|_| Error::new("RDB_STORAGE", "admission wait failed"))?;
                 state = waited.0;
             }
             state.queued -= 1;
         }
         if state.closing {
-            return Err(Error::new("FDB_CLOSED", "service is stopping"));
+            return Err(Error::new("RDB_CLOSED", "service is stopping"));
         }
         if Instant::now() >= deadline {
-            return Err(Error::new("FDB_CANCELLED", "request deadline expired"));
+            return Err(Error::new("RDB_CANCELLED", "request deadline expired"));
         }
         state.active += 1;
         Ok(Permit {
@@ -124,11 +124,11 @@ mod tests {
                 .err()
                 .unwrap()
                 .code,
-            "FDB_BUSY"
+            "RDB_BUSY"
         );
         admission.stop();
         for thread in waiting {
-            assert_eq!(thread.join().unwrap(), "FDB_CLOSED");
+            assert_eq!(thread.join().unwrap(), "RDB_CLOSED");
         }
         assert_eq!(admission.counts(), (4, 0));
         drop(active);
@@ -139,7 +139,7 @@ mod tests {
                 .err()
                 .unwrap()
                 .code,
-            "FDB_CLOSED"
+            "RDB_CLOSED"
         );
     }
 
@@ -159,7 +159,7 @@ mod tests {
                 .err()
                 .unwrap()
                 .code,
-            "FDB_CANCELLED"
+            "RDB_CANCELLED"
         );
         assert_eq!(admission.counts(), (4, 0));
         drop(active);

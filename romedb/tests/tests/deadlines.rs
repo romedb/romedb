@@ -15,7 +15,7 @@ fn expired_deadline_rejects_before_parsing_and_preserves_transaction() {
         c.execute_cancellable("invalid SQL", &p, &token)
             .unwrap_err()
             .code(),
-        "FDB_CANCELLED"
+        "RDB_CANCELLED"
     );
     assert_eq!(c.transaction_state(), TransactionState::Active);
     assert_eq!(
@@ -74,7 +74,7 @@ fn deadline_interrupts_engine_work_and_allows_fresh_retry() {
                 .unwrap_err(),
             _ => unreachable!(),
         };
-        assert_eq!(error.code(), "FDB_CANCELLED", "operation {operation}");
+        assert_eq!(error.code(), "RDB_CANCELLED", "operation {operation}");
         assert!(token.is_cancelled());
         assert_eq!(c.transaction_state(), TransactionState::Active);
         assert_eq!(
@@ -151,7 +151,7 @@ fn deadline_batch_and_migration_boundaries_preserve_state_and_history() {
     assert_eq!(reports.len(), 1);
     assert_eq!(
         reports[0].execution.result.as_ref().unwrap_err().code(),
-        "FDB_CANCELLED"
+        "RDB_CANCELLED"
     );
     assert_eq!(c.transaction_state(), TransactionState::Active);
     assert_eq!(
@@ -162,7 +162,7 @@ fn deadline_batch_and_migration_boundaries_preserve_state_and_history() {
     let token = CancellationToken::with_deadline(Instant::now() + Duration::from_millis(20));
     assert_eq!(
         c.migrate_cancellable(&plan, &token).unwrap_err().code(),
-        "FDB_CANCELLED"
+        "RDB_CANCELLED"
     );
     assert_eq!(c.transaction_state(), TransactionState::Autocommit);
     assert!(c.execute("SELECT * FROM audit", &p).is_err());

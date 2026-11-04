@@ -41,7 +41,7 @@ fn metered_record_updates_normalize_romeql_before_result_limit_validation() {
         assert_eq!(updated.work.row_mutations, 1);
         let rejected =
             connection.write_metered("UPDATE docs:a SET title='other'", &params, limits, work);
-        assert_eq!(rejected.outcome.unwrap_err().code(), "FDB_CONSTRAINT");
+        assert_eq!(rejected.outcome.unwrap_err().code(), "RDB_CONSTRAINT");
         let limited = connection.write_metered(
             "UPDATE docs:a SET title='limited'",
             &params,
@@ -51,7 +51,7 @@ fn metered_record_updates_normalize_romeql_before_result_limit_validation() {
                 ..work
             },
         );
-        assert_eq!(limited.outcome.unwrap_err().code(), "FDB_CANCELLED");
+        assert_eq!(limited.outcome.unwrap_err().code(), "RDB_CANCELLED");
         assert!(limited.work.mutation_budget_exhausted);
         assert_eq!(
             connection

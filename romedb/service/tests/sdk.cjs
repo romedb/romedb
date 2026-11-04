@@ -120,7 +120,7 @@ async function main() {
     assert.equal(snapshot.results[0].rows.length, 3);
     const stale = database.prepareWrite([{ sql: 'UPDATE docs:lost SET title=$title', params: { $title: 'stale' } }], { ifSequence: snapshot.sequence });
     await database.writeAtomic([{ sql: 'UPDATE docs:lost SET title=$title', params: { $title: 'other' } }]);
-    await assert.rejects(database.submit(stale), error => error.code === 'FDB_CONFLICT' && error.outcome === 'rolled-back');
+    await assert.rejects(database.submit(stale), error => error.code === 'RDB_CONFLICT' && error.outcome === 'rolled-back');
     assert.equal((await database.read([{ sql: 'SELECT title FROM docs WHERE id=$id', params: { $id: new Record('docs', 'lost') } }])).results[0].rows[0][0], 'other');
     const wrongOwner = database.prepareWrite([{ sql: 'CREATE TABLE unexpected;' }], { afterSequence: 0 });
     await stop(service.child);

@@ -343,7 +343,7 @@ mod tests {
                 assert!(fired.load(Ordering::SeqCst));
                 assert_eq!(
                     error.code(),
-                    "FDB_CANCELLED",
+                    "RDB_CANCELLED",
                     "outer={outer:?}, handle={via_handle}: {error:?}"
                 );
                 assert!(
@@ -408,13 +408,13 @@ mod tests {
             )
             .unwrap_err()
             .code(),
-            "FDB_CANCELLED"
+            "RDB_CANCELLED"
         );
         assert_eq!(q(&c, "SELECT id,n FROM docs").rows, prior);
         assert_eq!(c.transaction_state(), crate::TransactionState::Active);
         let report =
             c.execute_report_cancellable("INSERT INTO docs {n:1}", &Parameters::new(), &token);
-        assert_eq!(report.result.unwrap_err().code(), "FDB_CANCELLED");
+        assert_eq!(report.result.unwrap_err().code(), "RDB_CANCELLED");
         assert_eq!(report.transaction_before, crate::TransactionState::Active);
         assert_eq!(report.transaction_after, crate::TransactionState::Active);
         assert_eq!(q(&c, "SELECT id,n FROM docs").rows, prior);
@@ -530,7 +530,7 @@ mod tests {
                 } else {
                     c.execute_report_cancellable(&sql, &Parameters::new(), &token)
                 };
-                assert_eq!(report.result.unwrap_err().code(), "FDB_CANCELLED");
+                assert_eq!(report.result.unwrap_err().code(), "RDB_CANCELLED");
                 assert_eq!(
                     report.transaction_after,
                     if outer {
@@ -619,7 +619,7 @@ mod tests {
                 let result = c.import_documents("docs", &data, format);
                 c.engine.set_progress_handler(0, None);
                 assert!(fired.load(Ordering::SeqCst));
-                assert_eq!(result.unwrap_err().code(), "FDB_CANCELLED");
+                assert_eq!(result.unwrap_err().code(), "RDB_CANCELLED");
                 assert_eq!(c.transaction_state(), state);
                 assert_eq!(q(&c, "SELECT id,n FROM docs").rows, prior);
                 assert_eq!(
@@ -634,13 +634,13 @@ mod tests {
                     c.import_documents_cancellable("docs", "invalid", format, &cancelled)
                         .unwrap_err()
                         .code(),
-                    "FDB_CANCELLED"
+                    "RDB_CANCELLED"
                 );
                 assert_eq!(
                     c.export_documents_cancellable("docs", format, &cancelled)
                         .unwrap_err()
                         .code(),
-                    "FDB_CANCELLED"
+                    "RDB_CANCELLED"
                 );
                 c.engine.set_progress_handler(1, Some(Box::new(|| true)));
                 let export = c.export_documents("docs", format);
@@ -651,9 +651,9 @@ mod tests {
                 assert_eq!(
                     export.unwrap_err().code(),
                     if outer {
-                        "FDB_ROLLBACK"
+                        "RDB_ROLLBACK"
                     } else {
-                        "FDB_CANCELLED"
+                        "RDB_CANCELLED"
                     }
                 );
                 assert_eq!(c.transaction_state(), state);
@@ -736,7 +736,7 @@ mod tests {
                     "stop={stop}"
                 ),
                 Err(error) => {
-                    assert_eq!(error.code(), "FDB_CANCELLED", "stop={stop}: {error}");
+                    assert_eq!(error.code(), "RDB_CANCELLED", "stop={stop}: {error}");
                     assert_eq!(rows, vec![vec![Value::Integer(0)]], "stop={stop}");
                 }
             }
@@ -766,7 +766,7 @@ mod tests {
                     })
                 })
                 .unwrap_err();
-            assert_eq!(error.code(), "FDB_CANCELLED");
+            assert_eq!(error.code(), "RDB_CANCELLED");
             assert_eq!(c.transaction_state(), state);
             assert_eq!(
                 q(&c, "SELECT n FROM native").rows,
@@ -807,7 +807,7 @@ mod tests {
             });
             c.engine.set_progress_handler(0, None);
             if stop == 4 {
-                assert!(matches!(&result, Err(error) if error.code() == "FDB_CANCELLED"));
+                assert!(matches!(&result, Err(error) if error.code() == "RDB_CANCELLED"));
             }
             let rows = q(&c, "SELECT n FROM native ORDER BY n").rows;
             let before = vec![vec![Value::Integer(0)]];
@@ -818,7 +818,7 @@ mod tests {
             ];
             match result {
                 Ok(()) => assert_eq!(rows, complete, "stop={stop}"),
-                Err(error) if error.code() == "FDB_CANCELLED" => {
+                Err(error) if error.code() == "RDB_CANCELLED" => {
                     assert_eq!(rows, before, "stop={stop}")
                 }
                 Err(crate::Error::Rollback { .. }) => assert!(
@@ -864,7 +864,7 @@ mod tests {
                     break;
                 }
                 rejected_opens += 1;
-                assert_eq!(result.unwrap_err().code(), "FDB_CANCELLED");
+                assert_eq!(result.unwrap_err().code(), "RDB_CANCELLED");
                 assert_eq!(c.transaction_state(), state, "outer={outer}, stop={stop}");
                 assert!(
                     c.run(&format!("RELEASE __romedb_statement_{id}"), &[])
@@ -938,8 +938,8 @@ mod tests {
                         assert!(delivered);
                         interrupted += 1;
                         match error.code() {
-                            "FDB_CANCELLED" => assert_eq!(rows, before),
-                            "FDB_ROLLBACK" => assert_eq!(rows, complete),
+                            "RDB_CANCELLED" => assert_eq!(rows, before),
+                            "RDB_ROLLBACK" => assert_eq!(rows, complete),
                             code => panic!("unexpected {code}: {error}"),
                         }
                     }
@@ -1053,7 +1053,7 @@ mod tests {
             );
             assert_eq!(
                 report.result.unwrap_err().code(),
-                "FDB_CANCELLED",
+                "RDB_CANCELLED",
                 "{statement}"
             );
             assert_eq!(
@@ -1102,7 +1102,7 @@ mod tests {
         let result = c.create_spatial_index("places", "locations", vec!["location".into()], false);
         c.engine.set_progress_handler(0, None);
         assert!(fired.load(Ordering::SeqCst));
-        assert_eq!(result.unwrap_err().code(), "FDB_CANCELLED");
+        assert_eq!(result.unwrap_err().code(), "RDB_CANCELLED");
         assert!(c.catalog("places").unwrap().indexes.is_empty());
         assert!(c
             .run(
@@ -1140,7 +1140,7 @@ mod tests {
         let result = c.create_fulltext_index("docs", "titles", vec![vec!["title".into()]], false);
         c.engine.set_progress_handler(0, None);
         assert!(fired.load(Ordering::SeqCst));
-        assert_eq!(result.unwrap_err().code(), "FDB_CANCELLED");
+        assert_eq!(result.unwrap_err().code(), "RDB_CANCELLED");
         assert!(c.catalog("docs").unwrap().indexes.is_empty());
         drop(db.connect().unwrap());
         c.create_fulltext_index("docs", "titles", vec![vec!["title".into()]], false)
@@ -1154,7 +1154,7 @@ mod tests {
         let result = c.execute("UPDATE docs SET title='changed'", &Parameters::new());
         c.engine.set_progress_handler(0, None);
         assert!(fired.load(Ordering::SeqCst));
-        assert_eq!(result.unwrap_err().code(), "FDB_CANCELLED");
+        assert_eq!(result.unwrap_err().code(), "RDB_CANCELLED");
         assert_eq!(q(&c, sql).rows, before);
         assert_eq!(q(&c, "SELECT * FROM prior").rows.len(), 1);
         c.check_collection_integrity("docs", Default::default())
@@ -1177,7 +1177,7 @@ mod tests {
         let result = c.create_index("docs", "build_idx", vec!["value".into()], true);
         c.engine.set_progress_handler(0, None);
         assert!(fired.load(Ordering::SeqCst));
-        assert_eq!(result.unwrap_err().code(), "FDB_CANCELLED");
+        assert_eq!(result.unwrap_err().code(), "RDB_CANCELLED");
         assert!(c.catalog("docs").unwrap().indexes.is_empty());
         let names = c
             .run(
@@ -1225,7 +1225,7 @@ mod tests {
                 assert!(fired.load(Ordering::SeqCst), "{statement}");
                 assert_eq!(
                     report.result.unwrap_err().code(),
-                    "FDB_CANCELLED",
+                    "RDB_CANCELLED",
                     "{statement}"
                 );
                 assert_eq!(
@@ -1286,7 +1286,7 @@ mod tests {
         );
         c.engine.set_progress_handler(0, None);
         assert!(fired.load(Ordering::SeqCst));
-        assert_eq!(report.result.unwrap_err().code(), "FDB_CANCELLED");
+        assert_eq!(report.result.unwrap_err().code(), "RDB_CANCELLED");
         assert_eq!(report.transaction_after, crate::TransactionState::Active);
         assert!(c.catalog("docs").unwrap().indexes.is_empty());
         q(&c, "ROLLBACK");
@@ -1355,7 +1355,7 @@ mod tests {
                 );
                 assert_eq!(
                     report.result.unwrap_err().code(),
-                    "FDB_CANCELLED",
+                    "RDB_CANCELLED",
                     "step {after}: {statement}"
                 );
                 assert_eq!(report.transaction_after, crate::TransactionState::Active);
@@ -1456,7 +1456,7 @@ mod tests {
                             assert_eq!(WRITES.load(Ordering::SeqCst), 0);
                         }
                         let error = report.result.unwrap_err();
-                        assert_eq!(error.code(), "FDB_CANCELLED", "{sql}");
+                        assert_eq!(error.code(), "RDB_CANCELLED", "{sql}");
                         assert!(q(&c, "SELECT * FROM target").rows.is_empty());
                         assert!(q(&c, "SELECT * FROM effects").rows.is_empty());
                         observed.push((report.transaction_after, q(&c, "SELECT * FROM prior").rows));
@@ -1581,7 +1581,7 @@ mod tests {
                     assert_eq!(ROWS.load(Ordering::SeqCst), after);
                     assert_eq!(
                         report.result.unwrap_err().code(),
-                        "FDB_CANCELLED",
+                        "RDB_CANCELLED",
                         "{statement}"
                     );
                     assert_eq!(
@@ -1718,7 +1718,7 @@ mod deadline_returning_tests {
                 )
                 .unwrap_err();
             *TOKEN.lock().unwrap() = None;
-            assert_eq!(error.code(), "FDB_CANCELLED");
+            assert_eq!(error.code(), "RDB_CANCELLED");
             assert_eq!(CALLS.load(Ordering::SeqCst), 1);
             assert_eq!(
                 c.transaction_state(),

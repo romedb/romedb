@@ -21,7 +21,7 @@ try
         {
             db.Dispose(); db.Dispose();
             try { db.Execute("SELECT 1"); throw new Exception("closed call succeeded"); }
-            catch (RomeDBException e) { Check(e.Code == "FDB_VALIDATION", "closed code"); }
+            catch (RomeDBException e) { Check(e.Code == "RDB_VALIDATION", "closed code"); }
             db = new Database(path); continue;
         }
         try

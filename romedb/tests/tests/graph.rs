@@ -61,7 +61,7 @@ fn edge_declarations_require_endpoints_and_persist_with_info() {
         let c = db.connect().unwrap();
         assert_eq!(
             fails(&c, "CREATE EDGE TABLE follows FROM people TO people").code(),
-            "FDB_NOT_FOUND"
+            "RDB_NOT_FOUND"
         );
         q(&c, "CREATE TABLE people");
         q(&c, "BEGIN");
@@ -81,17 +81,17 @@ fn edge_declarations_require_endpoints_and_persist_with_info() {
                 "CREATE EDGE TABLE IF NOT EXISTS follows FROM people TO people ON DELETE CASCADE"
             )
             .code(),
-            "FDB_ALREADY_EXISTS"
+            "RDB_ALREADY_EXISTS"
         );
         assert_eq!(
             fails(&c, "CREATE EDGE TABLE meta FROM follows TO people").code(),
-            "FDB_UNSUPPORTED"
+            "RDB_UNSUPPORTED"
         );
         assert_eq!(
             fails(&c, "DEFINE FIELD source ON follows TYPE string").code(),
-            "FDB_VALIDATION"
+            "RDB_VALIDATION"
         );
-        assert_eq!(fails(&c, "DROP TABLE people").code(), "FDB_VALIDATION");
+        assert_eq!(fails(&c, "DROP TABLE people").code(), "RDB_VALIDATION");
     }
     let db = Database::open(path.to_str().unwrap()).unwrap();
     let c = db.connect().unwrap();
@@ -151,36 +151,36 @@ fn relate_enforces_endpoint_existence_types_and_identity() {
     for (sql, code) in [
         (
             "RELATE people:zed -> follows -> people:bob",
-            "FDB_CONSTRAINT",
+            "RDB_CONSTRAINT",
         ),
         (
             "RELATE people:bob -> follows -> people:zed",
-            "FDB_CONSTRAINT",
+            "RDB_CONSTRAINT",
         ),
         (
             "RELATE people:bob -> follows -> articles:a1",
-            "FDB_VALIDATION",
+            "RDB_VALIDATION",
         ),
         (
             "RELATE people:bob -> people -> people:alice",
-            "FDB_VALIDATION",
+            "RDB_VALIDATION",
         ),
         (
             "RELATE people:bob -> nothing -> people:alice",
-            "FDB_NOT_FOUND",
+            "RDB_NOT_FOUND",
         ),
         (
             "RELATE people:alice -> follows:ab -> people:bob",
-            "FDB_CONSTRAINT",
+            "RDB_CONSTRAINT",
         ),
         (
             "RELATE people:bob -> follows -> people:alice { source: people:dave }",
-            "FDB_VALIDATION",
+            "RDB_VALIDATION",
         ),
-        ("INSERT INTO follows { weight: 1 }", "FDB_VALIDATION"),
+        ("INSERT INTO follows { weight: 1 }", "RDB_VALIDATION"),
         (
             "INSERT INTO follows { source: people:bob, target: 'people:alice' }",
-            "FDB_VALIDATION",
+            "RDB_VALIDATION",
         ),
     ] {
         assert_eq!(fails(&c, sql).code(), code, "{sql}");
@@ -212,7 +212,7 @@ fn relate_enforces_endpoint_existence_types_and_identity() {
         "UPSERT follows:sql { source: people:alice }",
         "INSERT OR REPLACE INTO follows (id, source, target) VALUES (follows:sql, people:alice, people:bob)",
     ] {
-        assert_eq!(fails(&c, sql).code(), "FDB_VALIDATION", "{sql}");
+        assert_eq!(fails(&c, sql).code(), "RDB_VALIDATION", "{sql}");
     }
     q(
         &c,
@@ -233,7 +233,7 @@ fn deletion_policies_restrict_and_cascade_in_one_transaction() {
     social(&c);
     assert_eq!(
         fails(&c, "DELETE FROM people WHERE id = people:carol").code(),
-        "FDB_CONSTRAINT"
+        "RDB_CONSTRAINT"
     );
     assert_eq!(
         fails(
@@ -241,7 +241,7 @@ fn deletion_policies_restrict_and_cascade_in_one_transaction() {
             "INSERT OR REPLACE INTO people (id, name) VALUES (people:carol, 'C')"
         )
         .code(),
-        "FDB_CONSTRAINT"
+        "RDB_CONSTRAINT"
     );
     q(&c, "UPDATE people SET name = 'Caz' WHERE id = people:carol");
     q(&c, "UPSERT people:carol { name: 'Carol' }");
@@ -370,27 +370,27 @@ fn fixed_paths_compose_with_sql_and_preserve_multiplicity() {
     for (sql, code) in [
         (
             "SELECT * FROM GRAPH(people:alice -> wrote -> people) g",
-            "FDB_VALIDATION",
+            "RDB_VALIDATION",
         ),
         (
             "SELECT * FROM GRAPH(people:alice <- wrote <- articles) g",
-            "FDB_VALIDATION",
+            "RDB_VALIDATION",
         ),
         (
             "SELECT * FROM GRAPH(people:alice -> people -> people) g",
-            "FDB_VALIDATION",
+            "RDB_VALIDATION",
         ),
         (
             "SELECT * FROM GRAPH(nothing:x -> follows -> people) g",
-            "FDB_NOT_FOUND",
+            "RDB_NOT_FOUND",
         ),
         (
             "SELECT * FROM GRAPH($missing -> follows -> people) g",
-            "FDB_PARAMETER",
+            "RDB_PARAMETER",
         ),
         (
             "SELECT * FROM GRAPH(people:alice -> follows) g",
-            "FDB_SYNTAX",
+            "RDB_SYNTAX",
         ),
     ] {
         assert_eq!(fails(&c, sql).code(), code, "{sql}");
@@ -401,7 +401,7 @@ fn fixed_paths_compose_with_sql_and_preserve_multiplicity() {
         c.execute("SELECT * FROM GRAPH($root -> follows -> people) g", &params)
             .unwrap_err()
             .code(),
-        "FDB_VALIDATION"
+        "RDB_VALIDATION"
     );
     assert_eq!(
         q(&c, r#"SELECT '{"a":2}' -> '$.a', '{"a":2}' ->> '$.a'"#).rows,
@@ -550,7 +550,7 @@ fn recursive_modes_follow_shortest_distance_and_simple_path_rules() {
             "SELECT * FROM GRAPH(n:a -> e -> n DEPTH 1 TO 33 MODE REACHABLE) g"
         )
         .code(),
-        "FDB_LIMIT"
+        "RDB_LIMIT"
     );
     q(&c, "CREATE TABLE m");
     q(&c, "CREATE EDGE TABLE nm FROM n TO m");
@@ -560,7 +560,7 @@ fn recursive_modes_follow_shortest_distance_and_simple_path_rules() {
             "SELECT * FROM GRAPH(n:a -> nm -> m DEPTH 1 TO 1 MODE REACHABLE) g"
         )
         .code(),
-        "FDB_VALIDATION"
+        "RDB_VALIDATION"
     );
 }
 
@@ -598,7 +598,7 @@ fn step_predicates_prune_expansion_while_outer_filters_only_remove_rows() {
         &c,
         "SELECT * FROM GRAPH(people:alice -> (follows WHERE weight + 1 > 2) -> people) g",
     );
-    assert_eq!(error.code(), "FDB_UNSUPPORTED", "{error}");
+    assert_eq!(error.code(), "RDB_UNSUPPORTED", "{error}");
 }
 
 #[test]
@@ -656,7 +656,7 @@ fn graph_work_is_bounded_explained_and_profiled() {
         &c,
         "SELECT count(*) FROM GRAPH(n:hub -> e -> n DEPTH 1 TO 2 MODE REACHABLE) g",
     );
-    assert_eq!(error.code(), "FDB_LIMIT");
+    assert_eq!(error.code(), "RDB_LIMIT");
     assert!(error.to_string().contains("adjacency entries"), "{error}");
     c.set_graph_limits(GraphLimits {
         max_rows: 10,
@@ -665,11 +665,11 @@ fn graph_work_is_bounded_explained_and_profiled() {
     .unwrap();
     assert_eq!(
         fails(&c, "SELECT count(*) FROM GRAPH(n:hub -> e -> n) g").code(),
-        "FDB_LIMIT"
+        "RDB_LIMIT"
     );
     assert_eq!(
         fails(&c, "SELECT g.node FROM GRAPH(n:hub -> e -> n) g LIMIT 1").code(),
-        "FDB_LIMIT"
+        "RDB_LIMIT"
     );
     assert!(c
         .set_graph_limits(GraphLimits {
@@ -688,7 +688,7 @@ fn graph_work_is_bounded_explained_and_profiled() {
             "SELECT count(*) FROM GRAPH(n:hub -> e -> n DEPTH 1 TO 4 MODE PATHS) g"
         )
         .code(),
-        "FDB_LIMIT"
+        "RDB_LIMIT"
     );
 }
 
@@ -836,7 +836,7 @@ fn graph_sources_are_rejected_in_writes() {
         "INSERT INTO people (id) SELECT g.node FROM GRAPH(people:alice -> follows -> people) g",
         "DELETE FROM people WHERE id IN (SELECT g.node FROM GRAPH(people:alice -> follows -> people) g)",
     ] {
-        assert_eq!(fails(&c, sql).code(), "FDB_UNSUPPORTED", "{sql}");
+        assert_eq!(fails(&c, sql).code(), "RDB_UNSUPPORTED", "{sql}");
     }
     assert_eq!(
         q(&c, "SELECT count(*) FROM people").rows[0][0],

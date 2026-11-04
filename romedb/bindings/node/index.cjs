@@ -186,7 +186,7 @@ function decodeProfile(raw) {
     metrics: Object.fromEntries(Object.entries(metrics).map(([key, value]) => [key, BigInt(value)])) };
 }
 function isRomeDBError(value) {
-  if (!(value instanceof Error) || typeof value.code !== 'string' || !/^FDB_[A-Z][A-Z0-9_]*$/.test(value.code)) return false;
+  if (!(value instanceof Error) || typeof value.code !== 'string' || !/^RDB_[A-Z][A-Z0-9_]*$/.test(value.code)) return false;
   const transaction = value.transaction;
   if (!(transaction === undefined || (transaction !== null && typeof transaction === 'object' &&
     (transaction.before === 'autocommit' || transaction.before === 'active') &&
@@ -196,19 +196,19 @@ function isRomeDBError(value) {
     typeof migration.version === 'bigint' && migration.version > 0n &&
     typeof migration.offset === 'bigint' && migration.offset >= 0n &&
     migration.cause !== null && typeof migration.cause === 'object' &&
-    typeof migration.cause.code === 'string' && /^FDB_[A-Z][A-Z0-9_]*$/.test(migration.cause.code) &&
+    typeof migration.cause.code === 'string' && /^RDB_[A-Z][A-Z0-9_]*$/.test(migration.cause.code) &&
     typeof migration.cause.message === 'string');
 }
 exports.isRomeDBError = isRomeDBError;
 function cardinalityError(count, transaction) {
   const error = new RangeError(`expected exactly one row, got ${count}`);
-  error.code = 'FDB_CARDINALITY';
+  error.code = 'RDB_CARDINALITY';
   error.transaction = transaction;
   return error;
 }
 function closedError(message = 'database is closed') {
   const error = new Error(message);
-  error.code = 'FDB_CLOSED';
+  error.code = 'RDB_CLOSED';
   return error;
 }
 class Database {
@@ -313,7 +313,7 @@ class AsyncDatabase {
   #fail(error, shutdown = false) {
     if (!this.#failure) {
       this.#failure = new Error(`database worker failure: ${error.message}`, { cause: error });
-      this.#failure.code = 'FDB_WORKER';
+      this.#failure.code = 'RDB_WORKER';
     }
     this.#readyReject(this.#failure);
     for (const pending of this.#pending.values()) { pending.cleanup(); pending.reject(this.#failure); }
@@ -331,7 +331,7 @@ class AsyncDatabase {
     if (this.#closing && !closing) return Promise.reject(closedError('database is closing or closed'));
     const bytes = args.reduce((size, arg) => size + Buffer.byteLength(arg), 0);
     if (!closing && (this.#pending.size >= 256 || this.#bytes + bytes > 128 * 1024 * 1024)) {
-      const error = new RangeError('database worker queue limit exceeded'); error.code = 'FDB_LIMIT';
+      const error = new RangeError('database worker queue limit exceeded'); error.code = 'RDB_LIMIT';
       return Promise.reject(error);
     }
     const id = ++this.#next;
@@ -412,6 +412,17 @@ class AsyncDatabase {
     return { alreadyApplied: report.execution.result.alreadyApplied,
       applied: report.execution.result.applied.map(BigInt), transaction: report.transaction };
   }
+  async exportFile(destination, options = {}) {
+    if (typeof destination !== 'string' || !destination || destination.length > 4096 || destination.includes('\0')) throw new TypeError('exportFile requires a bounded destination path');
+    try { return await this.#request('exportFile', [require('node:path').resolve(destination)], false, options.signal, options.timeoutMs); }
+    catch (error) {
+      const coded = /^(RDB_[A-Z0-9_]+): (.*)$/s.exec(error.message);
+      if (!coded) throw error;
+      const failure = new Error(coded[2]);
+      failure.code = coded[1];
+      throw failure;
+    }
+  }
   async all(sql, parameters, options) { return (await this.execute(sql, parameters, options)).rows; }
   async first(sql, parameters, options) { return (await this.all(sql, parameters, options))[0]; }
   async exactlyOne(sql, parameters, options) {
@@ -442,7 +453,7 @@ function collectionClient(db, name, asynchronous) {
     const check = info => {
       if (info.rows[0]?.[0]?.model !== 'document') throw new TypeError('collection methods require a document collection');
     };
-    const missing = error => { if (error.code !== 'FDB_NOT_FOUND') throw error; };
+    const missing = error => { if (error.code !== 'RDB_NOT_FOUND') throw error; };
     if (asynchronous) return (async () => {
       try { check(await db.execute(`INFO FOR TABLE ${table}`, {}, options)); } catch (error) { missing(error); }
       return project(await db.execute(sql, params, options));

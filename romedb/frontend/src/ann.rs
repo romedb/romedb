@@ -836,7 +836,7 @@ mod tests {
         );
         let result = c.create_vector_index("items", "vec", vec!["v".into()], 2, "l2", false);
         c.engine.set_progress_handler(0, None);
-        assert_eq!(result.unwrap_err().code(), "FDB_CANCELLED");
+        assert_eq!(result.unwrap_err().code(), "RDB_CANCELLED");
         assert!(count.load(Ordering::SeqCst) > 100);
         assert_eq!(
             c.documents(&c.catalog("items").unwrap()).unwrap().len(),
@@ -956,7 +956,7 @@ mod compressed_tests {
                 crate::catalog::decode(&changed.to_string(), "docs")
                     .unwrap_err()
                     .code(),
-                "FDB_STORAGE"
+                "RDB_STORAGE"
             );
         }
         c.run("SAVEPOINT corrupt", &[]).unwrap();

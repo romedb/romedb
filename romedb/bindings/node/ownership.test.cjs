@@ -96,8 +96,8 @@ async function rejected(t, api, file) {
   const result = await contender.message;
   assert.equal(result.kind, 'open-error', JSON.stringify(result));
   assert.match(result.message, /[Ff]ile is locked by another process/);
-  // Open failures are not query FDB_BUSY errors. Async open wraps worker startup.
-  assert.equal(result.code, api === 'sync' ? 'GenericFailure' : 'FDB_WORKER');
+  // Open failures are not query RDB_BUSY errors. Async open wraps worker startup.
+  assert.equal(result.code, api === 'sync' ? 'GenericFailure' : 'RDB_WORKER');
   assert.deepEqual(await contender.exited, [0, null]);
 }
 

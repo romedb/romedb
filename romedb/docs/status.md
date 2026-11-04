@@ -7,12 +7,18 @@ Cloud runs the same engine but is a separate private project.
 
 Release clients are Rust, Node.js/TypeScript, Python, PHP, Swift, C# and Go.
 Browser/WASM is removed. macOS, Windows, ARM and Apple mobile are not supported.
-Packages are distributed in the GitHub Linux bundle, not language registries.
-From 0.2.12 the Node.js package is also its own release asset.
+Packages are distributed in the GitHub Linux bundle. The Node.js package is also
+its own release asset from 0.2.12 and is [on npm](npm-publishing.md) as
+`@romedb/node` from 0.2.12; other clients are not in language registries.
 Releases use the optimized `romedb-production` profile, which keeps assertions
 and overflow checks; see [the build policy](production-build.md).
 
 Back up before upgrading. Legacy full-text indexes require `REINDEX`.
+
+0.2.13 changed the stored value prefix from `FDB` to `RDB` and the error codes from
+`FDB_*` to `RDB_*`. It refuses a database file from 0.2.12 or earlier whose
+collections hold documents, with `RDB_UNSUPPORTED`, before it writes to the file.
+Create new databases for 0.2.13. The C ABI functions are now `rdb_*`.
 
 ## Implemented behavior
 
@@ -33,6 +39,8 @@ Back up before upgrading. Legacy full-text indexes require `REINDEX`.
   `openEmbedded` with a `maxOpen` limit, private journal files, and a
   [Node.js client for Workers and browsers](../bindings/node/README.md#workers-browsers-and-other-runtimes),
   from 0.2.12.
+- [Copies of an open database as new `.romedb` files](service-protocol.md#database-files)
+  (`exportFile`, `GET .../file`) while reads and writes continue; not yet released.
 
 ## Release verification
 

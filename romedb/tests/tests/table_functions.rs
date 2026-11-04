@@ -95,11 +95,11 @@ fn json_table_function_sources_preserve_write_failure_and_retry() {
     let query="SELECT d.n+json_each.value AS n FROM json_each(coalesce($json,'[0]')) CROSS JOIN docs d ORDER BY json_each.key";
     assert_eq!(
         c.execute(query, &empty).unwrap_err().code(),
-        "FDB_PARAMETER"
+        "RDB_PARAMETER"
     );
     let sql = format!("INSERT INTO output(n) {query} RETURNING n");
     let bad = Parameters::from([("$json".into(), Value::String("[1,2]".into()))]);
-    assert_eq!(c.execute(&sql, &bad).unwrap_err().code(), "FDB_VALIDATION");
+    assert_eq!(c.execute(&sql, &bad).unwrap_err().code(), "RDB_VALIDATION");
     assert_eq!(c.transaction_state(), romedb::TransactionState::Active);
     assert_eq!(
         c.execute("SELECT n FROM output", &empty).unwrap().rows,
@@ -178,7 +178,7 @@ fn correlated_json_iterators_match_native_rows() {
     let sql = "INSERT INTO output(n) SELECT x.value FROM docs d CROSS JOIN json_each(d.j) x WHERE x.value IS NOT NULL ORDER BY d.n,x.key RETURNING n";
     assert_eq!(
         c.execute(sql, &params).unwrap_err().code(),
-        "FDB_VALIDATION"
+        "RDB_VALIDATION"
     );
     assert_eq!(c.transaction_state(), romedb::TransactionState::Active);
     assert_eq!(
@@ -267,7 +267,7 @@ fn deep_path_iterator_arguments_preserve_rows_and_atomic_writes() {
         c.execute(sql, &empty).unwrap();
     }
     let sql="INSERT INTO output(n) SELECT x.value FROM docs d CROSS JOIN json_each(d.payload.inner.j) x ORDER BY x.key RETURNING n";
-    assert_eq!(c.execute(sql, &empty).unwrap_err().code(), "FDB_VALIDATION");
+    assert_eq!(c.execute(sql, &empty).unwrap_err().code(), "RDB_VALIDATION");
     assert_eq!(c.transaction_state(), romedb::TransactionState::Active);
     assert_eq!(
         c.execute("SELECT n FROM output", &empty).unwrap().rows,
@@ -337,7 +337,7 @@ fn scalar_subquery_iterator_arguments_match_native() {
         )
         .unwrap_err()
         .code(),
-        "FDB_PARAMETER"
+        "RDB_PARAMETER"
     );
     for sql in [
         "CREATE TABLE output",
@@ -349,7 +349,7 @@ fn scalar_subquery_iterator_arguments_match_native() {
         c.execute(sql, &empty).unwrap();
     }
     let sql="INSERT INTO output(n) SELECT x.value FROM docs d CROSS JOIN json_each((SELECT j FROM native WHERE n=d.n)) x WHERE x.value IS NOT NULL ORDER BY d.n,x.key RETURNING n";
-    assert_eq!(c.execute(sql, &empty).unwrap_err().code(), "FDB_VALIDATION");
+    assert_eq!(c.execute(sql, &empty).unwrap_err().code(), "RDB_VALIDATION");
     assert_eq!(c.transaction_state(), romedb::TransactionState::Active);
     assert_eq!(
         c.execute("SELECT n FROM output", &empty).unwrap().rows,
@@ -414,7 +414,7 @@ fn iterator_correlated_cte_arguments_match_native() {
         c.execute(sql, &empty).unwrap();
     }
     let sql="INSERT INTO output(n) SELECT y.value FROM docs d CROSS JOIN json_each('[1,2]') x CROSS JOIN json_each((WITH a AS (SELECT x.value AS n) SELECT json_array(n) FROM a)) y WHERE d.n=1 ORDER BY x.key RETURNING n";
-    assert_eq!(c.execute(sql, &empty).unwrap_err().code(), "FDB_VALIDATION");
+    assert_eq!(c.execute(sql, &empty).unwrap_err().code(), "RDB_VALIDATION");
     assert_eq!(c.transaction_state(), romedb::TransactionState::Active);
     assert_eq!(
         c.execute("SELECT n FROM output", &empty).unwrap().rows,
@@ -465,7 +465,7 @@ fn iterator_deadlines_preserve_transaction_work_and_allow_retry() {
             c.execute_cancellable(sql, &params, &token)
                 .unwrap_err()
                 .code(),
-            "FDB_CANCELLED"
+            "RDB_CANCELLED"
         );
         assert_eq!(c.transaction_state(), romedb::TransactionState::Active);
         assert_eq!(
@@ -493,13 +493,13 @@ fn iterator_deadlines_preserve_transaction_work_and_allow_retry() {
         c.select_with_limits(rows, &small, limit)
             .unwrap_err()
             .code(),
-        "FDB_LIMIT"
+        "RDB_LIMIT"
     );
     assert_eq!(
         c.profile_select_with_limits(rows, &small, limit)
             .unwrap_err()
             .code(),
-        "FDB_LIMIT"
+        "RDB_LIMIT"
     );
     assert_eq!(
         c.execute(rows, &small).unwrap().rows,
@@ -557,7 +557,7 @@ fn iterator_predicate_subqueries_preserve_native_nulls() {
     let sql="INSERT INTO output(n) SELECT x.value FROM docs d CROSS JOIN json_each(json_array(d.n IN (SELECT n FROM native WHERE n=2))) x WHERE d.n IS NOT NULL ORDER BY d.n RETURNING n";
     assert_eq!(
         c.execute(sql, &params).unwrap_err().code(),
-        "FDB_VALIDATION"
+        "RDB_VALIDATION"
     );
     assert_eq!(c.transaction_state(), romedb::TransactionState::Active);
     assert_eq!(
@@ -621,7 +621,7 @@ fn grouped_and_windowed_iterators_match_native_and_preserve_writes() {
     let sql="INSERT INTO output(n) SELECT row_number() OVER(ORDER BY x.key) FROM docs d CROSS JOIN json_each($json) x WHERE d.n=1 RETURNING n";
     assert_eq!(
         c.execute(sql, &params).unwrap_err().code(),
-        "FDB_VALIDATION"
+        "RDB_VALIDATION"
     );
     assert_eq!(c.transaction_state(), romedb::TransactionState::Active);
     assert_eq!(
@@ -693,7 +693,7 @@ fn compound_iterator_pages_match_native_and_preserve_write_recovery() {
     let params = Parameters::from([("$limit".into(), Value::Integer(2))]);
     assert_eq!(
         c.execute(sql, &params).unwrap_err().code(),
-        "FDB_VALIDATION"
+        "RDB_VALIDATION"
     );
     assert_eq!(c.transaction_state(), romedb::TransactionState::Active);
     assert_eq!(
@@ -777,7 +777,7 @@ fn iterator_subqueries_resolve_outer_collection_fields() {
     let sql="INSERT INTO output(n) SELECT (SELECT count(*) FROM json_each(d.j) x) FROM docs d ORDER BY d.n DESC RETURNING n";
     assert_eq!(
         c.execute(sql, &params).unwrap_err().code(),
-        "FDB_VALIDATION"
+        "RDB_VALIDATION"
     );
     assert_eq!(c.transaction_state(), romedb::TransactionState::Active);
     assert_eq!(
@@ -831,7 +831,7 @@ fn malformed_iterator_input_reports_native_rollback_and_allows_retry() {
                     1 => c.profile_select(&query, &params).unwrap_err(),
                     _ => c.execute(&insert, &params).unwrap_err(),
                 };
-                assert_eq!(error.code(), "FDB_ENGINE");
+                assert_eq!(error.code(), "RDB_ENGINE");
                 assert_eq!(c.transaction_state(), romedb::TransactionState::Autocommit);
                 assert_eq!(
                     c.execute("SELECT n FROM output", &params).unwrap().rows,
@@ -882,7 +882,7 @@ fn correlated_cte_projection_writes_preserve_validation_and_retry() {
         c.execute("BEGIN",&empty).unwrap();
         c.execute("INSERT INTO output(n) VALUES(0)",&empty).unwrap();
         let sql=format!("INSERT INTO output(n) SELECT {expression} FROM docs d ORDER BY d.n RETURNING n");
-        assert_eq!(c.execute(&sql,&empty).unwrap_err().code(),"FDB_VALIDATION");
+        assert_eq!(c.execute(&sql,&empty).unwrap_err().code(),"RDB_VALIDATION");
         assert_eq!(c.transaction_state(),romedb::TransactionState::Active);
         assert_eq!(c.execute("SELECT n FROM output",&empty).unwrap().rows,vec![vec![Value::Integer(0)]]);
         assert!(c.lookup_index("output","output_n",&Value::Integer(2)).unwrap().is_empty());
@@ -929,7 +929,7 @@ fn correlated_cte_pagination_preserves_bound_limits_and_lazy_errors() {
                 assert_eq!(actual.columns, expected.columns, "{sql}: {limit}/{offset}");
                 assert_eq!(actual.rows, expected.rows, "{sql}: {limit}/{offset}");
             }
-            assert_eq!(c.execute(&sql, &empty).unwrap_err().code(), "FDB_PARAMETER");
+            assert_eq!(c.execute(&sql, &empty).unwrap_err().code(), "RDB_PARAMETER");
         }
     }
     for source in ["native", "docs"] {
@@ -944,7 +944,7 @@ fn correlated_cte_pagination_preserves_bound_limits_and_lazy_errors() {
         assert_eq!(c.execute(&sql, &zero).unwrap().rows, rows);
         assert_eq!(c.profile_select(&sql, &zero).unwrap().result.rows, rows);
         let one = Parameters::from([("$limit".into(), Value::Integer(1))]);
-        assert_eq!(c.execute(&sql, &one).unwrap_err().code(), "FDB_ENGINE");
+        assert_eq!(c.execute(&sql, &one).unwrap_err().code(), "RDB_ENGINE");
         assert_eq!(c.execute(&sql, &zero).unwrap().rows, rows);
     }
 }

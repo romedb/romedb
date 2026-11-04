@@ -45,9 +45,9 @@ require github.com/romedb/romedb/romedb/bindings/go/v2 v2.0.0
 replace github.com/romedb/romedb/romedb/bindings/go/v2 => ../go
 ''')
     (go / "main.go").write_text('''package main
-import ("fmt"; fdb "github.com/romedb/romedb/romedb/bindings/go/v2")
-func main(){db,err:=fdb.Open(":memory:");if err!=nil{panic(err)};defer db.Close()
-r,err:=db.Execute("SELECT $n",map[string]fdb.Value{"$n":fdb.Integer(9223372036854775807)},-1)
+import ("fmt"; rdb "github.com/romedb/romedb/romedb/bindings/go/v2")
+func main(){db,err:=rdb.Open(":memory:");if err!=nil{panic(err)};defer db.Close()
+r,err:=db.Execute("SELECT $n",map[string]rdb.Value{"$n":rdb.Integer(9223372036854775807)},-1)
 if err!=nil{panic(err)};n,err:=r.Rows[0][0].Int64();if err!=nil||n!=9223372036854775807{panic("Go packaging")}
 fmt.Println("Isolated Go consumer passed")}
 ''')

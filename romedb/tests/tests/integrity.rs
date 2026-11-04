@@ -45,7 +45,7 @@ fn collection_integrity_survives_reopen_and_exact_byte_limits() {
         )
         .unwrap_err()
         .code(),
-        "FDB_LIMIT"
+        "RDB_LIMIT"
     );
     assert_eq!(
         c.execute("SELECT count(*) FROM docs", &Parameters::new())

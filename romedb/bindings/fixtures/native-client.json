@@ -331,7 +331,7 @@
       "sql": "INSERT INTO docs {n:2}",
       "parameters": {}
     },
-    "error": "FDB_CONSTRAINT",
+    "error": "RDB_CONSTRAINT",
     "transaction": {
       "before": "active",
       "after": "active"
@@ -434,7 +434,7 @@
       "sql": "SELECT 1",
       "parameters": {}
     },
-    "error": "FDB_CANCELLED",
+    "error": "RDB_CANCELLED",
     "timeout_ms": 0,
     "transaction": {
       "before": "autocommit",
@@ -452,7 +452,7 @@
         }
       }
     },
-    "error": "FDB_STORAGE"
+    "error": "RDB_STORAGE"
   },
   {
     "request": {
@@ -587,7 +587,7 @@
       "sql": "SELECT app::fail()",
       "parameters": {}
     },
-    "error": "FDB_VALIDATION",
+    "error": "RDB_VALIDATION",
     "transaction": {
       "before": "active",
       "after": "active"
@@ -1564,7 +1564,7 @@
       "sql": "INSERT INTO v22_strict {extra:1}",
       "parameters": {}
     },
-    "error": "FDB_VALIDATION",
+    "error": "RDB_VALIDATION",
     "release": "2.2.0"
   },
   {
@@ -1573,7 +1573,7 @@
       "sql": "INSERT INTO v22_docs {n:9,tags:[true]}",
       "parameters": {}
     },
-    "error": "FDB_VALIDATION",
+    "error": "RDB_VALIDATION",
     "release": "2.2.0"
   },
   {
@@ -1582,7 +1582,7 @@
       "sql": "UPDATE v22_docs SET stamp=8",
       "parameters": {}
     },
-    "error": "FDB_VALIDATION",
+    "error": "RDB_VALIDATION",
     "release": "2.2.0"
   },
   {
@@ -1669,7 +1669,7 @@
       "sql": "UPDATE v22_docs SET n=9 TIMEOUT 0ms",
       "parameters": {}
     },
-    "error": "FDB_CANCELLED",
+    "error": "RDB_CANCELLED",
     "release": "2.2.0"
   },
   {
@@ -1678,7 +1678,7 @@
       "sql": "WITH RECURSIVE r(n) AS (SELECT n FROM v22_docs UNION ALL SELECT n+1 FROM r WHERE n<100000000) SELECT sum(n) FROM r TIMEOUT 10ms",
       "parameters": {}
     },
-    "error": "FDB_CANCELLED",
+    "error": "RDB_CANCELLED",
     "release": "2.2.0"
   },
   {
@@ -2213,7 +2213,7 @@
       "sql": "INSERT INTO v25_zones {id:v25_zones:bad,shape:ST_GeomFromGeoJSON('{\"type\":\"Polygon\",\"coordinates\":[[[0,0],[1,1],[1,0],[0,1],[0,0]]]}')}",
       "parameters": {}
     },
-    "error": "FDB_VALIDATION",
+    "error": "RDB_VALIDATION",
     "release": "2.5.1"
   },
   {

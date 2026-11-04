@@ -47,7 +47,7 @@ fn array_predicates_use_element_scope_parameters_and_composable_paths() {
             &Parameters::new(),
         )
         .unwrap_err();
-    assert_eq!(error.code(), "FDB_PARAMETER");
+    assert_eq!(error.code(), "RDB_PARAMETER");
     query(&c, "INSERT INTO refs {id:refs:a,active:true}");
     query(&c, "UPDATE docs:a MERGE {links:[refs:a,refs:missing]}");
     let links = c
@@ -265,7 +265,7 @@ fn predicate_syntax_preserves_bracket_names_and_rejects_unbounded_expressions() 
         )
         .unwrap_err()
         .code(),
-        "FDB_LIMIT"
+        "RDB_LIMIT"
     );
     c.execute(
         "UPDATE docs:a CONTENT {items:$items}",
@@ -279,7 +279,7 @@ fn predicate_syntax_preserves_bracket_names_and_rejects_unbounded_expressions() 
         )
         .unwrap_err()
         .code(),
-        "FDB_LIMIT"
+        "RDB_LIMIT"
     );
     assert_eq!(
         query(&c, "SELECT count(*) FROM docs").rows,
@@ -336,7 +336,7 @@ fn array_projections_preserve_index_use_transactions_limits_and_persisted_types(
             )
             .unwrap_err()
             .code(),
-            "FDB_LIMIT"
+            "RDB_LIMIT"
         );
         let token = romedb::CancellationToken::new();
         token.cancel();
@@ -344,7 +344,7 @@ fn array_projections_preserve_index_use_transactions_limits_and_persisted_types(
             a.execute_cancellable(sql, &params, &token)
                 .unwrap_err()
                 .code(),
-            "FDB_CANCELLED"
+            "RDB_CANCELLED"
         );
         assert_eq!(a.transaction_state(), romedb::TransactionState::Active);
         assert_eq!(a.execute(sql, &params).unwrap().rows, expected);
@@ -390,7 +390,7 @@ fn array_predicate_bounds_include_values_even_when_no_element_matches() {
             &Parameters::from([("$needle".into(), needle)]),
         )
         .unwrap_err();
-    assert_eq!(error.code(), "FDB_LIMIT");
+    assert_eq!(error.code(), "RDB_LIMIT");
     assert!(
         error.to_string().contains("predicate evaluated values"),
         "{error}"

@@ -60,7 +60,7 @@ fn cli_audit_reports_counts_and_limits_without_changing_documents() {
     for extra in [["--max-documents", "1"], ["--max-encoded-bytes", "1"]] {
         let (ok, error) = audit(&path, &extra);
         assert!(!ok);
-        assert_eq!(error["error"]["code"], "FDB_LIMIT");
+        assert_eq!(error["error"]["code"], "RDB_LIMIT");
         assert!(error.get("documents").is_none());
     }
     assert_eq!(audit(&path, &[]).1["documents"], 2);
@@ -72,7 +72,7 @@ fn cli_audit_rejects_missing_files_and_conflicting_modes_before_creation() {
     let path = root.join("missing.db");
     let (ok, error) = audit(&path, &[]);
     assert!(!ok);
-    assert_eq!(error["error"]["code"], "FDB_NOT_FOUND");
+    assert_eq!(error["error"]["code"], "RDB_NOT_FOUND");
     assert!(!path.exists());
     for extra in [
         vec!["--script"],

@@ -110,7 +110,7 @@ mod tests {
             Duration::from_millis(10),
         )
         .unwrap_err();
-        assert_eq!(err.code(), "FDB_LIMIT");
+        assert_eq!(err.code(), "RDB_LIMIT");
         assert_eq!(
             call("slugify", &[Value::String("Still works".into())]).unwrap(),
             Value::String("still-works".into())
@@ -129,9 +129,9 @@ mod allocation_tests {
     #[test]
     fn memory_and_output_limits_are_enforced() {
         let err=run("globalThis.__romedb_bundle={slugify(){let a=[];while(true){a.push(new Array(100000).fill(1))}}}","slugify","","",Duration::from_secs(1)).unwrap_err();
-        assert_eq!(err.code(), "FDB_LIMIT");
+        assert_eq!(err.code(), "RDB_LIMIT");
         let stack = run("globalThis.__romedb_bundle={slugify(){function recur(){return 1+recur()} return String(recur())}}", "slugify", "", "", Duration::from_secs(1)).unwrap_err();
-        assert_eq!(stack.code(), "FDB_LIMIT", "{stack:?}");
+        assert_eq!(stack.code(), "RDB_LIMIT", "{stack:?}");
         let err = call(
             "normalize",
             &[
@@ -140,6 +140,6 @@ mod allocation_tests {
             ],
         )
         .unwrap_err();
-        assert_eq!(err.code(), "FDB_LIMIT");
+        assert_eq!(err.code(), "RDB_LIMIT");
     }
 }

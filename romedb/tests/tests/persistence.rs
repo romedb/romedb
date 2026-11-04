@@ -299,7 +299,7 @@ fn indexed_values_follow_numeric_null_and_record_identity() {
         1
     );
     let forged = Value::Binary(
-        b"FDB\x01{\"type\":\"Record\",\"value\":{\"table\":\"users\",\"key\":{\"String\":\"a\"}}}"
+        b"RDB\x01{\"type\":\"Record\",\"value\":{\"table\":\"users\",\"key\":{\"String\":\"a\"}}}"
             .to_vec(),
     );
     c.insert(
@@ -472,9 +472,9 @@ fn ordinary_trigger_literals_persist_without_permitting_managed_references() {
                     &Parameters::new(),
                 )
                 .unwrap_err();
-            assert_eq!(error.code(), "FDB_UNSUPPORTED", "{body}");
+            assert_eq!(error.code(), "RDB_UNSUPPORTED", "{body}");
         }
-        assert_eq!(c.execute("CREATE TRIGGER forbidden AFTER INSERT ON '__romedb_catalog' BEGIN SELECT 'users'; END",&Parameters::new()).unwrap_err().code(),"FDB_UNSUPPORTED");
+        assert_eq!(c.execute("CREATE TRIGGER forbidden AFTER INSERT ON '__romedb_catalog' BEGIN SELECT 'users'; END",&Parameters::new()).unwrap_err().code(),"RDB_UNSUPPORTED");
     }
     let db = Database::open(path).unwrap();
     let c = db.connect().unwrap();
@@ -592,7 +592,7 @@ fn checkpointed_offline_backup_restores_schema_values_indexes_and_history() {
         assert!(report.applied.is_empty());
         let mut changed = migration.clone();
         changed.sql.push(' ');
-        assert_eq!(c.migrate(&[changed]).unwrap_err().code(), "FDB_VALIDATION");
+        assert_eq!(c.migrate(&[changed]).unwrap_err().code(), "RDB_VALIDATION");
         for sql in [
             "UPDATE users:saved {score:0}",
             "INSERT INTO users {id:users:duplicate,name:'Alice'}",

@@ -25,6 +25,15 @@ export interface ConnectOptions {
   warm?: boolean;
 }
 export interface WarmResult { state: 'ready' | 'starting' | 'skipped'; }
+/** A copy of the database at one sequence: a complete .romedb file that opens without a log beside it. */
+export interface DatabaseFile {
+  /** Every write up to and including this sequence is in the file, and none after it. */
+  sequence: number;
+  /** File size in bytes; the body fails unless exactly this many arrive. */
+  size: number;
+  /** Read it to the end or cancel it, so the copy's storage is freed. */
+  body: ReadableStream<Uint8Array>;
+}
 export type Outcome = 'not-sent' | 'read-failed' | 'unknown' | 'rolled-back';
 export class ClientError extends Error {
   readonly code: string;
@@ -34,7 +43,7 @@ export class ClientError extends Error {
   readonly sequence?: number;
   /** The server's Retry-After delay in milliseconds, on HTTP error replies that send one. */
   readonly retryAfterMs?: number;
-  /** For FDB_TRANSPORT, FDB_PROTOCOL and FDB_CANCELLED without a reply: the fetch or parse error underneath. */
+  /** For RDB_TRANSPORT, RDB_PROTOCOL and RDB_CANCELLED without a reply: the fetch or parse error underneath. */
   readonly cause?: unknown;
   constructor(code: string, message: string, outcome: Outcome, details?: { request?: PreparedWrite; status?: number; sequence?: number; retryAfterMs?: number; cause?: unknown });
 }
@@ -60,6 +69,11 @@ export class RemoteDatabase implements Client {
   readonly deferred: boolean;
   /** Ask Cloud to start the database's container and open the database without running a query. */
   warm(options?: RequestOptions): Promise<WarmResult>;
+  /**
+   * Download the database as a .romedb file (romedb serve and serve --directory; not Cloud yet).
+   * timeoutMs covers building the copy, until the file starts arriving; signal also stops the download.
+   */
+  exportFile(options?: RequestOptions): Promise<DatabaseFile>;
   readonly sequence: number;
   readonly databaseId: string;
   info(options?: RequestOptions): Promise<DatabaseInfo>;

@@ -994,7 +994,7 @@ fn indexed_binary_parameters_preserve_record_separation() {
     let (_db, c) = setup();
     let record = q(&c, "SELECT ref FROM docs WHERE n=1").rows[0][0].clone();
     let bytes = Value::Binary(
-        b"FDB\x01{\"type\":\"Record\",\"value\":{\"table\":\"docs\",\"key\":{\"String\":\"b\"}}}"
+        b"RDB\x01{\"type\":\"Record\",\"value\":{\"table\":\"docs\",\"key\":{\"String\":\"b\"}}}"
             .to_vec(),
     );
     let params = Parameters::from([("?1".into(), bytes), ("?2".into(), record)]);
@@ -1035,7 +1035,7 @@ fn native_subqueries_preserve_binary_parameters() {
     q(&c, "CREATE TABLE baseline(n INTEGER)");
     q(&c, "INSERT INTO baseline VALUES(1),(2)");
     q(&c, "CREATE TABLE native(n INTEGER,data BLOB)");
-    let bytes = Value::Binary(b"FDB\x01{\"type\":\"Integer\",\"value\":7}".to_vec());
+    let bytes = Value::Binary(b"RDB\x01{\"type\":\"Integer\",\"value\":7}".to_vec());
     let params = Parameters::from([("$data".into(), bytes)]);
     c.execute("INSERT INTO native VALUES(1,$data)", &params)
         .unwrap();

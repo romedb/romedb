@@ -7,6 +7,7 @@ const MAX_CLOUD_REQUEST = 1_048_576;
 const CLOUD_QUERY_VERSION = 3;
 const MAX_RESPONSE = 524_288;
 const MAX_SEQUENCE = Number.MAX_SAFE_INTEGER - 1;
+const DATABASE_FILE_TYPE = 'application/vnd.romedb.database';
 const construction = Symbol('RemoteDatabase');
 const warmAtConnect = Symbol('warmAtConnect');
 const WARM_STATES = new Set(['ready', 'starting', 'skipped']);
@@ -74,7 +75,7 @@ class RemoteDatabase {
   async info(options = {}) {
     const info = await this.#request('', undefined, options, false);
     if (!plainObject(info) || typeof info.id !== 'string' || !/^[A-Za-z0-9_-]{1,80}$/.test(info.id) || !sequence(info.sequence, true) || (this.#id !== undefined && this.#id !== info.id)) {
-      throw new ClientError('FDB_PROTOCOL', 'Invalid database details or changed database identity', 'read-failed');
+      throw new ClientError('RDB_PROTOCOL', 'Invalid database details or changed database identity', 'read-failed');
     }
     if (this.#loopbackOrganization) this.#cloud = info.serviceVersion === undefined;
     const supported = capabilities(this.#url, info, !this.#cloud);
@@ -86,14 +87,14 @@ class RemoteDatabase {
   }
   async warm(options = {}) {
     this.#assertOpen();
-    if (!this.#cloud) throw new ClientError('FDB_UNSUPPORTED', 'warm applies only to Cloud database URLs', 'not-sent');
+    if (!this.#cloud) throw new ClientError('RDB_UNSUPPORTED', 'warm applies only to Cloud database URLs', 'not-sent');
     const reply = await this.#request('/warm', '{}', options, false);
-    if (!plainObject(reply) || !WARM_STATES.has(reply.state)) throw new ClientError('FDB_PROTOCOL', 'Invalid warm reply', 'read-failed');
+    if (!plainObject(reply) || !WARM_STATES.has(reply.state)) throw new ClientError('RDB_PROTOCOL', 'Invalid warm reply', 'read-failed');
     return { state: reply.state };
   }
   async read(statements, options = {}) {
     this.#assertOpen();
-    if (this.#capabilities.readVersion !== 2) throw new ClientError('FDB_UNSUPPORTED', 'Database does not support fresh reads', 'not-sent');
+    if (this.#capabilities.readVersion !== 2) throw new ClientError('RDB_UNSUPPORTED', 'Database does not support fresh reads', 'not-sent');
     if (options.ifSequence !== undefined) throw new TypeError('fresh reads do not accept ifSequence');
     const afterSequence = options.afterSequence ?? this.#sequence;
     checkSequence(afterSequence);
@@ -110,12 +111,12 @@ class RemoteDatabase {
   }
   prepareWrite(statements, options = {}) {
     this.#assertOpen();
-    if (!this.#sequenceKnown && this.#deferred && options.afterSequence === undefined) throw new ClientError('FDB_SEQUENCE_UNKNOWN', 'Read, call info() or pass afterSequence before preparing a write on a deferred connection', 'not-sent');
-    if (this.#capabilities.atomicWrites !== true || this.#capabilities.replayWindow !== 64) throw new ClientError('FDB_UNSUPPORTED', 'Database does not support atomic writes with recovery', 'not-sent');
+    if (!this.#sequenceKnown && this.#deferred && options.afterSequence === undefined) throw new ClientError('RDB_SEQUENCE_UNKNOWN', 'Read, call info() or pass afterSequence before preparing a write on a deferred connection', 'not-sent');
+    if (this.#capabilities.atomicWrites !== true || this.#capabilities.replayWindow !== 64) throw new ClientError('RDB_UNSUPPORTED', 'Database does not support atomic writes with recovery', 'not-sent');
     const afterSequence = options.afterSequence ?? this.#sequence;
     checkSequence(afterSequence);
     if (options.ifSequence !== undefined) {
-      if (this.#capabilities.exactSequenceCondition !== true) throw new ClientError('FDB_UNSUPPORTED', 'Database does not support exact sequence conditions', 'not-sent');
+      if (this.#capabilities.exactSequenceCondition !== true) throw new ClientError('RDB_UNSUPPORTED', 'Database does not support exact sequence conditions', 'not-sent');
       checkSequence(options.ifSequence);
       if (options.ifSequence < afterSequence) throw new RangeError('ifSequence must be at least afterSequence');
     }
@@ -130,8 +131,8 @@ class RemoteDatabase {
   async submit(prepared, options = {}) {
     this.#assertOpen();
     const request = validatePrepared(prepared);
-    if (this.#capabilities.atomicWrites !== true || this.#capabilities.replayWindow !== 64 || (request.ifSequence !== undefined && this.#capabilities.exactSequenceCondition !== true)) throw new ClientError('FDB_UNSUPPORTED', 'Database does not support this write contract', 'not-sent', { request: prepared });
-    if (prepared.url !== this.#url || prepared.databaseId !== this.#id) throw new ClientError('FDB_REQUEST_IDENTITY', 'Saved request belongs to another database', 'not-sent');
+    if (this.#capabilities.atomicWrites !== true || this.#capabilities.replayWindow !== 64 || (request.ifSequence !== undefined && this.#capabilities.exactSequenceCondition !== true)) throw new ClientError('RDB_UNSUPPORTED', 'Database does not support this write contract', 'not-sent', { request: prepared });
+    if (prepared.url !== this.#url || prepared.databaseId !== this.#id) throw new ClientError('RDB_REQUEST_IDENTITY', 'Saved request belongs to another database', 'not-sent');
     try {
       const reply = await this.#request('/query', prepared.body, options, true, prepared, preparedQueryVersion(prepared));
       const result = confirmReply(reply, request, false, prepared);
@@ -143,7 +144,7 @@ class RemoteDatabase {
         if (error.outcome === 'rolled-back') this.#sequence = Math.max(this.#sequence, error.sequence);
         throw error;
       }
-      throw new ClientError('FDB_PROTOCOL', 'Write response could not be confirmed; recover the saved request', 'unknown', { request: prepared });
+      throw new ClientError('RDB_PROTOCOL', 'Write response could not be confirmed; recover the saved request', 'unknown', { request: prepared });
     }
   }
   async recover(prepared, options = {}) {
@@ -157,22 +158,79 @@ class RemoteDatabase {
     if (!this.#sequenceKnown && this.#deferred && options.afterSequence === undefined) await this.info(options);
     return this.submit(this.prepareWrite(statements, options), options);
   }
+  async exportFile(options = {}) {
+    this.#assertOpen();
+    if (this.#transport) throw new ClientError('RDB_UNSUPPORTED', 'Export embedded databases through EmbeddedDatabase.exportFile', 'not-sent');
+    if (this.#cloud) throw new ClientError('RDB_UNSUPPORTED', 'Cloud databases do not export database files yet', 'not-sent');
+    if (!plainObject(options) || Object.keys(options).some(key => !['signal', 'timeoutMs'].includes(key))) throw new TypeError('export options take signal and timeoutMs');
+    const duration = timeout(options.timeoutMs ?? this.#timeout);
+    if (options.signal !== undefined && !(options.signal instanceof AbortSignal)) throw new TypeError('signal must be an AbortSignal');
+    if (options.signal?.aborted) throw new ClientError('RDB_CANCELLED', 'Request cancelled before dispatch', 'not-sent');
+    if (this.#active.size >= 32) throw new ClientError('RDB_LIMIT', 'Client request limit reached', 'not-sent');
+    const controller = new AbortController();
+    const abort = () => controller.abort();
+    options.signal?.addEventListener('abort', abort, { once: true });
+    const timer = setTimeout(abort, duration);
+    this.#active.add(controller);
+    let open = true;
+    const finish = () => {
+      if (!open) return;
+      open = false;
+      clearTimeout(timer);
+      options.signal?.removeEventListener('abort', abort);
+      this.#active.delete(controller);
+    };
+    const credential = this.#token;
+    let status;
+    try {
+      const response = await this.#fetch(this.#url + '/file', {
+        method: 'GET',
+        headers: { authorization: `Bearer ${credential}`, accept: `${DATABASE_FILE_TYPE}, application/json`, ...(this.#id === undefined ? {} : { 'x-romedb-database-id': this.#id }) },
+        redirect: 'manual', signal: controller.signal,
+      });
+      // The deadline covers building the copy; the caller's signal still stops the download.
+      clearTimeout(timer);
+      status = response.status;
+      if (response.type === 'opaqueredirect' || (status >= 300 && status < 400)) throw new ClientError('RDB_PROTOCOL', 'Database URL redirected; redirects are never followed with a credential', 'read-failed', { status });
+      if (!response.ok) {
+        const retryAfterMs = retryAfter(response.headers.get('retry-after'));
+        const reply = await boundedJson(response, MAX_RESPONSE).catch(() => undefined);
+        const code = plainObject(reply?.error) && typeof reply.error.code === 'string' && /^RDB_[A-Z0-9_]{1,80}$/.test(reply.error.code) ? reply.error.code : httpCode(status);
+        throw new ClientError(code, safeMessage(reply, credential), 'read-failed', { status, ...(retryAfterMs === undefined ? {} : { retryAfterMs }) });
+      }
+      const size = Number(/^\d{1,16}$/.exec(response.headers.get('content-length') ?? '')?.[0] ?? NaN);
+      const exported = Number(/^\d{1,16}$/.exec(response.headers.get('x-romedb-sequence') ?? '')?.[0] ?? NaN);
+      const identity = response.headers.get('x-romedb-database-id');
+      if ((response.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase() !== DATABASE_FILE_TYPE || !Number.isSafeInteger(size) || !sequence(exported, true) || !response.body) {
+        throw new ClientError('RDB_PROTOCOL', 'Invalid database file response', 'read-failed', { status });
+      }
+      if (identity === null || (this.#id !== undefined && identity !== this.#id)) throw new ClientError('RDB_REQUEST_IDENTITY', 'Database file belongs to another database', 'read-failed', { status });
+      this.#id ??= identity;
+      this.#sequence = Math.max(this.#sequence, exported);
+      this.#sequenceKnown = true;
+      return { sequence: exported, size, body: countedBody(response.body, size, controller, finish) };
+    } catch (error) {
+      finish();
+      if (error instanceof ClientError) throw new ClientError(error.code, redactMessage(error.message, credential), error.outcome, { ...(error.status === undefined ? {} : { status: error.status }), ...(error.retryAfterMs === undefined ? {} : { retryAfterMs: error.retryAfterMs }) });
+      throw new ClientError(controller.signal.aborted ? 'RDB_CANCELLED' : status === undefined ? 'RDB_TRANSPORT' : 'RDB_PROTOCOL', 'Database file request failed', 'read-failed', { ...(status === undefined ? {} : { status }), cause: error });
+    }
+  }
   async close() {
     this.#closed = true;
     for (const controller of this.#active) controller.abort();
     this.#token = '';
   }
   #assertOpen() {
-    if (this.#closed) throw new ClientError('FDB_CLOSED', 'Database client is closed', 'not-sent');
+    if (this.#closed) throw new ClientError('RDB_CLOSED', 'Database client is closed', 'not-sent');
   }
   #queryVersion() { return this.#cloud ? CLOUD_QUERY_VERSION : 2; }
   async #request(path, body, options, writing, prepared, queryVersion = 2) {
     this.#assertOpen();
     const duration = timeout(options.timeoutMs ?? this.#timeout);
     if (options.signal !== undefined && !(options.signal instanceof AbortSignal)) throw new TypeError('signal must be an AbortSignal');
-    if (options.signal?.aborted) throw new ClientError('FDB_CANCELLED', 'Request cancelled before dispatch', 'not-sent', prepared ? { request: prepared } : {});
+    if (options.signal?.aborted) throw new ClientError('RDB_CANCELLED', 'Request cancelled before dispatch', 'not-sent', prepared ? { request: prepared } : {});
     const bodyBytes = body === undefined ? 0 : byteLength(body);
-    if (this.#active.size >= 32 || this.#inflightBytes + bodyBytes > 2_097_152) throw new ClientError('FDB_LIMIT', 'Client request limit reached', 'not-sent', prepared ? { request: prepared } : {});
+    if (this.#active.size >= 32 || this.#inflightBytes + bodyBytes > 2_097_152) throw new ClientError('RDB_LIMIT', 'Client request limit reached', 'not-sent', prepared ? { request: prepared } : {});
     const controller = new AbortController();
     const abort = () => controller.abort();
     options.signal?.addEventListener('abort', abort, { once: true });
@@ -200,18 +258,18 @@ class RemoteDatabase {
       status = response.status;
       if (response.type === 'opaqueredirect' || (status >= 300 && status < 400)) {
         await response.body?.cancel().catch(() => {});
-        throw new ClientError('FDB_PROTOCOL', 'Database URL redirected; redirects are never followed with a credential', writing ? 'unknown' : 'read-failed', { status, ...(prepared ? { request: prepared } : {}) });
+        throw new ClientError('RDB_PROTOCOL', 'Database URL redirected; redirects are never followed with a credential', writing ? 'unknown' : 'read-failed', { status, ...(prepared ? { request: prepared } : {}) });
       }
       const retryAfterMs = retryAfter(response.headers.get('retry-after'));
       const replyVersion = response.headers.get('x-romedb-query-version');
       if ((path === '/query' || path === '/read') && replyVersion !== null && replyVersion !== '2' && replyVersion !== String(queryVersion)) {
         await response.body?.cancel();
-        throw new ClientError('FDB_PROTOCOL', 'Unsupported database query response version', writing ? 'unknown' : 'read-failed', { status, ...(prepared ? { request: prepared } : {}) });
+        throw new ClientError('RDB_PROTOCOL', 'Unsupported database query response version', writing ? 'unknown' : 'read-failed', { status, ...(prepared ? { request: prepared } : {}) });
       }
       const reply = await boundedJson(response, MAX_RESPONSE);
       if (plainObject(reply?.error) && typeof reply.error.message === 'string') reply.error.message = redactMessage(reply.error.message, credential);
       if (!response.ok && !(writing && reply?.requestId && reply?.sequence !== undefined)) {
-        const code = plainObject(reply?.error) && typeof reply.error.code === 'string' && /^FDB_[A-Z0-9_]{1,80}$/.test(reply.error.code) ? reply.error.code : httpCode(status);
+        const code = plainObject(reply?.error) && typeof reply.error.code === 'string' && /^RDB_[A-Z0-9_]{1,80}$/.test(reply.error.code) ? reply.error.code : httpCode(status);
         throw new ClientError(code, safeMessage(reply, credential), writing ? 'unknown' : 'read-failed', { status, ...(retryAfterMs === undefined ? {} : { retryAfterMs }), ...(prepared ? { request: prepared } : {}) });
       }
       return reply;
@@ -227,7 +285,7 @@ class RemoteDatabase {
           ...(prepared ? { request: prepared } : {}),
         });
       }
-      const code = controller.signal.aborted ? 'FDB_CANCELLED' : status === undefined ? 'FDB_TRANSPORT' : 'FDB_PROTOCOL';
+      const code = controller.signal.aborted ? 'RDB_CANCELLED' : status === undefined ? 'RDB_TRANSPORT' : 'RDB_PROTOCOL';
       throw new ClientError(code, writing ? 'Write was not confirmed; recover the saved request' : 'Database request failed', writing ? 'unknown' : 'read-failed', { ...(status === undefined ? {} : { status }), ...(prepared ? { request: prepared } : {}), cause: error });
     } finally {
       clearTimeout(timer);
@@ -297,9 +355,9 @@ function validatePrepared(prepared) {
 }
 
 function confirmReply(reply, request, reading, prepared) {
-  const invalid = () => new ClientError('FDB_PROTOCOL', reading ? 'Read response identity or results differ' : 'Write response could not be confirmed; recover the saved request', reading ? 'read-failed' : 'unknown', prepared ? { request: prepared } : {});
+  const invalid = () => new ClientError('RDB_PROTOCOL', reading ? 'Read response identity or results differ' : 'Write response could not be confirmed; recover the saved request', reading ? 'read-failed' : 'unknown', prepared ? { request: prepared } : {});
   if (!plainObject(reply) || reply.requestId !== request.requestId || !sequence(reply.sequence, true) || (reading ? reply.readVersion !== 2 || reply.sequence < request.afterSequence : reply.readVersion !== undefined || reply.sequence <= request.afterSequence || reply.sequence - request.afterSequence > 64)) throw invalid();
-  if (plainObject(reply.error) && typeof reply.error.code === 'string' && /^FDB_[A-Z0-9_]+$/.test(reply.error.code) && typeof reply.error.message === 'string' && reply.results === undefined) throw new ClientError(reply.error.code, reply.error.message.slice(0, 2048), reading ? 'read-failed' : 'rolled-back', { sequence: reply.sequence, request: prepared });
+  if (plainObject(reply.error) && typeof reply.error.code === 'string' && /^RDB_[A-Z0-9_]+$/.test(reply.error.code) && typeof reply.error.message === 'string' && reply.results === undefined) throw new ClientError(reply.error.code, reply.error.message.slice(0, 2048), reading ? 'read-failed' : 'rolled-back', { sequence: reply.sequence, request: prepared });
   if (!Array.isArray(reply.results) || reply.results.length !== request.statements.length || reply.error !== undefined || byteLength(JSON.stringify(reply.results)) > 262_144) throw invalid();
   try {
     const results = reply.results.map(result => {
@@ -334,11 +392,39 @@ async function boundedJson(response, limit) {
   } finally { await reader.cancel().catch(() => {}); }
 }
 
+// Passes the download through and fails it unless exactly `size` bytes arrive.
+function countedBody(body, size, controller, finish) {
+  const reader = body.getReader();
+  let received = 0;
+  const failure = (message, cause) => new ClientError(controller.signal.aborted ? 'RDB_CANCELLED' : 'RDB_TRANSPORT', message, 'read-failed', cause === undefined ? {} : { cause });
+  return new ReadableStream({
+    async pull(stream) {
+      let chunk;
+      try { chunk = await reader.read(); }
+      catch (error) { finish(); stream.error(failure('Database file download failed', error)); return; }
+      if (chunk.done) {
+        finish();
+        if (received === size) stream.close();
+        else stream.error(failure('Database file ended before its declared size'));
+        return;
+      }
+      received += chunk.value.byteLength;
+      if (received > size) {
+        finish(); controller.abort();
+        stream.error(new ClientError('RDB_PROTOCOL', 'Database file is larger than its declared size', 'read-failed'));
+        return;
+      }
+      stream.enqueue(chunk.value);
+    },
+    cancel(reason) { finish(); controller.abort(); return reader.cancel(reason).catch(() => {}); },
+  }, { highWaterMark: 0 });
+}
+
 function loopbackHost(hostname) { return ['127.0.0.1', 'localhost', '[::1]'].includes(hostname); }
 
 function capabilities(url, info, local) {
   if (local) {
-    if ((url.startsWith('file:') ? info.adapterVersion : info.serviceVersion) !== 1 || !plainObject(info.capabilities) || !plainObject(info.limits) || info.capabilities.readVersion !== 2 || typeof info.capabilities.atomicWrites !== 'boolean' || typeof info.capabilities.exactSequenceCondition !== 'boolean' || (info.capabilities.atomicWrites && info.capabilities.replayWindow !== 64)) throw new ClientError('FDB_PROTOCOL', 'Unsupported database client contract', 'read-failed');
+    if ((url.startsWith('file:') ? info.adapterVersion : info.serviceVersion) !== 1 || !plainObject(info.capabilities) || !plainObject(info.limits) || info.capabilities.readVersion !== 2 || typeof info.capabilities.atomicWrites !== 'boolean' || typeof info.capabilities.exactSequenceCondition !== 'boolean' || (info.capabilities.atomicWrites && info.capabilities.replayWindow !== 64)) throw new ClientError('RDB_PROTOCOL', 'Unsupported database client contract', 'read-failed');
     return { ...info.capabilities, provenance: 'negotiated' };
   }
   return { provenance: 'documented', readVersion: 2, atomicWrites: true, replayWindow: 64, exactSequenceCondition: true, negotiatedLimits: false };
@@ -387,7 +473,7 @@ function pause(ms, signal) {
     signal.addEventListener('abort', stop, { once: true });
   });
 }
-function httpCode(status) { return status === 401 ? 'FDB_AUTH' : status === 403 ? 'FDB_FORBIDDEN' : status === 409 ? 'FDB_CONFLICT' : status === 429 || status === 413 ? 'FDB_LIMIT' : 'FDB_REMOTE'; }
+function httpCode(status) { return status === 401 ? 'RDB_AUTH' : status === 403 ? 'RDB_FORBIDDEN' : status === 409 ? 'RDB_CONFLICT' : status === 429 || status === 413 ? 'RDB_LIMIT' : 'RDB_REMOTE'; }
 function redactMessage(message, token) { return (token ? message.replaceAll(token, '[redacted]') : message).slice(0, 2048); }
 function safeMessage(reply, token) { return redactMessage(typeof reply?.error === 'string' ? reply.error : typeof reply?.error?.message === 'string' ? reply.error.message : 'Database request was rejected', token); }
 

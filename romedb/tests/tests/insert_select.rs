@@ -141,7 +141,7 @@ fn collection_sources_feed_native_inserts_and_conflict_policies() {
             )
             .unwrap_err()
             .code(),
-            "FDB_CONSTRAINT"
+            "RDB_CONSTRAINT"
         );
         assert_eq!(
             q(&c, "SELECT n FROM target").rows,
@@ -154,7 +154,7 @@ fn collection_sources_feed_native_inserts_and_conflict_policies() {
             )
             .unwrap_err()
             .code(),
-            "FDB_CONSTRAINT"
+            "RDB_CONSTRAINT"
         );
         assert_eq!(
             q(&c, "SELECT n FROM target ORDER BY n").rows,
@@ -259,7 +259,7 @@ fn native_insert_sources_support_grouping_upsert_and_target_triggers() {
     ] {
         assert_eq!(
             c.execute(sql, &Parameters::new()).unwrap_err().code(),
-            "FDB_UNSUPPORTED"
+            "RDB_UNSUPPORTED"
         );
     }
     q(

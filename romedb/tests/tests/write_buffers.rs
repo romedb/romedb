@@ -39,7 +39,7 @@ fn collection_write_buffer_rows_reject_before_mutation_and_preserve_prior_work()
             max_rows: 1,
             max_payload_bytes: 10000,
         });
-        assert_eq!(c.execute(sql, &p).unwrap_err().code(), "FDB_LIMIT", "{sql}");
+        assert_eq!(c.execute(sql, &p).unwrap_err().code(), "RDB_LIMIT", "{sql}");
         assert_eq!(c.transaction_state(), TransactionState::Active);
         assert_eq!(
             c.execute("SELECT * FROM docs ORDER BY n", &p).unwrap().rows,
@@ -82,7 +82,7 @@ fn write_snapshot_limit_checks_generated_document_before_retention() {
         "INSERT INTO docs {id:docs:z,n:4}",
         "UPSERT docs:z {n:4}",
     ] {
-        assert_eq!(c.execute(sql, &p).unwrap_err().code(), "FDB_LIMIT", "{sql}");
+        assert_eq!(c.execute(sql, &p).unwrap_err().code(), "RDB_LIMIT", "{sql}");
         assert!(c.execute("SELECT * FROM docs", &p).unwrap().rows.is_empty());
         assert_eq!(c.transaction_state(), TransactionState::Active);
     }
@@ -112,7 +112,7 @@ fn bound_assignment_payload_is_counted_and_reads_keep_their_policy() {
         "UPDATE docs SET payload=$blob",
         "UPDATE docs {payload:$blob}",
     ] {
-        assert_eq!(c.execute(sql, &params).unwrap_err().code(), "FDB_LIMIT");
+        assert_eq!(c.execute(sql, &params).unwrap_err().code(), "RDB_LIMIT");
         assert_eq!(
             c.execute("SELECT payload FROM docs", &p).unwrap().rows,
             vec![vec![Value::Null]]
@@ -136,7 +136,7 @@ fn bound_assignment_payload_is_counted_and_reads_keep_their_policy() {
         c.execute("UPDATE docs SET n=$text", &text)
             .unwrap_err()
             .code(),
-        "FDB_LIMIT"
+        "RDB_LIMIT"
     );
     assert_eq!(
         c.execute("SELECT n FROM docs", &p).unwrap().rows,
@@ -172,7 +172,7 @@ fn zero_candidate_rows_allow_empty_writes() {
     }
     assert_eq!(
         c.execute("INSERT INTO docs {n:1}", &p).unwrap_err().code(),
-        "FDB_LIMIT"
+        "RDB_LIMIT"
     );
     assert!(c.execute("SELECT * FROM docs", &p).unwrap().rows.is_empty());
 }
@@ -197,7 +197,7 @@ fn batch_buffer_rejection_stops_before_commit_and_preserves_prior_statement() {
     assert_eq!(rejected.offset, script.find("UPDATE").unwrap());
     assert_eq!(
         rejected.execution.result.as_ref().unwrap_err().code(),
-        "FDB_LIMIT"
+        "RDB_LIMIT"
     );
     assert_eq!(
         rejected.execution.transaction_after,
@@ -233,11 +233,11 @@ fn migration_buffer_rejection_restores_pending_schema_data_and_history() {
     ];
     c.migrate(&plan[..1]).unwrap();
     let error = c.migrate(&plan).unwrap_err();
-    assert_eq!(error.code(), "FDB_MIGRATION");
+    assert_eq!(error.code(), "RDB_MIGRATION");
     let Error::Migration { source, .. } = error else {
         panic!("expected migration context")
     };
-    assert_eq!(source.code(), "FDB_LIMIT");
+    assert_eq!(source.code(), "RDB_LIMIT");
     assert_eq!(c.transaction_state(), TransactionState::Autocommit);
     assert!(c.execute("SELECT * FROM audit", &p).is_err());
     assert_eq!(
@@ -292,7 +292,7 @@ fn update_snapshot_rejects_before_validating_oversized_new_fields() {
         max_payload_bytes: 100,
     });
     let sql = format!("UPDATE docs SET {field}='bad' WHERE n=2");
-    assert_eq!(c.execute(&sql, &p).unwrap_err().code(), "FDB_LIMIT");
+    assert_eq!(c.execute(&sql, &p).unwrap_err().code(), "RDB_LIMIT");
     assert_eq!(c.transaction_state(), TransactionState::Active);
     assert_eq!(
         c.execute("SELECT n FROM docs ORDER BY n", &p).unwrap().rows,
@@ -303,7 +303,7 @@ fn update_snapshot_rejects_before_validating_oversized_new_fields() {
         max_rows: 2,
         max_payload_bytes: 1000,
     });
-    assert_eq!(c.execute(&sql, &p).unwrap_err().code(), "FDB_VALIDATION");
+    assert_eq!(c.execute(&sql, &p).unwrap_err().code(), "RDB_VALIDATION");
     c.execute(&format!("UPDATE docs SET {field}=3 WHERE n=2"), &p)
         .unwrap();
     c.execute("ROLLBACK", &p).unwrap();
@@ -336,7 +336,7 @@ fn joined_duplicates_do_not_bypass_raw_candidate_row_limits() {
             max_payload_bytes: 10000,
         });
         let sql = "UPDATE docs SET v=s.v FROM source s WHERE docs.n=s.k RETURNING n,v";
-        assert_eq!(c.execute(sql, &p).unwrap_err().code(), "FDB_LIMIT");
+        assert_eq!(c.execute(sql, &p).unwrap_err().code(), "RDB_LIMIT");
         assert_eq!(c.transaction_state(), TransactionState::Active);
         assert_eq!(
             c.execute("SELECT * FROM docs ORDER BY n", &p).unwrap().rows,
@@ -394,7 +394,7 @@ fn joined_direct_parameters_consume_payload_budget() {
             max_rows: 10,
             max_payload_bytes: 512,
         });
-        assert_eq!(c.execute(sql, &params).unwrap_err().code(), "FDB_LIMIT");
+        assert_eq!(c.execute(sql, &params).unwrap_err().code(), "RDB_LIMIT");
         assert_eq!(c.transaction_state(), TransactionState::Active);
         assert_eq!(
             c.execute("SELECT * FROM docs ORDER BY n", &empty)
@@ -456,7 +456,7 @@ fn ignored_candidates_do_not_hide_returning_limit_failure() {
                 },
             )
             .unwrap_err();
-        assert_eq!(error.code(), "FDB_LIMIT");
+        assert_eq!(error.code(), "RDB_LIMIT");
         assert_eq!(c.transaction_state(), TransactionState::Active);
         assert_eq!(
             c.execute("SELECT * FROM docs ORDER BY n", &p).unwrap().rows,
@@ -541,7 +541,7 @@ fn replacement_deletions_are_restored_when_returning_exceeds_limits() {
                 c.write_with_result_limits(&sql, &p, limits)
                     .unwrap_err()
                     .code(),
-                "FDB_LIMIT"
+                "RDB_LIMIT"
             );
             assert_eq!(c.transaction_state(), TransactionState::Active);
             assert_eq!(
@@ -638,7 +638,7 @@ fn ignored_insert_candidates_do_not_hide_result_limit_failures() {
                 c.write_with_result_limits(&sql, &p, limits)
                     .unwrap_err()
                     .code(),
-                "FDB_LIMIT"
+                "RDB_LIMIT"
             );
             assert_eq!(c.transaction_state(), TransactionState::Active);
             assert_eq!(
@@ -725,7 +725,7 @@ fn insert_replacement_victims_survive_result_limit_failures() {
                 c.write_with_result_limits(&sql, &p, limits)
                     .unwrap_err()
                     .code(),
-                "FDB_LIMIT"
+                "RDB_LIMIT"
             );
             assert_eq!(c.transaction_state(), TransactionState::Active);
             assert_eq!(
