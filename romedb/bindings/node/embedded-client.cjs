@@ -7,7 +7,7 @@ const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const common = require('./client.cjs');
 const { connect, RemoteDatabase, ClientError, Float64, Record, Vector, encodeValue, decodeValue, normalizeUrl, validatePrepared, saveRequest, loadRequest } = common;
-const { plainObject } = require('./values.cjs');
+const { plainObject, checkCopyOptions } = require('./values.cjs');
 const { createEmbeddedClient } = require('./client-internal.cjs');
 const native = require('./native.cjs');
 const sessions = new Map();
@@ -73,7 +73,8 @@ async function openEmbeddedFile(options) {
 }
 
 function checkExportOptions(options) {
-  if (!plainObject(options) || Object.keys(options).some(key => !['signal', 'timeoutMs'].includes(key))) throw new TypeError('export options take signal and timeoutMs');
+  if (!plainObject(options) || Object.keys(options).some(key => !['signal', 'timeoutMs', 'emptyTables', 'newIdentity'].includes(key))) throw new TypeError('export options take signal, timeoutMs, emptyTables and newIdentity');
+  checkCopyOptions(options);
   if (options.signal !== undefined && !(options.signal instanceof AbortSignal)) throw new TypeError('signal must be an AbortSignal');
   if (options.timeoutMs !== undefined && (!Number.isInteger(options.timeoutMs) || options.timeoutMs < 1 || options.timeoutMs > 4294967295)) throw new RangeError('timeoutMs must be 1..4294967295');
 }
@@ -131,7 +132,7 @@ class EmbeddedDatabase {
   async #exportTo(destination, options) {
     checkExportOptions(options);
     if (!destination || destination.length > 4096 || destination.includes('\0')) throw new TypeError('exportFile requires a bounded destination path');
-    const { sequence, bytes } = await this.#session.request('export', JSON.stringify({ destination: path.resolve(destination) }), options.signal, options.timeoutMs);
+    const { sequence, bytes } = await this.#session.request('export', JSON.stringify({ destination: path.resolve(destination), emptyTables: options.emptyTables, newIdentity: options.newIdentity }), options.signal, options.timeoutMs);
     return { sequence, bytes };
   }
   async #exportStream(options) {

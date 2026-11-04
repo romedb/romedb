@@ -337,3 +337,35 @@ fn test_vacuum_into_with_partial_indexes(tmp_db: TempDatabase) -> anyhow::Result
 
     Ok(())
 }
+
+#[turso_macros::test(mvcc)]
+fn test_vacuum_into_leaves_named_tables_empty(tmp_db: TempDatabase) -> anyhow::Result<()> {
+    let conn = tmp_db.connect_limbo();
+    conn.execute("CREATE TABLE secrets (id INTEGER PRIMARY KEY, token TEXT)")?;
+    conn.execute("CREATE INDEX secrets_token ON secrets(token)")?;
+    conn.execute("CREATE TABLE kept (id INTEGER PRIMARY KEY, value TEXT)")?;
+    conn.execute("INSERT INTO secrets VALUES (1, 'secret-token-value')")?;
+    conn.execute("INSERT INTO kept VALUES (1, 'kept-value')")?;
+    conn.set_vacuum_into_tables_without_rows(["secrets".to_string()]);
+
+    let dest_dir = TempDir::new()?;
+    let dest_path = dest_dir.path().join("vacuumed.db");
+    conn.execute(format!("VACUUM INTO '{}'", dest_path.to_str().unwrap()))?;
+
+    let bytes = std::fs::read(&dest_path)?;
+    let holds = |needle: &[u8]| bytes.windows(needle.len()).any(|window| window == needle);
+    assert!(holds(b"kept-value"));
+    assert!(!holds(b"secret-token-value"));
+
+    let copy = TempDatabase::new_with_existent(&dest_path);
+    let copy_conn = copy.connect_limbo();
+    assert_eq!(run_integrity_check(&copy_conn), "ok");
+    let rows: Vec<(i64,)> = copy_conn.exec_rows("SELECT count(*) FROM secrets");
+    assert_eq!(rows, vec![(0,)]);
+    let rows: Vec<(String,)> = copy_conn.exec_rows("SELECT value FROM kept");
+    assert_eq!(rows, vec![("kept-value".to_string(),)]);
+    let rows: Vec<(String,)> =
+        copy_conn.exec_rows("SELECT name FROM sqlite_schema WHERE name = 'secrets_token'");
+    assert_eq!(rows.len(), 1);
+    Ok(())
+}

@@ -1,4 +1,5 @@
 'use strict';
+const { checkCopyOptions } = require('./values.cjs');
 const { NativeDatabase, interruptConnection, createCancellationToken, cancelOperation, releaseCancellationToken, vectorFromComponents, vectorFromSparseEntries } = require('./native.cjs');
 class Record {
   constructor(table, key) {
@@ -6,6 +7,8 @@ class Record {
     this.table = table; this.key = key;
     Object.freeze(this);
   }
+  toString() { return `${this.table}:${this.key}`; }
+  equals(other) { return other instanceof Record && other.table === this.table && other.key === this.key; }
 }
 class Vector {
   static float32(values) { return constructVector('float32', values); }
@@ -414,7 +417,9 @@ class AsyncDatabase {
   }
   async exportFile(destination, options = {}) {
     if (typeof destination !== 'string' || !destination || destination.length > 4096 || destination.includes('\0')) throw new TypeError('exportFile requires a bounded destination path');
-    try { return await this.#request('exportFile', [require('node:path').resolve(destination)], false, options.signal, options.timeoutMs); }
+    checkCopyOptions(options);
+    const copy = JSON.stringify({ emptyTables: options.emptyTables, newIdentity: options.newIdentity });
+    try { return await this.#request('exportFile', [require('node:path').resolve(destination), copy], false, options.signal, options.timeoutMs); }
     catch (error) {
       const coded = /^(RDB_[A-Z0-9_]+): (.*)$/s.exec(error.message);
       if (!coded) throw error;

@@ -548,6 +548,8 @@ pub struct Connection {
     pub(crate) statement_activity: Arc<Mutex<StatementActivity>>,
     /// Whether pragma ignore_check_constraints=ON for this connection
     pub(super) check_constraints_pragma: AtomicBool,
+    /// Tables that `VACUUM INTO` on this connection creates but does not fill.
+    pub(super) vacuum_into_tables_without_rows: RwLock<Arc<HashSet<String>>>,
     /// Track when each virtual table instance is currently in transaction.
     pub(crate) vtab_txn_states: RwLock<HashSet<u64>>,
     /// One prepared cursor per index-method attachment touched by the active
@@ -1983,6 +1985,17 @@ impl Connection {
 
     pub fn foreign_keys_enabled(&self) -> bool {
         self.fk_pragma.load(Ordering::Acquire)
+    }
+
+    /// Name the tables that the next `VACUUM INTO` on this connection creates
+    /// but does not fill. Their rows are never read, so they cannot reach the
+    /// new file. The names must match `sqlite_schema.name` exactly.
+    pub fn set_vacuum_into_tables_without_rows(&self, tables: impl IntoIterator<Item = String>) {
+        *self.vacuum_into_tables_without_rows.write() = Arc::new(tables.into_iter().collect());
+    }
+
+    pub(crate) fn vacuum_into_tables_without_rows(&self) -> Arc<HashSet<String>> {
+        self.vacuum_into_tables_without_rows.read().clone()
     }
 
     pub fn set_check_constraints_ignored(&self, ignore: bool) {

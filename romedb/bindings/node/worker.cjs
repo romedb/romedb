@@ -10,7 +10,7 @@ parentPort.on('message', ({ id, method, args, cancellationKey }) => {
     if (method === 'exportFile') {
       const key = cancellationKey ?? createCancellationToken();
       const finished = Promise.resolve()
-        .then(() => db.startFileExport(args[0], key).finish())
+        .then(() => { const copy = JSON.parse(args[1]); return db.startFileExport(args[0], key, copy.emptyTables, copy.newIdentity).finish(); })
         .then(bytes => parentPort.postMessage({ id, result: { bytes: Number(bytes) } }), error => parentPort.postMessage({ id, error: { message: error.message } }))
         .finally(() => { copies.delete(key); if (cancellationKey === undefined) releaseCancellationToken(key); });
       copies.set(key, finished);

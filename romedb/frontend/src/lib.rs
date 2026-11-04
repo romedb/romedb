@@ -16,7 +16,7 @@ mod deferred;
 mod expression;
 mod fetch_clause;
 mod file_export;
-pub use file_export::{FileExport, PendingFileExport};
+pub use file_export::{FileExport, FileExportOptions, PendingFileExport};
 mod field_rules;
 mod scalar_index;
 mod schema_rules;
@@ -424,6 +424,12 @@ impl Database {
         Ok(Self { engine, manual_wal })
     }
     pub fn connect(&self) -> Result<Connection> {
+        let connection = self.connect_without_schema_check()?;
+        connection.atomic(|| connection.validate_storage_schema())?;
+        Ok(connection)
+    }
+    /// For a file export, whose copy has no index state until it is rebuilt.
+    pub(crate) fn connect_without_schema_check(&self) -> Result<Connection> {
         let engine = self.engine.connect()?;
         if self.manual_wal {
             engine.wal_auto_actions_disable();
@@ -445,7 +451,6 @@ impl Database {
             spatial_counters: Default::default(),
         };
         functions::register(&connection)?;
-        connection.atomic(|| connection.validate_storage_schema())?;
         Ok(connection)
     }
 }

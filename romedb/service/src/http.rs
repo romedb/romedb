@@ -34,6 +34,7 @@ use tokio::{
 
 const MAX_DATABASE_JOBS: u32 = 36;
 const FILE_CHUNK_BYTES: usize = 256 * 1024;
+const MAX_FILE_QUERY_BYTES: usize = 4096;
 const DATABASE_FILE_TYPE: &str = "application/vnd.romedb.database";
 
 type Body = Either<Full<Bytes>, FileBody>;
@@ -293,6 +294,7 @@ async fn dispatch(
 
 async fn process(context: Context, request: Request<Incoming>) -> Result<Response<Body>> {
     let route = validate_request(&context, &request)?;
+    let export = file_options(request.uri().query())?;
     let origin = format!("http://{}", host(&request).unwrap_or_default());
     let body = if request.method() == Method::POST {
         if request
@@ -350,10 +352,13 @@ async fn process(context: Context, request: Request<Incoming>) -> Result<Respons
         let body = body.unwrap_or_default();
         match (&context.target, &route) {
             (Target::Database(database), Route::File) => {
-                return Ok(Reply::File(database.export_file()?, permit))
+                return Ok(Reply::File(database.export_file(&export)?, permit))
             }
             (Target::Directory(directory), Route::DatabaseFile(id)) => {
-                return Ok(Reply::File(directory.database(id)?.export_file()?, permit))
+                return Ok(Reply::File(
+                    directory.database(id)?.export_file(&export)?,
+                    permit,
+                ))
             }
             _ => {}
         }
@@ -405,13 +410,10 @@ async fn process(context: Context, request: Request<Incoming>) -> Result<Respons
 }
 
 fn validate_request(context: &Context, request: &Request<Incoming>) -> Result<Route> {
-    if request.uri().scheme().is_some()
-        || request.uri().authority().is_some()
-        || request.uri().query().is_some()
-    {
+    if request.uri().scheme().is_some() || request.uri().authority().is_some() {
         return Err(Error::new(
             "RDB_PROTOCOL",
-            "request requires a relative database path without a query",
+            "request requires a relative database path",
         ));
     }
     let host = host(request);
@@ -459,6 +461,12 @@ fn validate_request(context: &Context, request: &Request<Incoming>) -> Result<Ro
             directory.organization_id(),
         )?,
     };
+    if request.uri().query().is_some() && !matches!(route, Route::File | Route::DatabaseFile(_)) {
+        return Err(Error::new(
+            "RDB_PROTOCOL",
+            "only database file requests take a query",
+        ));
+    }
     let expected = match (&context.target, &route) {
         (Target::Database(database), _) => Some(database.database_id.as_str()),
         (
@@ -535,6 +543,55 @@ fn directory_route(method: &Method, path: &str, organization_id: &str) -> Result
     }
 }
 
+/// Read `?empty=a,b&identity=new`. Names are percent-encoded, and a name cannot
+/// hold a comma.
+fn file_options(query: Option<&str>) -> Result<romedb::FileExportOptions> {
+    let mut options = romedb::FileExportOptions::default();
+    let Some(query) = query else {
+        return Ok(options);
+    };
+    if query.len() > MAX_FILE_QUERY_BYTES {
+        return Err(Error::new("RDB_LIMIT", "file request query is too long"));
+    }
+    let invalid = || {
+        Error::new(
+            "RDB_VALIDATION",
+            "file requests take empty and identity=new",
+        )
+    };
+    for pair in query.split('&') {
+        match pair.split_once('=').ok_or_else(invalid)? {
+            ("empty", names) if options.empty_tables.is_empty() && !names.is_empty() => {
+                options.empty_tables = names
+                    .split(',')
+                    .map(percent_decoded)
+                    .collect::<Result<_>>()?;
+            }
+            ("identity", "new") if !options.new_identity => options.new_identity = true,
+            _ => return Err(invalid()),
+        }
+    }
+    Ok(options)
+}
+
+fn percent_decoded(text: &str) -> Result<String> {
+    let invalid = || Error::new("RDB_VALIDATION", "invalid percent-encoded table name");
+    let mut bytes = Vec::with_capacity(text.len());
+    let mut rest = text.as_bytes();
+    while let Some((&byte, tail)) = rest.split_first() {
+        rest = tail;
+        if byte != b'%' {
+            bytes.push(byte);
+            continue;
+        }
+        let digits = rest.get(..2).ok_or_else(invalid)?;
+        let digits = std::str::from_utf8(digits).map_err(|_| invalid())?;
+        bytes.push(u8::from_str_radix(digits, 16).map_err(|_| invalid())?);
+        rest = &rest[2..];
+    }
+    String::from_utf8(bytes).map_err(|_| invalid())
+}
+
 fn host(request: &Request<Incoming>) -> Option<&str> {
     request
         .headers()
@@ -588,7 +645,8 @@ fn file_response(download: FileDownload, permit: OwnedSemaphorePermit) -> Respon
         .header("x-romedb-sequence", sequence)
         .header("x-romedb-database-id", database_id)
         .header(header::CACHE_CONTROL, "no-store")
-        .header(header::CONNECTION, "close")
+        // No `connection: close`: the client ends this connection. Node's fetch
+        // crashes the process if the socket closes while its reader is paused.
         .header("x-content-type-options", "nosniff")
         .body(Either::Right(FileBody {
             chunks,

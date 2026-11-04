@@ -439,6 +439,8 @@ pub(crate) struct VacuumTargetBuildConfig {
     pub target_auto_vacuum_mode: AutoVacuumMode,
     /// Whether to copy the source MVCC metadata table into the target image.
     pub copy_mvcc_metadata_table: bool,
+    /// Tables to create in the target without copying their rows.
+    pub tables_without_rows: Arc<rustc_hash::FxHashSet<String>>,
 }
 
 /// Context for the vacuum target build. Holds the target connection and all
@@ -763,6 +765,13 @@ pub(crate) fn vacuum_target_build_step(
                 let entry_ordinal = state.tables_to_copy[table_idx];
                 let entry = &state.schema_entries[entry_ordinal];
                 let table_name = &entry.name;
+
+                if config.tables_without_rows.contains(table_name) {
+                    state.phase = VacuumTargetBuildPhase::StartCopyTable {
+                        table_idx: table_idx + 1,
+                    };
+                    continue;
+                }
 
                 // sqlite_sequence: only copy data if the target has it
                 // (auto-created when an AUTOINCREMENT table was created in
@@ -1866,6 +1875,7 @@ fn vacuum_in_place_step(
                     target_mvcc_enabled: false,
                     target_auto_vacuum_mode: source_pager.get_auto_vacuum_mode(),
                     copy_mvcc_metadata_table: source_db.mvcc_enabled(),
+                    tables_without_rows: Default::default(),
                 };
 
                 let target_build_context = VacuumTargetBuildContext::new(new_temp_db.conn.clone());
@@ -3009,6 +3019,7 @@ mod tests {
             target_mvcc_enabled: source_db.mvcc_enabled(),
             target_auto_vacuum_mode: source_pager.get_auto_vacuum_mode(),
             copy_mvcc_metadata_table: false,
+            tables_without_rows: Default::default(),
         };
 
         let injector = OneShotTransactionYieldInjector::new();

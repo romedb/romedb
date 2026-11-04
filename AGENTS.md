@@ -181,6 +181,11 @@ the commit through `op_auto_commit` instead of looking up the released savepoint
 again and failing with `no such savepoint`. Upstream main `36da5b2e4` (2026-11-02)
 still has the bug.
 
+Newer patch (2026-11-04): **VACUUM INTO tables without rows**, `core/vdbe/vacuum.rs`
+at `StartCopyTable`, set through `Connection::set_vacuum_into_tables_without_rows`.
+It lets a file export skip tables so that their rows are never read. Keep it until
+upstream can skip tables in `VACUUM INTO`; the register has the regressions.
+
 On an upstream sync:
 - Keep the patch unless upstream changed `SavepointOp::Release` to resume a
   commit in progress (`ProgramState::commit_state` not `Ready`).

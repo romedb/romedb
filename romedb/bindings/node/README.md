@@ -125,7 +125,7 @@ own connection.
 | `boolean`, `null`, `string` | The same type |
 | Array, plain object | Array, object |
 | `Buffer`, `Uint8Array` | Binary |
-| `Record(table, key)` | A record ID. The key is a string or a `bigint`. |
+| `Record(table, key)` | A record ID. The key is a string or a `bigint`. `String(record)` gives `table:key`, and `record.equals(other)` compares the table and the key. |
 | `Vector` | A vector of validated native-format bytes. See [typed vectors](#typed-vectors). |
 
 RomeDB never makes a reference from a string. Unsupported JavaScript types,
@@ -702,8 +702,30 @@ it. Exports have no deadline unless you pass `timeoutMs`. `signal`, `timeoutMs` 
 `close()` cancel a running export. It then rejects with `RDB_CANCELLED`, unless it
 finished first.
 
-The URL client has the streaming form, `rql.exportFile({ signal, timeoutMs })`, for
-`romedb serve` and `serve --directory`. Cloud URLs do not support it yet. See
+#### Leaving data out of a copy
+
+A whole copy holds everything, including sessions and tokens. Use `emptyTables` when
+someone else gets the file:
+
+```js
+await rql.exportFile('site.romedb', { emptyTables: ['cms_auth_sessions', 'cms_cache'] });
+```
+
+- The named tables keep their schema and indexes, but no rows.
+- Their rows are never read, so they cannot reach the file. They are not in freed
+  pages, a log or a receipt.
+- A name that is not a table fails with `RDB_VALIDATION`.
+- An edge table must be emptied together with the tables it connects.
+- Rows in other tables keep their references to the emptied rows.
+- The copy also gets a new identity, because a receipt can hold row data.
+
+Use `newIdentity: true` to copy every row into a new database, for example to
+duplicate a site. The copy leaves out the database ID, the sequence and the receipts.
+Its sequence starts at 0, and it gets a new ID the first time it opens.
+
+The URL client has the streaming form, `rql.exportFile({ signal, timeoutMs, emptyTables,
+newIdentity })`, for `romedb serve`, `serve --directory` and Cloud. On Cloud, set
+`timeoutMs` high enough for the size of the database: a job builds the file first. See
 [database files](https://github.com/romedb/romedb/blob/main/romedb/docs/service-protocol.md#database-files) for how the copy is
 made.
 

@@ -1,7 +1,7 @@
 export * from './client';
-import type { Client, DatabaseInfo, Statement, RequestOptions, ReadOptions, WriteOptions, BatchResult, PreparedWrite, DatabaseFile } from './client';
+import type { Client, DatabaseInfo, Statement, RequestOptions, ReadOptions, WriteOptions, BatchResult, PreparedWrite, DatabaseFile, FileExportOptions } from './client';
 /** timeoutMs has no default for exports: without it, an export runs until it finishes or signal aborts it. */
-export interface ExportOptions { signal?: AbortSignal; timeoutMs?: number; }
+export interface ExportOptions extends FileExportOptions {}
 export interface ExportedFile { sequence: number; bytes: number; }
 export interface EmbeddedOptions { path: string; create?: boolean; timeoutMs?: number; maxOpen?: number; }
 export class EmbeddedDatabase implements Client {

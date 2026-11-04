@@ -105,6 +105,47 @@ impl Server {
         .unwrap()
     }
 
+    /// Read one file reply the way a keep-alive client does, up to its length.
+    async fn download_keeping_alive(&self, path: &str) -> (String, usize) {
+        let request = format!(
+            "GET {path} HTTP/1.1\r\nHost: {}\r\nAuthorization: Bearer {}\r\n\r\n",
+            self.address, self.token
+        );
+        let address = self.address;
+        tokio::task::spawn_blocking(move || {
+            let mut stream = TcpStream::connect(address).unwrap();
+            stream
+                .set_read_timeout(Some(Duration::from_secs(20)))
+                .unwrap();
+            stream.write_all(request.as_bytes()).unwrap();
+            let mut response = Vec::new();
+            let mut chunk = [0; 65536];
+            loop {
+                let read = stream.read(&mut chunk).unwrap();
+                assert_ne!(read, 0, "the service closed the connection");
+                response.extend_from_slice(&chunk[..read]);
+                let Some(split) = response.windows(4).position(|w| w == b"\r\n\r\n") else {
+                    continue;
+                };
+                let head = String::from_utf8(response[..split].to_vec())
+                    .unwrap()
+                    .to_ascii_lowercase();
+                let length: usize = head
+                    .split("\r\ncontent-length: ")
+                    .nth(1)
+                    .and_then(|rest| rest.split("\r\n").next())
+                    .unwrap()
+                    .parse()
+                    .unwrap();
+                if response.len() >= split + 4 + length {
+                    return (head, length);
+                }
+            }
+        })
+        .await
+        .unwrap()
+    }
+
     async fn create(&self, name: &str) -> (u16, Value) {
         self.send(
             "POST",
@@ -318,6 +359,134 @@ async fn a_directory_adopts_new_files_and_refuses_copies_and_wal_files() {
         .as_str()
         .unwrap()
         .contains("another database's identity"));
+    server.stop().await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_directory_leaves_tables_out_of_files_and_copies() {
+    let root = tempfile::tempdir().unwrap();
+    let server = Server::start(root.path(), 4).await;
+    let (_, created) = server.create("site-one").await;
+    let id = created["id"].as_str().unwrap().to_owned();
+    for (index, sql) in [
+        "CREATE TABLE sessions",
+        "CREATE UNIQUE INDEX sessions_token ON sessions(token)",
+        "CREATE TABLE posts",
+        "INSERT INTO sessions {token:'marker-session-token'}",
+        "INSERT INTO posts {title:'marker-kept-title'}",
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let body = json!({"requestId":format!("w{index}"),"afterSequence":index,"statements":[{"sql":sql}]}).to_string();
+        let (status, reply) = server
+            .send("POST", &server.path(&format!("/{id}/query")), "", &body)
+            .await;
+        assert_eq!(status, 200, "{reply}");
+    }
+    let holds = |bytes: &[u8], text: &str| {
+        bytes
+            .windows(text.len())
+            .any(|part| part == text.as_bytes())
+    };
+
+    let (status, head, body) = server
+        .download(&server.path(&format!("/{id}/file?empty=sessions")))
+        .await;
+    assert_eq!(status, 200, "{}", String::from_utf8_lossy(&body));
+    assert!(head.contains("\r\nx-romedb-sequence: 5\r\n"), "{head}");
+    assert!(holds(&body, "marker-kept-title"));
+    assert!(!holds(&body, "marker-session-token"));
+
+    let (status, _, body) = server
+        .download(&server.path(&format!("/{id}/file?identity=new")))
+        .await;
+    assert_eq!(status, 200);
+    assert!(holds(&body, "marker-session-token"));
+
+    let (head, length) = server
+        .download_keeping_alive(&server.path(&format!("/{id}/file")))
+        .await;
+    assert!(length > 0);
+    assert!(
+        !head.contains("\r\nconnection: close"),
+        "the client must end a file connection: {head}"
+    );
+
+    for (query, code) in [
+        ("empty=missing", "RDB_VALIDATION"),
+        ("empty=", "RDB_VALIDATION"),
+        ("identity=old", "RDB_VALIDATION"),
+        ("other=1", "RDB_VALIDATION"),
+        ("empty=%zz", "RDB_VALIDATION"),
+    ] {
+        let path = server.path(&format!("/{id}/file?{query}"));
+        let (status, reply) = server.send("GET", &path, "", "").await;
+        assert_eq!(status, 400, "{query}: {reply}");
+        assert_eq!(reply["error"]["code"], code, "{query}: {reply}");
+    }
+    let path = server.path(&format!("/{id}/read?empty=sessions"));
+    let (status, _) = server.send("POST", &path, "", "{}").await;
+    assert_eq!(status, 400);
+
+    let body = json!({"name":"site-two","from":id,"emptyTables":["sessions"]}).to_string();
+    let (status, copied) = server.send("POST", &server.path(""), "", &body).await;
+    assert_eq!(status, 201, "{copied}");
+    let copy = copied["id"].as_str().unwrap().to_owned();
+    assert_ne!(copy, id);
+    assert_eq!(copied["name"], "site-two");
+    let (status, details) = server
+        .send("GET", &server.path(&format!("/{copy}")), "", "")
+        .await;
+    assert_eq!(status, 200, "{details}");
+    assert_eq!(details["sequence"], 0, "{details}");
+    let count = |sql: &str| {
+        json!({"requestId":"copy-read","afterSequence":0,"readVersion":2,"statements":[{"sql":sql}]}).to_string()
+    };
+    let read = server.path(&format!("/{copy}/read"));
+    let (_, reply) = server
+        .send("POST", &read, "", &count("SELECT count() FROM sessions"))
+        .await;
+    assert_eq!(reply["results"][0]["rows"][0][0]["value"], "0", "{reply}");
+    let (_, reply) = server
+        .send("POST", &read, "", &count("SELECT count() FROM posts"))
+        .await;
+    assert_eq!(reply["results"][0]["rows"][0][0]["value"], "1", "{reply}");
+    let (status, _) = server
+        .send(
+            "POST",
+            &server.path(&format!("/{copy}/query")),
+            "",
+            &write("copy-write", "INSERT INTO sessions {token:'new'}"),
+        )
+        .await;
+    assert_eq!(status, 200);
+
+    let (status, reply) = server.send("POST", &server.path(""), "", &body).await;
+    assert_eq!(status, 409, "{reply}");
+    let unknown = json!({"name":"site-three","from":"00000000-0000-4000-8000-000000000000"});
+    let (status, _) = server
+        .send("POST", &server.path(""), "", &unknown.to_string())
+        .await;
+    assert_eq!(status, 404);
+    let alone = json!({"name":"site-three","emptyTables":["sessions"]});
+    let (status, _) = server
+        .send("POST", &server.path(""), "", &alone.to_string())
+        .await;
+    assert_eq!(status, 400);
+    let bad = json!({"name":"site-three","from":id,"emptyTables":["missing"]});
+    let (status, _) = server
+        .send("POST", &server.path(""), "", &bad.to_string())
+        .await;
+    assert_eq!(status, 400);
+    let (status, listed) = server.send("GET", &server.path(""), "", "").await;
+    assert_eq!(status, 200);
+    assert_eq!(listed["databases"].as_array().unwrap().len(), 2, "{listed}");
+
+    let (status, _) = server
+        .send("DELETE", &server.path(&format!("/{copy}")), "", "")
+        .await;
+    assert_eq!(status, 204);
     server.stop().await;
 }
 

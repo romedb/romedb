@@ -1,6 +1,6 @@
 'use strict';
 // Web APIs only: this file also runs in Workers and browsers through client.mjs.
-const { Float64, Record, Vector, encodeValue, decodeValue, plainObject, text } = require('./values.cjs');
+const { Float64, Record, Vector, encodeValue, decodeValue, plainObject, text, checkCopyOptions } = require('./values.cjs');
 
 const MAX_REQUEST = 65_536;
 const MAX_CLOUD_REQUEST = 1_048_576;
@@ -161,8 +161,8 @@ class RemoteDatabase {
   async exportFile(options = {}) {
     this.#assertOpen();
     if (this.#transport) throw new ClientError('RDB_UNSUPPORTED', 'Export embedded databases through EmbeddedDatabase.exportFile', 'not-sent');
-    if (this.#cloud) throw new ClientError('RDB_UNSUPPORTED', 'Cloud databases do not export database files yet', 'not-sent');
-    if (!plainObject(options) || Object.keys(options).some(key => !['signal', 'timeoutMs'].includes(key))) throw new TypeError('export options take signal and timeoutMs');
+    if (!plainObject(options) || Object.keys(options).some(key => !['signal', 'timeoutMs', 'emptyTables', 'newIdentity'].includes(key))) throw new TypeError('export options take signal, timeoutMs, emptyTables and newIdentity');
+    checkCopyOptions(options);
     const duration = timeout(options.timeoutMs ?? this.#timeout);
     if (options.signal !== undefined && !(options.signal instanceof AbortSignal)) throw new TypeError('signal must be an AbortSignal');
     if (options.signal?.aborted) throw new ClientError('RDB_CANCELLED', 'Request cancelled before dispatch', 'not-sent');
@@ -183,7 +183,7 @@ class RemoteDatabase {
     const credential = this.#token;
     let status;
     try {
-      const response = await this.#fetch(this.#url + '/file', {
+      const response = await this.#fetch(this.#url + '/file' + fileQuery(options), {
         method: 'GET',
         headers: { authorization: `Bearer ${credential}`, accept: `${DATABASE_FILE_TYPE}, application/json`, ...(this.#id === undefined ? {} : { 'x-romedb-database-id': this.#id }) },
         redirect: 'manual', signal: controller.signal,
@@ -472,6 +472,12 @@ function pause(ms, signal) {
     const stop = () => { clearTimeout(timer); reject(signal.reason); };
     signal.addEventListener('abort', stop, { once: true });
   });
+}
+function fileQuery({ emptyTables, newIdentity }) {
+  const parts = [];
+  if (emptyTables?.length) parts.push(`empty=${emptyTables.map(encodeURIComponent).join(',')}`);
+  if (newIdentity) parts.push('identity=new');
+  return parts.length ? `?${parts.join('&')}` : '';
 }
 function httpCode(status) { return status === 401 ? 'RDB_AUTH' : status === 403 ? 'RDB_FORBIDDEN' : status === 409 ? 'RDB_CONFLICT' : status === 429 || status === 413 ? 'RDB_LIMIT' : 'RDB_REMOTE'; }
 function redactMessage(message, token) { return (token ? message.replaceAll(token, '[redacted]') : message).slice(0, 2048); }

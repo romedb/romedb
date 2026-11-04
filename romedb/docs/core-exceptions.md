@@ -7,6 +7,21 @@ below tracks upstream replacement candidates; no patch is removed from the
 existing pinned engine merely because a newer upstream revision contains a fix.
 No automatic removal or periodic monitoring is configured.
 
+## VACUUM INTO tables without rows (2026-11-04)
+
+A file export can leave tables empty so that sign-in tokens never reach a copy that
+is handed to someone else. Deleting rows from a finished copy does not work: the
+values stay in freed pages. `Connection::set_vacuum_into_tables_without_rows` names
+tables that `VACUUM INTO` creates but does not fill, so their rows are never read.
+It adds one field to `Connection`, one to `VacuumTargetBuildConfig`, and a skip at
+`StartCopyTable` in `core/vdbe/vacuum.rs`. An empty set changes nothing, and in-place
+`VACUUM` always passes an empty set. Keep this exception until upstream can skip
+tables in `VACUUM INTO`. On a sync, check that `vacuum_target_build_step` still
+copies each table in one place. The regressions are
+`test_vacuum_into_leaves_named_tables_empty` in
+`tests/integration/query_processing/test_vacuum_into_mvcc.rs` and
+`emptied_tables_reach_no_part_of_the_file` in `romedb/tests/tests/file_export.rs`.
+
 ## MVCC savepoint commit resume (2026-11-02)
 
 Found while making MVCC the only embedded journal mode. `RELEASE` of the savepoint
