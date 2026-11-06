@@ -23,7 +23,7 @@ version, 0.2.12, differs from its asset only in `package.json` and this README. 
 project can also depend on the asset of a GitHub release by URL:
 
 ```sh
-pnpm add https://github.com/romedb/romedb/releases/download/romedb-v0.2.15/romedb-node-0.2.15.tgz
+pnpm add https://github.com/romedb/romedb/releases/download/romedb-v0.2.16/romedb-node-0.2.16.tgz
 ```
 
 From 0.2.15, `@romedb/node` depends on `@romedb/client` at the same version, so that
@@ -726,9 +726,11 @@ Use `newIdentity: true` to copy every row into a new database, for example to
 duplicate a site. The copy leaves out the database ID, the sequence and the receipts.
 Its sequence starts at 0, and it gets a new ID the first time it opens.
 
-The URL client has the streaming form, `rql.exportFile({ signal, timeoutMs, emptyTables,
-newIdentity })`, for `romedb serve`, `serve --directory` and Cloud. On Cloud, set
-`timeoutMs` high enough for the size of the database: a job builds the file first. See
+The URL client has the streaming form, `rql.exportFile({ signal, timeoutMs, waitMs,
+emptyTables, newIdentity })`, for `romedb serve`, `serve --directory` and Cloud. On Cloud, a
+job builds the file, and the client waits for it and then downloads it, so a large database
+can take minutes. `waitMs` bounds that wait, 3 hours by default, and `timeoutMs` covers
+each request. See
 [database files](https://github.com/romedb/romedb/blob/main/romedb/docs/service-protocol.md#database-files) for how the copy is
 made.
 

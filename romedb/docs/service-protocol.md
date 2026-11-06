@@ -209,7 +209,8 @@ database. `openEmbedded` and `romedb serve FILE` open it with no `-wal` or
 | --- | --- | --- |
 | `romedb serve DATABASE` | `GET /v1/database/file` | 200 with the file as the body |
 | `romedb serve --directory` | `GET .../databases/{id}/file` | the same, for one database |
-| Node, URL client | `db.exportFile({ signal, timeoutMs })` | `{ sequence, size, body }` |
+| Cloud | `POST .../databases/{db}/file-exports`, then `GET .../file-exports/{id}/file` | A job builds the file; 200 with the file as the body once it is `ready` |
+| Node, URL client | `db.exportFile({ signal, timeoutMs, waitMs })` | `{ sequence, size, body }` |
 | Node, `openEmbedded` | `db.exportFile(destination, { signal, timeoutMs })` | `{ sequence, bytes }` |
 | Node, `openEmbedded` | `db.exportFile({ signal, timeoutMs })` | `{ sequence, size, body }` |
 | Node, `AsyncDatabase` | `db.exportFile(destination, { signal, timeoutMs })` | `{ bytes }` |
