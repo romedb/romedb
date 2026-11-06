@@ -21,7 +21,10 @@ pub fn run(args: Vec<String>) -> Result<ExitCode> {
         println!("Usage: romedb-cli sqlite check SOURCE\n       romedb-cli sqlite import SOURCE DESTINATION\nCheck a consistent SQLite snapshot, or adopt it into a new RomeDB file.\nThe source is opened read-only. Existing destinations and sidecars are refused.\nTables remain relational; this does not convert rows into document collections.");
         return Ok(ExitCode::SUCCESS);
     }
-    let import = args.first().map(String::as_str) == Some("import");
+    // `adopt` is `import` for a source nothing else needs: it moves the file instead of
+    // copying it, so a host with room for one copy can still take a large database.
+    let adopt = args.first().map(String::as_str) == Some("adopt");
+    let import = adopt || args.first().map(String::as_str) == Some("import");
     if !(import && args.len() == 3
         || args.first().map(String::as_str) == Some("check") && args.len() == 2)
     {
@@ -59,7 +62,16 @@ pub fn run(args: Vec<String>) -> Result<ExitCode> {
             .tempdir()?,
     };
     let snapshot = staging.path().join("snapshot.db");
-    snapshot_source(source, &snapshot)?;
+    if adopt {
+        for suffix in ["-wal", "-shm", "-journal"] {
+            if sidecar(source, suffix).exists() {
+                return Err("a moved source cannot have sidecar files".into());
+            }
+        }
+        fs::rename(source, &snapshot)?;
+    } else {
+        snapshot_source(source, &snapshot)?;
+    }
     let (objects, mut unsupported) = inspect(&snapshot)?;
     if unsupported.is_empty() {
         if let Err(error) = validate_schema(&objects) {
@@ -328,4 +340,37 @@ fn initialize(path: &Path, objects: &[Object]) -> Result<()> {
     }
     sqlite_integrity(&sqlite_readonly(path)?)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod adopt_tests {
+    use super::*;
+
+    #[test]
+    fn adopt_moves_the_source_into_a_complete_database() {
+        let directory = tempfile::tempdir().unwrap();
+        let source = directory.path().join("source.db");
+        let destination = directory.path().join("adopted.db");
+        let sqlite = Connection::open(&source).unwrap();
+        sqlite
+            .execute_batch(
+                "PRAGMA page_size=4096; CREATE TABLE t (id INTEGER PRIMARY KEY, v TEXT);
+                 INSERT INTO t VALUES (1, 'one'), (2, 'two');",
+            )
+            .unwrap();
+        drop(sqlite);
+        let status = run(vec![
+            "adopt".into(),
+            source.to_str().unwrap().into(),
+            destination.to_str().unwrap().into(),
+        ])
+        .unwrap();
+        assert_eq!(status, ExitCode::SUCCESS);
+        assert!(!source.exists(), "the source moved, it was not copied");
+        let adopted = Connection::open(&destination).unwrap();
+        let rows: i64 = adopted
+            .query_row("SELECT count(*) FROM t", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(rows, 2);
+    }
 }

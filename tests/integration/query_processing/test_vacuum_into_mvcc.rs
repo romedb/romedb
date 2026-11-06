@@ -369,3 +369,41 @@ fn test_vacuum_into_leaves_named_tables_empty(tmp_db: TempDatabase) -> anyhow::R
     assert_eq!(rows.len(), 1);
     Ok(())
 }
+
+/// Past the batch limits on both counts: rows, then bytes. Both modes must give a
+/// complete database, with indexes built after the rows.
+#[turso_macros::test(mvcc)]
+fn test_vacuum_into_commits_in_batches(tmp_db: TempDatabase) -> anyhow::Result<()> {
+    let conn = tmp_db.connect_limbo();
+    conn.execute("CREATE TABLE many (id INTEGER PRIMARY KEY, v TEXT)")?;
+    conn.execute("CREATE INDEX many_v ON many (v)")?;
+    conn.execute("CREATE TABLE big (id INTEGER PRIMARY KEY, data BLOB)")?;
+    conn.execute(
+        "WITH RECURSIVE s(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM s WHERE i < 120000) \
+         INSERT INTO many SELECT i, 'row ' || i FROM s",
+    )?;
+    for i in 0..20 {
+        conn.execute(format!("INSERT INTO big VALUES ({i}, zeroblob(5000000))"))?;
+    }
+    checkpoint_if_mvcc(&tmp_db, &conn)?;
+
+    let dest_dir = TempDir::new()?;
+    let dest_path = dest_dir.path().join("batches.db");
+    conn.execute(format!("VACUUM INTO '{}'", dest_path.to_str().unwrap()))?;
+
+    let dest_db = TempDatabase::new_with_existent_with_opts(&dest_path, tmp_db.db_opts);
+    let dest_conn = dest_db.connect_limbo();
+    assert_eq!(run_integrity_check(&dest_conn), "ok");
+    let count: Vec<(i64,)> = dest_conn.exec_rows("SELECT COUNT(*) FROM many");
+    assert_eq!(count[0].0, 120000);
+    let indexed: Vec<(i64,)> =
+        dest_conn.exec_rows("SELECT id FROM many INDEXED BY many_v WHERE v = 'row 77777'");
+    assert_eq!(indexed, vec![(77777,)]);
+    let bytes: Vec<(i64,)> = dest_conn.exec_rows("SELECT SUM(length(data)) FROM big");
+    assert_eq!(bytes[0].0, 100_000_000);
+
+    let source_mode: Vec<(String,)> = conn.exec_rows("PRAGMA journal_mode");
+    let dest_mode: Vec<(String,)> = dest_conn.exec_rows("PRAGMA journal_mode");
+    assert_eq!(dest_mode, source_mode, "the copy keeps the source's journal mode");
+    Ok(())
+}

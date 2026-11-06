@@ -379,6 +379,51 @@ pub(crate) fn finalize_vacuum_into_output(target: &VacuumTargetBuildContext) -> 
     Ok(())
 }
 
+/// A VACUUM INTO target commits this often while it is built. One transaction
+/// over a large database reads every spilled page back at commit, and its memory
+/// and WAL grow with the database.
+const VACUUM_BATCH_ROWS: u64 = 50_000;
+const VACUUM_BATCH_BYTES: u64 = 64 * 1024 * 1024;
+
+fn copied_value_bytes(value: &crate::types::Value) -> u64 {
+    match value {
+        crate::types::Value::Text(text) => text.as_str().len() as u64,
+        crate::types::Value::Blob(blob) => blob.len() as u64,
+        _ => 8,
+    }
+}
+
+/// Moves what the target holds so far into its main file. The target is disposable
+/// until VACUUM INTO reports success: a failure removes the file.
+fn commit_target_batch(state: &mut VacuumTargetBuildContext) -> Result<()> {
+    state.rows_in_batch = 0;
+    state.bytes_in_batch = 0;
+    state.target_conn.execute("COMMIT")?;
+    state
+        .target_conn
+        .checkpoint(crate::CheckpointMode::Truncate {
+            upper_bound_inclusive: None,
+        })?;
+    state.target_conn.execute("BEGIN IMMEDIATE")?;
+    Ok(())
+}
+
+/// An MVCC destination is built as plain WAL pages, so its rows are never held as
+/// one MVCC transaction. It becomes MVCC before the header is written, because
+/// that bootstraps an internal table, which moves the schema cookie.
+fn convert_target_to_mvcc(state: &mut VacuumTargetBuildContext) -> Result<()> {
+    state.target_conn.execute("COMMIT")?;
+    state
+        .target_conn
+        .checkpoint(crate::CheckpointMode::Truncate {
+            upper_bound_inclusive: None,
+        })?;
+    state.target_conn.execute("PRAGMA journal_mode = 'mvcc'")?;
+    state.target_conn.execute("BEGIN IMMEDIATE")?;
+    state.converted_to_mvcc = true;
+    Ok(())
+}
+
 /// Copy functions, vtab modules, and index methods from one connection to
 /// another so that schema replay on the target sees the same symbols as
 /// the source.
@@ -441,11 +486,20 @@ pub(crate) struct VacuumTargetBuildConfig {
     pub copy_mvcc_metadata_table: bool,
     /// Tables to create in the target without copying their rows.
     pub tables_without_rows: Arc<rustc_hash::FxHashSet<String>>,
+    /// Commit the target in batches. Only for a target nothing depends on until
+    /// the whole build ends: VACUUM INTO removes it after a failure.
+    pub commit_in_batches: bool,
+    /// Build plain WAL pages, and turn the target into MVCC before its header.
+    pub convert_to_mvcc: bool,
 }
 
 /// Context for the vacuum target build. Holds the target connection and all
 /// intermediate state needed across async yields.
 pub(crate) struct VacuumTargetBuildContext {
+    /// Rows and bytes copied since the last batch commit.
+    rows_in_batch: u64,
+    bytes_in_batch: u64,
+    converted_to_mvcc: bool,
     target_conn: Arc<Connection>,
     phase: VacuumTargetBuildPhase,
     /// Typed schema entries collected from sqlite_schema, ordered by rowid.
@@ -463,6 +517,9 @@ pub(crate) struct VacuumTargetBuildContext {
 impl VacuumTargetBuildContext {
     pub fn new(target_conn: Arc<Connection>) -> Self {
         Self {
+            rows_in_batch: 0,
+            bytes_in_batch: 0,
+            converted_to_mvcc: false,
             target_conn,
             phase: VacuumTargetBuildPhase::Init,
             schema_entries: Vec::new(),
@@ -859,6 +916,7 @@ pub(crate) fn vacuum_target_build_step(
                     for (i, value) in row.get_values().cloned().enumerate() {
                         let index =
                             std::num::NonZero::new(i + 1).expect("i + 1 is always non-zero");
+                        state.bytes_in_batch += copied_value_bytes(&value);
                         target_insert_stmt.bind_at(index, value)?;
                     }
 
@@ -903,6 +961,14 @@ pub(crate) fn vacuum_target_build_step(
                     unreachable!("INSERT statement unexpectedly returned a row");
                 }
                 crate::StepResult::Done => {
+                    state.rows_in_batch += 1;
+                    if config.commit_in_batches
+                        && (state.rows_in_batch >= VACUUM_BATCH_ROWS
+                            || state.bytes_in_batch >= VACUUM_BATCH_BYTES)
+                    {
+                        target_insert_stmt.reset()?;
+                        commit_target_batch(state)?;
+                    }
                     // Go back to get next row from source
                     state.phase = VacuumTargetBuildPhase::CopyRows {
                         select_stmt,
@@ -959,6 +1025,10 @@ pub(crate) fn vacuum_target_build_step(
                     unreachable!("CREATE INDEX statement unexpectedly returned a row");
                 }
                 crate::StepResult::Done => {
+                    if config.commit_in_batches {
+                        target_schema_stmt.reset()?;
+                        commit_target_batch(state)?;
+                    }
                     state.phase = VacuumTargetBuildPhase::PrepareCreateIndex { idx: idx + 1 };
                     continue;
                 }
@@ -1005,6 +1075,11 @@ pub(crate) fn vacuum_target_build_step(
                     unreachable!("CREATE statement unexpectedly returned a row");
                 }
                 crate::StepResult::Done => {
+                    // A custom index method backfills its whole index here.
+                    if config.commit_in_batches {
+                        target_schema_stmt.reset()?;
+                        commit_target_batch(state)?;
+                    }
                     state.phase = VacuumTargetBuildPhase::PreparePostData { idx: idx + 1 };
                     continue;
                 }
@@ -1026,6 +1101,9 @@ pub(crate) fn vacuum_target_build_step(
             },
 
             VacuumTargetBuildPhase::FinalizeTargetHeader => {
+                if config.convert_to_mvcc && !state.converted_to_mvcc {
+                    convert_target_to_mvcc(state)?;
+                }
                 match finalize_vacuum_target_header(&state.target_conn, &config.header_meta)? {
                     crate::IOResult::Done(()) => {}
                     crate::IOResult::IO(io) => {
@@ -1876,6 +1954,8 @@ fn vacuum_in_place_step(
                     target_auto_vacuum_mode: source_pager.get_auto_vacuum_mode(),
                     copy_mvcc_metadata_table: source_db.mvcc_enabled(),
                     tables_without_rows: Default::default(),
+                    commit_in_batches: false,
+                    convert_to_mvcc: false,
                 };
 
                 let target_build_context = VacuumTargetBuildContext::new(new_temp_db.conn.clone());
@@ -3020,6 +3100,8 @@ mod tests {
             target_auto_vacuum_mode: source_pager.get_auto_vacuum_mode(),
             copy_mvcc_metadata_table: false,
             tables_without_rows: Default::default(),
+            commit_in_batches: false,
+            convert_to_mvcc: false,
         };
 
         let injector = OneShotTransactionYieldInjector::new();
