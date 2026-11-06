@@ -166,12 +166,14 @@ class RemoteDatabase {
   async exportFile(options = {}) {
     this.#assertOpen();
     if (this.#transport) throw new ClientError('RDB_UNSUPPORTED', 'Export embedded databases through EmbeddedDatabase.exportFile', 'not-sent');
-    if (!plainObject(options) || Object.keys(options).some(key => !['signal', 'timeoutMs', 'emptyTables', 'newIdentity'].includes(key))) throw new TypeError('export options take signal, timeoutMs, emptyTables and newIdentity');
+    if (!plainObject(options) || Object.keys(options).some(key => !['signal', 'timeoutMs', 'waitMs', 'emptyTables', 'newIdentity'].includes(key))) throw new TypeError('export options take signal, timeoutMs, emptyTables and newIdentity');
     checkCopyOptions(options);
     const duration = timeout(options.timeoutMs ?? this.#timeout);
     if (options.signal !== undefined && !(options.signal instanceof AbortSignal)) throw new TypeError('signal must be an AbortSignal');
     if (options.signal?.aborted) throw new ClientError('RDB_CANCELLED', 'Request cancelled before dispatch', 'not-sent');
     if (this.#active.size >= 32) throw new ClientError('RDB_LIMIT', 'Client request limit reached', 'not-sent');
+    if (options.waitMs !== undefined && (!Number.isInteger(options.waitMs) || options.waitMs < 1 || options.waitMs > MAX_EXPORT_WAIT)) throw new RangeError(`waitMs must be 1..${MAX_EXPORT_WAIT}`);
+    const finished = this.#cloud ? await this.#exportJob(options, duration) : undefined;
     const controller = new AbortController();
     const abort = () => controller.abort();
     options.signal?.addEventListener('abort', abort, { once: true });
@@ -188,7 +190,7 @@ class RemoteDatabase {
     const credential = this.#token;
     let status;
     try {
-      const response = await this.#fetch(this.#url + '/file' + fileQuery(options), {
+      const response = await this.#fetch(this.#url + (finished ?? '/file' + fileQuery(options)), {
         method: 'GET',
         headers: { authorization: `Bearer ${credential}`, accept: `${DATABASE_FILE_TYPE}, application/json`, ...(this.#id === undefined ? {} : { 'x-romedb-database-id': this.#id }) },
         redirect: 'manual', signal: controller.signal,
@@ -218,6 +220,53 @@ class RemoteDatabase {
       finish();
       if (error instanceof ClientError) throw new ClientError(error.code, redactMessage(error.message, credential), error.outcome, { ...(error.status === undefined ? {} : { status: error.status }), ...(error.retryAfterMs === undefined ? {} : { retryAfterMs: error.retryAfterMs }) });
       throw new ClientError(controller.signal.aborted ? 'RDB_CANCELLED' : status === undefined ? 'RDB_TRANSPORT' : 'RDB_PROTOCOL', 'Database file request failed', 'read-failed', { ...(status === undefined ? {} : { status }), cause: error });
+    }
+  }
+  // Cloud builds a file in a job that outlasts any one request, so this starts the job
+  // and waits for it. It gives the path of the finished file, or undefined from a
+  // service without jobs, whose `/file` builds the copy while the request waits.
+  async #exportJob(options, duration) {
+    const controller = new AbortController();
+    const abort = () => controller.abort();
+    options.signal?.addEventListener('abort', abort, { once: true });
+    this.#active.add(controller);
+    const credential = this.#token, deadline = Date.now() + (options.waitMs ?? MAX_EXPORT_WAIT);
+    const call = (method, path) => this.#fetch(this.#url + path, {
+      method, redirect: 'manual', signal: AbortSignal.any([controller.signal, AbortSignal.timeout(duration)]),
+      headers: { authorization: `Bearer ${credential}`, accept: 'application/json', ...(this.#id === undefined ? {} : { 'x-romedb-database-id': this.#id }) },
+    });
+    const refused = async response => {
+      const retryAfterMs = retryAfter(response.headers.get('retry-after'));
+      const reply = await boundedJson(response, MAX_RESPONSE).catch(() => undefined);
+      const code = plainObject(reply?.error) && typeof reply.error.code === 'string' && /^RDB_[A-Z0-9_]{1,80}$/.test(reply.error.code) ? reply.error.code : httpCode(response.status);
+      return new ClientError(code, safeMessage(reply, credential), 'read-failed', { status: response.status, ...(retryAfterMs === undefined ? {} : { retryAfterMs }) });
+    };
+    try {
+      const started = await call('POST', '/file-exports' + fileQuery(options));
+      if ([404, 405, 503].includes(started.status) && started.headers.get('retry-after') === null) { await started.body?.cancel(); return undefined; }
+      if (started.status !== 202) throw await refused(started);
+      const job = await boundedJson(started, MAX_RESPONSE);
+      if (!plainObject(job) || typeof job.id !== 'string' || !/^[0-9a-f-]{36}$/.test(job.id)) throw new ClientError('RDB_PROTOCOL', 'Invalid file export response', 'read-failed');
+      for (let failures = 0; ;) {
+        if (Date.now() >= deadline) throw new ClientError('RDB_TIMEOUT', 'The file export is still running', 'read-failed');
+        await pause(EXPORT_POLL_MS, controller.signal);
+        const reply = await call('GET', `/file-exports/${job.id}`).catch(error => {
+          if (controller.signal.aborted || ++failures > EXPORT_POLL_FAILURES) throw error;
+        });
+        if (!reply) continue;
+        if (!reply.ok) throw await refused(reply);
+        failures = 0;
+        const state = await boundedJson(reply, MAX_RESPONSE);
+        if (state?.state === 'ready') return `/file-exports/${job.id}/file`;
+        if (state?.state === 'failed') throw new ClientError('RDB_STORAGE', typeof state.error === 'string' ? state.error : 'The file export did not finish', 'read-failed');
+        if (state?.state !== 'running') throw new ClientError('RDB_PROTOCOL', 'Invalid file export state', 'read-failed');
+      }
+    } catch (error) {
+      if (error instanceof ClientError) throw error;
+      throw new ClientError(controller.signal.aborted ? 'RDB_CANCELLED' : 'RDB_TRANSPORT', 'File export request failed', 'read-failed');
+    } finally {
+      options.signal?.removeEventListener('abort', abort);
+      this.#active.delete(controller);
     }
   }
   async close() {
@@ -446,6 +495,7 @@ function encodeWorkLimits(value) {
   return Object.fromEntries(Object.keys(ceilings).filter(key => Object.hasOwn(value, key)).map(key => [key, value[key]]));
 }
 function checkSequence(value) { if (!sequence(value)) throw new RangeError('sequence requires a nonnegative safe integer below Number.MAX_SAFE_INTEGER'); }
+const MAX_EXPORT_WAIT = 3 * 3600_000, EXPORT_POLL_MS = 2000, EXPORT_POLL_FAILURES = 10;
 function timeout(value) { if (!Number.isInteger(value) || value < 1 || value > 120_000) throw new RangeError('timeoutMs must be 1..120000'); return value; }
 function byteLength(text) { return encoder.encode(text).byteLength; }
 function checkBodySize(body, queryVersion = 2) {

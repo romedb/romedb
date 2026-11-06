@@ -658,8 +658,10 @@ test('exportFile downloads the database file with its sequence and checks the si
     await assert.rejects(db.exportFile({ signal: aborted.signal }), error => error.code === 'RDB_CANCELLED' && error.outcome === 'not-sent');
   } finally { await db.close(); }
   const requested = [];
-  const remote = await connect({ url: cloud, token: 'test-token', warm: false, fetch: async url => {
+  const remote = await connect({ url: cloud, token: 'test-token', warm: false, fetch: async (url, options) => {
     requested.push(url);
+    // A service without jobs builds the copy in `/file`.
+    if (options.method === 'POST') return json({ error: 'Database exports are unavailable' }, 503);
     const id = /databases\/([0-9a-f-]{36})/.exec(url)[1];
     return new Response(bytes, { headers: { 'content-type': 'application/vnd.romedb.database', 'content-length': String(bytes.byteLength), 'x-romedb-sequence': '7', 'x-romedb-database-id': id } });
   } });
@@ -670,3 +672,35 @@ test('exportFile downloads the database file with its sequence and checks the si
     assert.match(requested.at(-1), /\/file\?empty=sessions$/);
   } finally { await remote.close(); }
 });
+
+test('exportFile on Cloud starts a job, waits for it and downloads the finished file', async () => {
+  const bytes = new Uint8Array(4096).fill(7), id = '33333333-3333-4333-8333-333333333333', calls = [];
+  let states = ['running', 'ready'];
+  const remote = await connect({ url: cloud, token: 'test-token', warm: false, fetch: async (url, options) => {
+    calls.push(`${options.method} ${url.replace(cloud, '')}`);
+    if (options.method === 'POST') return json({ id, state: 'running', sequence: 7 }, 202);
+    if (url.endsWith(`/file-exports/${id}`)) return json({ id, state: states.shift(), error: 'The job disk cannot hold this export' });
+    const database = /databases\/([0-9a-f-]{36})/.exec(url)[1];
+    return new Response(bytes, { headers: { 'content-type': 'application/vnd.romedb.database', 'content-length': '4096', 'x-romedb-sequence': '7', 'x-romedb-database-id': database } });
+  } });
+  try {
+    const exported = await remote.exportFile({ emptyTables: ['sessions'], timeoutMs: 5000 });
+    assert.equal(exported.sequence, 7);
+    assert.equal((await new Response(exported.body).arrayBuffer()).byteLength, 4096);
+    assert.deepEqual(calls, ['POST /file-exports?empty=sessions', `GET /file-exports/${id}`, `GET /file-exports/${id}`, `GET /file-exports/${id}/file`]);
+    states = ['failed'];
+    await assert.rejects(remote.exportFile(), error => error.code === 'RDB_STORAGE' && /job disk/.test(error.message));
+    await assert.rejects(remote.exportFile({ waitMs: 0 }), RangeError);
+    states = ['running', 'running'];
+    await assert.rejects(remote.exportFile({ waitMs: 1 }), error => error.code === 'RDB_TIMEOUT');
+  } finally { await remote.close(); }
+});
+
+test('exportFile on Cloud reports a busy job and leaves no timer behind', async () => {
+  const remote = await connect({ url: cloud, token: 'test-token', warm: false, fetch: async () =>
+    Response.json({ error: { code: 'RDB_BUSY', message: 'Another database job is running; retry shortly' } }, { status: 429, headers: { 'retry-after': '30' } }) });
+  try {
+    await assert.rejects(remote.exportFile(), error => error.code === 'RDB_BUSY' && error.retryAfterMs === 30000 && error.status === 429);
+  } finally { await remote.close(); }
+});
+
