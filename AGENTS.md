@@ -186,6 +186,12 @@ at `StartCopyTable`, set through `Connection::set_vacuum_into_tables_without_row
 It lets a file export skip tables so that their rows are never read. Keep it until
 upstream can skip tables in `VACUUM INTO`; the register has the regressions.
 
+Newer patch (2026-11-06): **VACUUM INTO in batches**, `core/vdbe/vacuum.rs` and
+`core/vdbe/execute.rs`. The copy commits in batches, is built as WAL pages and becomes MVCC
+before its header, and is removed after a failure. In-place `VACUUM` does not change. Keep it
+until upstream stops building `VACUUM INTO` as one transaction; the register has the
+regressions.
+
 On an upstream sync:
 - Keep the patch unless upstream changed `SavepointOp::Release` to resume a
   commit in progress (`ProgramState::commit_state` not `Ready`).

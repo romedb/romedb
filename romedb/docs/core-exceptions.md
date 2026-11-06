@@ -7,6 +7,34 @@ below tracks upstream replacement candidates; no patch is removed from the
 existing pinned engine merely because a newer upstream revision contains a fix.
 No automatic removal or periodic monitoring is configured.
 
+## VACUUM INTO in batches (2026-11-06)
+
+`VACUUM INTO` built its copy as one transaction, and on an MVCC source as one MVCC
+transaction. Its memory grew with the database, and a commit read spilled pages back, so
+a file export stopped at about 1.3 GB. The copy is disposable until the command succeeds,
+so it does not need to be one transaction. `VacuumTargetBuildConfig` gains two fields, both
+off for in-place `VACUUM`:
+
+- `commit_in_batches` commits and checkpoints the target every 50,000 rows or 64 MiB, and
+  after each index and each post-data object. A custom index method backfills its whole
+  index in one statement, so that step is still one transaction.
+- `convert_to_mvcc` builds an MVCC source's copy as plain WAL pages, as in-place `VACUUM`
+  already does, and turns it into MVCC in `FinalizeTargetHeader`. It must stay before the
+  header is written, because bootstrapping the metadata table moves the schema cookie.
+
+Because a partial copy is now a valid database, `cleanup_op_vacuum_into` removes the output
+file and its side files after a failure. `VACUUM INTO` refuses a path that exists, so it
+only ever removes a file it created.
+
+Keep this exception until upstream builds `VACUUM INTO` without one large transaction. On a
+sync, check that `vacuum_target_build_step` still has the phases that commit, and that
+in-place `VACUUM` still passes both fields as false. The regressions are
+`test_vacuum_into_commits_in_batches` in
+`tests/integration/query_processing/test_vacuum_into_mvcc.rs`, in both journal modes,
+`test_cleanup_vacuum_into_removes_a_partial_output` in `core/vdbe/execute.rs`, and
+`test_vacuum_into_preserves_fts_index` and `test_vacuum_into_preserves_custom_index_method`
+in `tests/integration/query_processing/test_vacuum.rs`.
+
 ## VACUUM INTO tables without rows (2026-11-04)
 
 A file export can leave tables empty so that sign-in tokens never reach a copy that

@@ -19471,6 +19471,9 @@ pub(crate) struct VacuumIntoOpContext {
     escaped_schema_name: String,
     /// Keep output database alive while vacuum is in progress.
     _output_db: Option<Arc<Database>>,
+    /// The file this operation created, removed again if it fails: batch commits
+    /// make a partial copy look like a whole database.
+    output_path: Option<String>,
     /// Configuration for the shared vacuum target build state machine.
     target_build_config: Option<VacuumTargetBuildConfig>,
     /// Context for the shared vacuum target build state machine.
@@ -19557,7 +19560,21 @@ fn cleanup_op_vacuum_into(
     }
 
     vacuum_state.target_build_context = None;
-    vacuum_state._output_db = None;
+    if let (Some(output_db), Some(path)) = (
+        vacuum_state._output_db.take(),
+        vacuum_state.output_path.take(),
+    ) {
+        let io = output_db.io.clone();
+        drop(output_db);
+        for suffix in ["", "-wal", "-shm", "-log"] {
+            let file = format!("{path}{suffix}");
+            if std::path::Path::new(&file).exists() {
+                if let Err(error) = io.remove_file(&file) {
+                    tracing::error!("VACUUM INTO could not remove {file}: {error}");
+                }
+            }
+        }
+    }
 
     if state.auto_txn_cleanup == TxnCleanup::RollbackTxn {
         let pager = connection.pager.load();
@@ -19731,12 +19748,16 @@ fn op_vacuum_into_inner(program: &Program, state: &mut ProgramState, insn: &Insn
                     source_db_id,
                     header_meta,
                     source_custom_types,
-                    target_mvcc_enabled: source_db.mvcc_enabled(),
+                    // Built as plain WAL pages and converted at the end.
+                    target_mvcc_enabled: false,
                     target_auto_vacuum_mode: source_auto_vacuum_mode,
                     copy_mvcc_metadata_table: false,
                     tables_without_rows: program.connection.vacuum_into_tables_without_rows(),
+                    commit_in_batches: true,
+                    convert_to_mvcc: source_db.mvcc_enabled(),
                 };
 
+                vacuum_state.output_path = Some(dest_path.to_string());
                 vacuum_state._output_db = Some(output_db);
                 vacuum_state.target_build_config = Some(config);
                 vacuum_state.target_build_context =
@@ -20040,6 +20061,43 @@ mod tests {
             conn.get_auto_commit(),
             "Busy cleanup should roll back the source transaction before returning"
         );
+    }
+
+    /// A batch commit makes a partial copy a valid database, so a failed build must
+    /// not leave one behind for anyone to mistake for the whole.
+    #[test]
+    fn test_cleanup_vacuum_into_removes_a_partial_output() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let open = |name: &str| {
+            let path = dir.path().join(name);
+            let io: Arc<dyn IO> = Arc::new(crate::io::PlatformIO::new().unwrap());
+            let db = Database::open_file_with_flags(
+                io,
+                path.to_str().unwrap(),
+                OpenFlags::Create,
+                DatabaseOpts::new(),
+                None,
+                Arc::new(SqliteDialect),
+            )
+            .unwrap();
+            (path, db)
+        };
+        let (_, source) = open("source.db");
+        let (path, output) = open("output.db");
+        let target = output.connect().unwrap();
+        target.execute("CREATE TABLE t(x)").unwrap();
+        target.execute("INSERT INTO t VALUES (1)").unwrap();
+        assert!(path.exists());
+        let context = VacuumIntoOpContext {
+            output_path: Some(path.to_str().unwrap().to_string()),
+            _output_db: Some(output),
+            target_build_context: Some(VacuumTargetBuildContext::new(target)),
+            ..Default::default()
+        };
+        let conn = source.connect().unwrap();
+        let mut state = ProgramState::new(0, 0);
+        cleanup_op_vacuum_into(&conn, &mut state, Box::new(context)).unwrap();
+        assert!(!path.exists(), "the partial output is gone");
     }
 
     /// same like `test_vacuum_into_busy_after_source_begin_rolls_back_source_txn`
