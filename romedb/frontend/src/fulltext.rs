@@ -21,9 +21,13 @@ const fn legacy_storage_version() -> u32 {
     1
 }
 const TOKENIZER: &str = "tantivy-default-0.26";
-// Stay below the pinned native FTS cursor's 1,000-document flush threshold.
-// Sixteen text fields plus the ID use at most 2,176 bound parameters.
-const BUILD_BATCH_ROWS: usize = 128;
+// Stay below the pinned native FTS cursor's 1,000-document flush threshold,
+// and within 2,176 bound parameters: 128 rows of sixteen text fields plus the
+// ID. Each statement has a fixed cost in the native index, so an index on
+// fewer fields builds with more rows per statement: two fields take 725, and
+// built 500,000 documents in 287 s instead of 653 s.
+const BUILD_BATCH_ROWS: usize = 900;
+const BUILD_BATCH_PARAMETERS: usize = 2176;
 const _: () = assert!(BUILD_BATCH_ROWS < turso_core::index_method::fts::BATCH_COMMIT_SIZE);
 fn invalid(message: &str) -> Error {
     Error::Validation(format!("fulltext: {message}"))
@@ -300,7 +304,8 @@ impl Connection {
     ) -> Result<()> {
         self.run(&index.table_ddl(), &[])?;
         self.run(&index.index_ddl(), &[])?;
-        self.document_batches(collection, BUILD_BATCH_ROWS, budget, |batch| {
+        let rows = (BUILD_BATCH_PARAMETERS / (index.paths().count() + 1)).min(BUILD_BATCH_ROWS);
+        self.document_batches(collection, rows, budget, |batch| {
             self.insert_text_build_batch(index, batch)
         })
     }
