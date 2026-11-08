@@ -227,8 +227,9 @@ fn managed_fulltext_counts_index_table_and_materialized_visits_separately() {
         let sql = format!("SELECT id FROM search::text('docs_fts','hello',{limit})");
         let plan = c.execute(&format!("EXPLAIN QUERY PLAN {sql}"), &p).unwrap();
         assert!(format!("{plan:?}").contains("QUERY INDEX METHOD fts"));
-        // Stable score/ID ordering scans all five materialized hits before LIMIT.
-        let expected = 15;
+        // One read of the best hits, wide enough for all five ties: five index
+        // visits and five table rows, then one row for each hit the search keeps.
+        let expected = 10 + limit as u64;
         for cap in [0, 4, 9, expected - 1, expected] {
             let m = c.select_metered(
                 &sql,

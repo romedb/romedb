@@ -1398,7 +1398,7 @@ pub(crate) fn has_snapshot_sources(sql: &str) -> Result<bool> {
         t[0].text.eq_ignore_ascii_case("search")
             && t[1].text == ":"
             && t[2].text == ":"
-            && t[3].text.eq_ignore_ascii_case("nearest")
+            && (t[3].text.eq_ignore_ascii_case("nearest") || t[3].text.eq_ignore_ascii_case("text"))
             && t[4].text == "("
     });
     let word = |text: &str| tokens.iter().any(|t| t.text.eq_ignore_ascii_case(text));

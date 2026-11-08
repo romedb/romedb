@@ -475,21 +475,83 @@ impl Connection {
         let filter = filter
             .map(|ids| crate::search_filter::Filter::from_value(ids, &table))
             .transpose()?;
-        let predicate = filter.map_or_else(String::new, |filter| {
-            format!(" WHERE {}", filter.predicate())
-        });
-        // Turso 0.8.1 treats a negative LIMIT as all live indexed documents.
-        // Materialize all hits before stable ID tie-breaking; no shared count
-        // row or table scan is needed to discover the native search limit.
         let query = format!("'{}'", query.replace('\'', "''"));
         let columns = index.key_columns();
-        let inner = format!("SELECT id,fts_score({columns},{query}) AS score FROM {} WHERE fts_match({columns},{query}) LIMIT -1", quote(&index.storage));
-        let plan = self.run(&format!("EXPLAIN QUERY PLAN {inner}"), &[])?;
+        let storage = quote(&index.storage);
+        let Some(filter) = filter else {
+            return self.text_best_hits_sql(&storage, &columns, &query, limit as usize);
+        };
+        // Turso 0.8.1 treats a negative LIMIT as all live indexed documents.
+        // A filter can drop any of the best hits, so it needs them all.
+        let inner = format!("SELECT id,fts_score({columns},{query}) AS score FROM {storage} WHERE fts_match({columns},{query}) LIMIT -1");
+        self.require_native_text_search(&inner)?;
+        Ok(format!("WITH __romedb_text_hits AS MATERIALIZED ({inner}) SELECT id,score FROM __romedb_text_hits WHERE {} ORDER BY score DESC,id LIMIT {limit}", filter.predicate()))
+    }
+    /// The best hits, read once while the statement is planned and given to it
+    /// as rows, like search::nearest. The native index finds its best hits
+    /// without scoring every match, but it breaks ties its own way, so the
+    /// window grows until every hit that ties with the last one wanted is
+    /// inside it. The statement runs in one snapshot with this read.
+    fn text_best_hits_sql(
+        &self,
+        storage: &str,
+        columns: &str,
+        query: &str,
+        limit: usize,
+    ) -> Result<String> {
+        let best = |window: usize| {
+            format!("SELECT id,fts_score({columns},{query}) AS score FROM {storage} WHERE fts_match({columns},{query}) ORDER BY score DESC LIMIT {window}")
+        };
+        self.require_native_text_search(&best(limit + 1))?;
+        if crate::graph::explaining() {
+            return Ok(format!("WITH __romedb_text_hits AS MATERIALIZED ({}) SELECT id,score FROM __romedb_text_hits ORDER BY score DESC,id LIMIT {limit}", best(limit)));
+        }
+        let mut window = limit * 2 + 16;
+        let mut hits = loop {
+            let mut hits = self
+                .run_customer(&best(window), &[])?
+                .iter()
+                .map(|row| text_hit(row))
+                .collect::<Result<Vec<_>>>()?;
+            hits.sort_by(|a, b| b.1.total_cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+            if limit == 0 || hits.len() < window || hits[window - 1].1 < hits[limit - 1].1 {
+                break hits;
+            }
+            window *= 2;
+        };
+        hits.truncate(limit);
+        if hits.is_empty() {
+            return Ok("SELECT NULL AS id, NULL AS score WHERE 0".into());
+        }
+        let values = hits
+            .iter()
+            .map(|(id, score)| {
+                let id = id.iter().map(|b| format!("{b:02x}")).collect::<String>();
+                format!("(x'{id}',{score:?})")
+            })
+            .collect::<Vec<_>>()
+            .join(",");
+        Ok(format!("WITH __romedb_text_hits(id,score) AS MATERIALIZED (VALUES {values}) SELECT id,score FROM __romedb_text_hits ORDER BY score DESC,id"))
+    }
+    fn require_native_text_search(&self, sql: &str) -> Result<()> {
+        let plan = self.run(&format!("EXPLAIN QUERY PLAN {sql}"), &[])?;
         if !plan.iter().any(|row| matches!(row.last(), Some(EngineValue::Text(t)) if t.as_str() == "QUERY INDEX METHOD fts")) {
             return Err(Error::Storage("full-text query did not select its native index".into()));
         }
-        Ok(format!("WITH __romedb_text_hits AS MATERIALIZED ({inner}) SELECT id,score FROM __romedb_text_hits{predicate} ORDER BY score DESC,id LIMIT {limit}"))
+        Ok(())
     }
+}
+
+fn text_hit(row: &[EngineValue]) -> Result<(Vec<u8>, f64)> {
+    let [EngineValue::Blob(id), score] = row else {
+        return Err(Error::Storage("invalid full-text hit".into()));
+    };
+    let score = match score {
+        EngineValue::Numeric(turso_core::Numeric::Float(score)) => f64::from(*score),
+        EngineValue::Numeric(turso_core::Numeric::Integer(score)) => *score as f64,
+        _ => return Err(Error::Storage("full-text score is not a number".into())),
+    };
+    Ok((id.clone(), score))
 }
 
 fn validate_query(query: &str) -> Result<()> {

@@ -17,6 +17,44 @@ fn hits(c: &romedb::Connection, query: &str, limit: usize) -> Vec<Vec<Value>> {
 }
 
 #[test]
+fn a_common_word_reads_only_its_best_hits_and_still_breaks_ties_by_id() {
+    let db = Database::open(":memory:").unwrap();
+    let c = db.connect().unwrap();
+    q(&c, "CREATE TABLE articles");
+    q(
+        &c,
+        "CREATE SEARCH INDEX articles_text ON articles(title,body) USING FULLTEXT",
+    );
+    q(&c, "BEGIN");
+    for n in (0..3000).rev() {
+        let body = if n % 100 == 0 {
+            "common".to_owned()
+        } else {
+            format!("common {}", "filler ".repeat(1 + n % 7))
+        };
+        q(
+            &c,
+            &format!("INSERT INTO articles {{id:type::record('articles','p{n:04}'),title:'t',body:'{body}'}}"),
+        );
+    }
+    q(&c, "COMMIT");
+    let all = hits(&c, "common", 10000);
+    assert_eq!(all.len(), 3000);
+    for limit in [1, 10, 29, 30, 31, 500] {
+        assert_eq!(hits(&c, "common", limit), all[..limit], "limit {limit}");
+    }
+    assert!(matches!(&all[0][0], Value::Record(r) if r.key == romedb::Key::String("p0000".into())));
+    let best = c
+        .profile_select(
+            "SELECT id,score FROM search::text('articles_text','common',10)",
+            &Parameters::new(),
+        )
+        .unwrap();
+    assert_eq!(best.result.rows.len(), 10);
+    assert!(best.metrics.rows_read < 200, "{:?}", best.metrics);
+}
+
+#[test]
 fn text_search_ranks_all_ties_before_limit_and_uses_native_index() {
     let db = Database::open(":memory:").unwrap();
     let c = db.connect().unwrap();
