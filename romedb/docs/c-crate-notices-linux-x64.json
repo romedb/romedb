@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "target": "x86_64-unknown-linux-gnu",
-  "inventorySha256": "d63ca733fb041502154550d85b9ae2abcd8bdc0fd0ff014bf8da9521e089ed88",
+  "inventorySha256": "6d1b8a792e00ce9821197808abdba25eded4a56e9dd21beab25aaae4219e2f32",
   "scope": "Checksummed crate archive notice candidates; not complete notices or linked-binary evidence",
   "packages": [
     {
@@ -1224,9 +1224,9 @@
     },
     {
       "name": "futures-core",
-      "version": "0.3.31",
+      "version": "0.3.33",
       "status": "archive_verified",
-      "archiveSha256": "05f29059c0c2090612e8d742178b0580d2dc940c837851ad723096f87af6663e",
+      "archiveSha256": "2cd50c473c80f6d7c3670a752354b8e569b1a7cbfdc0419ec88e5edad85e0dc7",
       "declaredLicenseFile": null,
       "noticeCandidates": [
         {
@@ -1243,9 +1243,9 @@
     },
     {
       "name": "futures-macro",
-      "version": "0.3.31",
+      "version": "0.3.33",
       "status": "archive_verified",
-      "archiveSha256": "162ee34ebcb7c64a8abebc059ce0fee27c2262618d7b60ed8faf72fef13c3650",
+      "archiveSha256": "2d6d3cde68c518367be28956066ddfef33813991b77a55005a69dae04bf3b10b",
       "declaredLicenseFile": null,
       "noticeCandidates": [
         {
@@ -1262,9 +1262,9 @@
     },
     {
       "name": "futures-task",
-      "version": "0.3.31",
+      "version": "0.3.33",
       "status": "archive_verified",
-      "archiveSha256": "f90f7dce0722e95104fcb095585910c0977252f286e354b5e3bd38902cd99988",
+      "archiveSha256": "b231ed28831efb4a61a08580c4bc233ec56bc009f4cd8f52da2c3cb97df0c109",
       "declaredLicenseFile": null,
       "noticeCandidates": [
         {
@@ -1281,9 +1281,9 @@
     },
     {
       "name": "futures-util",
-      "version": "0.3.31",
+      "version": "0.3.33",
       "status": "archive_verified",
-      "archiveSha256": "9fa08315bb612088cc391249efdc3bc77536f16c91f6cf495e6fbe85b20a4a81",
+      "archiveSha256": "a77a90a256fce34da66415271e30f94ee91c57b04b8a2c042d9cf3220179deaa",
       "declaredLicenseFile": null,
       "noticeCandidates": [
         {
@@ -2487,25 +2487,6 @@
       ]
     },
     {
-      "name": "pin-utils",
-      "version": "0.1.0",
-      "status": "archive_verified",
-      "archiveSha256": "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184",
-      "declaredLicenseFile": null,
-      "noticeCandidates": [
-        {
-          "path": "LICENSE-APACHE",
-          "bytes": 10841,
-          "sha256": "a4db788775cb25f2da419a7ccd3f1f89c3d2cfa8748fb25257596b88183b4c77"
-        },
-        {
-          "path": "LICENSE-MIT",
-          "bytes": 1065,
-          "sha256": "28802412d2bfbafe432b305634413b41a984d30fba0df41d30aa2c8a2077c5b1"
-        }
-      ]
-    },
-    {
       "name": "pkg-config",
       "version": "0.3.32",
       "status": "archive_verified",
@@ -2932,22 +2913,22 @@
     },
     {
       "name": "romedb-c",
-      "version": "0.2.16",
+      "version": "0.2.17",
       "status": "workspace_source_requires_separate_review"
     },
     {
       "name": "romedb-protocol",
-      "version": "0.2.16",
+      "version": "0.2.17",
       "status": "workspace_source_requires_separate_review"
     },
     {
       "name": "romedb",
-      "version": "0.2.16",
+      "version": "0.2.17",
       "status": "workspace_source_requires_separate_review"
     },
     {
       "name": "romeql-parser",
-      "version": "0.2.16",
+      "version": "0.2.17",
       "status": "workspace_source_requires_separate_review"
     },
     {

@@ -1,12 +1,12 @@
 {
-  "reviewed_at": "2026-11-06T15:43:38.599642+00:00",
-  "source_commit": "f80798cc4c49a78191a2fcb3347f103a1e7e020f",
-  "cargo_lock_sha256": "85cc386be272caf1c1aa9dd326f8faf9dfe2c8ab97aaeda65bdd2f66b550f8d1",
+  "reviewed_at": "2026-11-08T01:42:53.417991+00:00",
+  "source_commit": "2a3671e778be19dbaa3ab15d0e44b97fd45d24e2",
+  "cargo_lock_sha256": "86f8f7ba3c89197c231cb63591f845c84325c9f2665a8521c2bf11e66deb2cbe",
   "advisory_database": {
     "repository": "https://github.com/RustSec/advisory-db.git",
-    "commit": "6c5fedf8ff03c485ed674d8f941e0180f3f72d70",
-    "committed_at": "2026-11-03T10:44:19+01:00",
-    "advisory_count": 1403
+    "commit": "309392b18f6b17022f82c701f300433126901068",
+    "committed_at": "2026-11-06T16:34:32+01:00",
+    "advisory_count": 1422
   },
   "scanner": "cargo-audit 0.22.2",
   "target": "x86_64-unknown-linux-gnu",
@@ -359,39 +359,39 @@
     },
     {
       "name": "futures",
-      "version": "0.3.31"
+      "version": "0.3.33"
     },
     {
       "name": "futures-channel",
-      "version": "0.3.31"
+      "version": "0.3.33"
     },
     {
       "name": "futures-core",
-      "version": "0.3.31"
+      "version": "0.3.33"
     },
     {
       "name": "futures-executor",
-      "version": "0.3.31"
+      "version": "0.3.33"
     },
     {
       "name": "futures-io",
-      "version": "0.3.31"
+      "version": "0.3.33"
     },
     {
       "name": "futures-macro",
-      "version": "0.3.31"
+      "version": "0.3.33"
     },
     {
       "name": "futures-sink",
-      "version": "0.3.31"
+      "version": "0.3.33"
     },
     {
       "name": "futures-task",
-      "version": "0.3.31"
+      "version": "0.3.33"
     },
     {
       "name": "futures-util",
-      "version": "0.3.31"
+      "version": "0.3.33"
     },
     {
       "name": "generic-array",
@@ -471,7 +471,7 @@
     },
     {
       "name": "hyper",
-      "version": "1.8.1"
+      "version": "1.9.0"
     },
     {
       "name": "hyper-rustls",
@@ -818,10 +818,6 @@
       "version": "0.2.16"
     },
     {
-      "name": "pin-utils",
-      "version": "0.1.0"
-    },
-    {
       "name": "pkg-config",
       "version": "0.3.32"
     },
@@ -931,35 +927,35 @@
     },
     {
       "name": "romedb",
-      "version": "0.2.16"
+      "version": "0.2.17"
     },
     {
       "name": "romedb-c",
-      "version": "0.2.16"
+      "version": "0.2.17"
     },
     {
       "name": "romedb-cli",
-      "version": "0.2.16"
+      "version": "0.2.17"
     },
     {
       "name": "romedb-node",
-      "version": "0.2.16"
+      "version": "0.2.17"
     },
     {
       "name": "romedb-protocol",
-      "version": "0.2.16"
+      "version": "0.2.17"
     },
     {
       "name": "romedb-python",
-      "version": "0.2.16"
+      "version": "0.2.17"
     },
     {
       "name": "romedb-service",
-      "version": "0.2.16"
+      "version": "0.2.17"
     },
     {
       "name": "romeql-parser",
-      "version": "0.2.16"
+      "version": "0.2.17"
     },
     {
       "name": "rquickjs",

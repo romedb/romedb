@@ -1,4 +1,16 @@
-# Dependency security review for 0.2.16
+# Dependency security review for 0.2.17
+Reviewed 2026-11-08 for the Linux x64 0.2.17 candidate. The exact lockfile scan
+covers 361 package/version identities against the RustSec advisory database at
+`309392b18f6b17022f82c701f300433126901068` (1,422 advisories) using the pinned
+`cargo-audit 0.22.2` binary. The first scan found RUSTSEC-2026-0441, an
+informational notice that `pin-utils` is unmaintained, for the shipped `pin-utils`
+0.1.0. It reached the shipping closure through `futures-util` 0.3.31 and `hyper`
+1.8.1. 0.2.17 updates the nine `futures` crates to 0.3.33 and `hyper` to 1.9.0,
+which no longer use it, so `pin-utils` is gone. The final scan found zero findings
+in the shipping closure, with no accepted exceptions. Apart from that update, the
+lockfile differs from 0.2.16 only in the nine RomeDB workspace package versions.
+
+## Dependency security review for 0.2.16
 Reviewed 2026-11-06 for the Linux x64 0.2.16 candidate. The exact lockfile scan
 covers 362 package/version identities against the RustSec advisory database at
 `6c5fedf8ff03c485ed674d8f941e0180f3f72d70` using the pinned `cargo-audit 0.22.2`

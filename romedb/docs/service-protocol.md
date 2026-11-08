@@ -283,9 +283,8 @@ How a copy is made:
   so `romedb serve FILE` starts it at 0.
 - The copy keeps the database's ID. `serve --directory` refuses it under another
   file name (409, a copied database); serve it alone or under its own ID.
-- Not yet available: `exportFile` on a Cloud URL fails with `RDB_UNSUPPORTED`
-  before sending (Cloud exports remain the archives of `PUT .../exports/{uuid}`),
-  and a Cloud database cannot be created from a file.
+- On Cloud, `exportFile` runs as a job (see the table above), and a Cloud import
+  takes a `.romedb` file as well as a SQLite file.
 
 ## Values and results
 

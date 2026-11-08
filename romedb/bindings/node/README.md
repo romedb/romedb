@@ -23,7 +23,7 @@ version, 0.2.12, differs from its asset only in `package.json` and this README. 
 project can also depend on the asset of a GitHub release by URL:
 
 ```sh
-pnpm add https://github.com/romedb/romedb/releases/download/romedb-v0.2.16/romedb-node-0.2.16.tgz
+pnpm add https://github.com/romedb/romedb/releases/download/romedb-v0.2.17/romedb-node-0.2.17.tgz
 ```
 
 From 0.2.15, `@romedb/node` depends on `@romedb/client` at the same version, so that
@@ -733,6 +733,10 @@ can take minutes. `waitMs` bounds that wait, 3 hours by default, and `timeoutMs`
 each request. See
 [database files](https://github.com/romedb/romedb/blob/main/romedb/docs/service-protocol.md#database-files) for how the copy is
 made.
+
+On Cloud, `rql.buildIndex(sql, { signal, timeoutMs, waitMs })` builds an index that is too
+large for one query, as a job, while reads go on and writes wait. It cancels the build if
+the wait ends early. See the `@romedb/client` README for details.
 
 ## URL client
 
