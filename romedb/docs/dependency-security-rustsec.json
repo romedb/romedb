@@ -1,7 +1,7 @@
 {
-  "reviewed_at": "2026-11-08T10:59:13.180540+00:00",
-  "source_commit": "dcc4ac748f04117b1942b818c2e1e22659b0b145",
-  "cargo_lock_sha256": "a3e572e3affb20283c8da927fcbe027bc7b660f3401f2ac0161f3ab1ab92be4b",
+  "reviewed_at": "2026-11-08T15:24:25.409845+00:00",
+  "source_commit": "786da85ab1c995eaa5dfc5f62d97825a218a27e0",
+  "cargo_lock_sha256": "5ad06914d75f7dee2a4d9bcd9140948bbd9c9b15c65e01ca816abe921ea0cdb6",
   "advisory_database": {
     "repository": "https://github.com/RustSec/advisory-db.git",
     "commit": "309392b18f6b17022f82c701f300433126901068",
@@ -927,35 +927,35 @@
     },
     {
       "name": "romedb",
-      "version": "0.2.19"
+      "version": "0.2.20"
     },
     {
       "name": "romedb-c",
-      "version": "0.2.19"
+      "version": "0.2.20"
     },
     {
       "name": "romedb-cli",
-      "version": "0.2.19"
+      "version": "0.2.20"
     },
     {
       "name": "romedb-node",
-      "version": "0.2.19"
+      "version": "0.2.20"
     },
     {
       "name": "romedb-protocol",
-      "version": "0.2.19"
+      "version": "0.2.20"
     },
     {
       "name": "romedb-python",
-      "version": "0.2.19"
+      "version": "0.2.20"
     },
     {
       "name": "romedb-service",
-      "version": "0.2.19"
+      "version": "0.2.20"
     },
     {
       "name": "romeql-parser",
-      "version": "0.2.19"
+      "version": "0.2.20"
     },
     {
       "name": "rquickjs",
