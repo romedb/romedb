@@ -1,0 +1,107 @@
+{
+  "version": "0.2.17",
+  "qualified": true,
+  "qualifiedAtUtc": "2026-11-08T04:00:02.679283+00:00",
+  "sourceCommit": "28fe2199430e506eab9e4a4115f20453fb83fe01",
+  "sourceArchiveSha256": "81b4e17d07109e2c788ddc273e7fe70b568528ad569bee8baf0a7757f5800883",
+  "cargoLockSha256": "86f8f7ba3c89197c231cb63591f845c84325c9f2665a8521c2bf11e66deb2cbe",
+  "buildManifestSha256": "4505622644dcb69a411e3cb62b3c935ddd9db453521c275455df14ed143429ca",
+  "buildChecksumsSha256": "a2e54b1f223b032aaa639410d3fbe08fd1f3fd3627c16f908769462482b88f4d",
+  "buildProfile": "romedb-production",
+  "sourceCi": "https://github.com/romedb/romedb/actions/runs/42435462328",
+  "sourceTests": {
+    "rust": 1145,
+    "rustIgnored": 4,
+    "node": 225,
+    "cAbi": 5,
+    "releasePolicy": 2,
+    "upgradeTable": 4,
+    "formatting": "passed",
+    "scopedClippy": "passed",
+    "strictTypeScript": "passed"
+  },
+  "installedGroups": [
+    "c-abi",
+    "cli",
+    "cli-v22",
+    "cli-graph",
+    "cli-spatial",
+    "sqlite-adoption",
+    "cli-elf",
+    "c-elf",
+    "node-0",
+    "node-client-0",
+    "node-1",
+    "node-client-1",
+    "python-0",
+    "python-1",
+    "python-2",
+    "php-package",
+    "go-package",
+    "swift-package",
+    "node-upgrade-install",
+    "node-ownership-0",
+    "v0213-upgrade-restore-0",
+    "v0214-upgrade-restore-0",
+    "v0215-upgrade-restore-0",
+    "v0216-upgrade-restore-0",
+    "node-ownership-1",
+    "v0213-upgrade-restore-1",
+    "v0214-upgrade-restore-1",
+    "v0215-upgrade-restore-1",
+    "v0216-upgrade-restore-1",
+    "nuget-package"
+  ],
+  "nodeVersions": [
+    "22.0.0",
+    "24.19.0"
+  ],
+  "pythonVersions": [
+    "3.10.21",
+    "3.12.3",
+    "3.14.7"
+  ],
+  "standaloneRustConsumer": "passed with the romedb-production profile; 335 registry/git package identities match the workspace lockfile",
+  "upgradeRestore": "Passed from the 0.2.13, 0.2.14, 0.2.15 and 0.2.16 packages on Node 22.0.0 and 24.19.0 (groups v0213-upgrade-restore, v0214-upgrade-restore, v0215-upgrade-restore and v0216-upgrade-restore). 0.2.13 is the floor: it changed the stored value prefix, and earlier files are refused.",
+  "engine": {
+    "upstream": "Turso v0.8.3",
+    "upstreamCommit": "607bff9fd0e547a25a97b3bf06e83bcc5d99d53c",
+    "previousUpstream": "607bff9fd0e547a25a97b3bf06e83bcc5d99d53c",
+    "exceptions": "the maintained engine exceptions retained, none added (romedb/docs/core-exceptions.md)",
+    "storageFormat": "__romedb_ schema prefix, .romedb extension, stored values prefixed RDB 01 (FDB 01 before 0.2.13); openEmbedded and serve use MVCC files; collections with a * array path index use catalog version 8, others keep version 7 or earlier",
+    "sync": "romedb/romedb#30",
+    "change": "no engine core change; RomeDB builds indexes in batches and can commit them on a private copy (Connection::set_offline_build); the same engine and patches as 0.2.16 (Turso v0.8.3, Tantivy 0.27.0)"
+  },
+  "spatial": {
+    "catalogVersion": 7,
+    "explainReadsNoData": "metered EXPLAIN reports zero rows read for every spatial form (spatial_explain_reads_no_documents_or_index_entries)",
+    "cliSpatialCheck": "passed"
+  },
+  "supportedScope": {
+    "platform": "Linux x64",
+    "clients": [
+      "rust",
+      "node",
+      "python",
+      "php",
+      "swift",
+      "csharp",
+      "go"
+    ],
+    "ownership": "One owning process per database file; shared clients connect to its service"
+  },
+  "security": {
+    "unresolvedFindings": 0,
+    "acceptedInformational": [],
+    "advisoryDatabase": "309392b18f6b17022f82c701f300433126901068",
+    "resolvedForRelease": [
+      "RUSTSEC-2026-0441 (pin-utils unmaintained): futures 0.3.33 and hyper 1.9.0 no longer use pin-utils"
+    ]
+  },
+  "documentationOverrides": {
+    "ENVELOPE.md": "Historical 2.1.0 measurements; the raw-evidence link points to the immutable fastdb-v2.1.0 release"
+  },
+  "performance": "Historical 2.1.0 operating envelope retained; fresh bounded application sample, not capacity guarantees",
+  "buildHost": "Built and qualified under scripts/romedb-heavy (shared lock, two jobs, cgroup memory ceiling)",
+  "publication": "Qualified for publication; anonymous public-download verification is separate"
+}
