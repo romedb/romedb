@@ -311,6 +311,36 @@ fn text_bulk_build_supports_one_and_sixteen_fields() {
 }
 
 #[test]
+fn a_one_field_build_crosses_its_larger_batches() {
+    let db = Database::open(":memory:").unwrap();
+    let c = db.connect().unwrap();
+    q(&c, "CREATE TABLE articles");
+    q(&c, "BEGIN");
+    for n in 0..1801 {
+        q(&c, &format!("INSERT INTO articles {{id:type::record('articles','p{n:04}'),title:'common token{n}'}}"));
+    }
+    q(&c, "COMMIT");
+    q(
+        &c,
+        "CREATE SEARCH INDEX articles_text ON articles(title) USING FULLTEXT",
+    );
+    assert_eq!(hits(&c, "common", 10000).len(), 1801);
+    for n in [0, 899, 900, 1799, 1800] {
+        let rows = hits(&c, &format!("token{n}"), 10);
+        assert!(
+            matches!(&rows[..], [row] if matches!(&row[0], Value::Record(r) if r.key == romedb::Key::String(format!("p{n:04}")))),
+            "token{n}"
+        );
+    }
+    assert_eq!(
+        c.check_collection_integrity("articles", Default::default())
+            .unwrap()
+            .index_entries,
+        1801
+    );
+}
+
+#[test]
 fn failed_text_builds_leave_no_orphans_and_query_inputs_are_explicit() {
     let db = Database::open(":memory:").unwrap();
     let c = db.connect().unwrap();
