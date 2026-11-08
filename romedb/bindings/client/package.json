@@ -1,6 +1,6 @@
 {
   "name": "@romedb/client",
-  "version": "0.2.16",
+  "version": "0.2.17",
   "description": "RomeDB client for Node.js, Cloudflare Workers and browsers. Connects by URL to romedb serve or RomeDB Cloud, with no native addon.",
   "main": "client.cjs",
   "types": "client.d.ts",
