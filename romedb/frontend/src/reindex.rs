@@ -1,4 +1,4 @@
-use crate::{quote, Collection, Connection, Document, Error, IndexKind, Result};
+use crate::{quote, Connection, Error, IndexKind, Result};
 
 impl Connection {
     pub fn reindex(&self, name: &str) -> Result<()> {
@@ -21,7 +21,8 @@ impl Connection {
             else {
                 continue;
             };
-            let documents = self.reindex_documents(&collection)?;
+            let source = collection.clone();
+            let mut budget = self.write_buffer_budget()?;
             let index = &mut collection.indexes[position];
             self.drop_index_storage(index)?;
             if let Some(config) = &mut index.fulltext {
@@ -33,17 +34,28 @@ impl Connection {
                 index.spatial = Some(crate::spatial::Config::current());
             }
             match index.kind {
-                IndexKind::FullText => self.build_text_storage(index, &documents)?,
-                IndexKind::Vector => self.build_vector_storage(index, &documents)?,
+                IndexKind::FullText => {
+                    self.build_text_storage(index, &source, Some(&mut budget))?
+                }
+                IndexKind::Vector => {
+                    self.build_vector_storage(index, &source, Some(&mut budget))?
+                }
                 IndexKind::Scalar | IndexKind::Spatial | IndexKind::Array => {
                     self.run(&index.table_ddl(), &[])?;
                     self.run(&index.index_ddl(), &[])?;
                     for object in index.extra_schema() {
                         self.run(&object.ddl, &[])?;
                     }
-                    for document in &documents {
-                        self.insert_index(index, document)?;
-                    }
+                    self.document_batches(
+                        &source,
+                        crate::INDEX_BUILD_ROWS,
+                        Some(&mut budget),
+                        |documents| {
+                            documents
+                                .iter()
+                                .try_for_each(|document| self.insert_index(index, document))
+                        },
+                    )?;
                 }
             }
             self.save_catalog(&collection)?;
@@ -51,50 +63,93 @@ impl Connection {
         }
         Err(Error::NotFound(format!("managed index {name}")))
     }
-
-    fn reindex_documents(&self, collection: &Collection) -> Result<Vec<Document>> {
-        let mut statement =
-            self.prepare(format!("SELECT doc FROM {}", quote(&collection.storage)))?;
-        let mut documents = Vec::new();
-        let mut budget = self.write_buffer_budget()?;
-        let mut failure = None;
-        let result = self.meter_statement(&mut statement, |statement| {
-            crate::parser_stack(|| {
-                statement.run_with_row_callback(|row| {
-                    let result = (|| -> Result<()> {
-                        let value = row
-                            .get_values()
-                            .next()
-                            .ok_or_else(|| Error::Storage("missing source document".into()))?;
-                        let document = crate::decode_document(value)?;
-                        budget.document(&document)?;
-                        documents.push(document);
-                        Ok(())
-                    })();
-                    if let Err(error) = result {
-                        failure = Some(error);
-                        return Err(turso_core::LimboError::Interrupt);
-                    }
-                    Ok(())
-                })
-            })?;
-            Ok(())
-        });
-        if let Err(error @ Error::Rollback { .. }) = result {
-            return Err(error);
-        }
-        if let Some(error) = failure {
-            return Err(error);
-        }
-        result?;
-        Ok(documents)
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{Database, Parameters, Value};
+    // Past a batch of each kind of build, with gaps in the rowids where rows were
+    // deleted: a build reads the table in batches and must see every document.
+    #[test]
+    fn a_build_reads_every_document_across_its_batches() {
+        builds_every_document(false);
+    }
+    // On a private copy each batch commits, and the result is the same.
+    #[test]
+    fn an_offline_build_commits_its_batches_with_the_same_result() {
+        builds_every_document(true);
+    }
+    fn builds_every_document(offline: bool) {
+        let c = Database::open(":memory:").unwrap().connect().unwrap();
+        let none = Parameters::new();
+        c.set_offline_build(offline);
+        let rows = crate::INDEX_BUILD_ROWS as i64 + 300;
+        c.execute("BEGIN", &none).unwrap();
+        for i in 0..rows {
+            c.execute(
+                &format!(
+                    "INSERT INTO docs {{id:docs:a{i},n:{i},body:'common word{i}',tags:['t{}'],\
+                     v:vector32('[{i},1]'),point:geo::point({}, {})}}",
+                    i % 3,
+                    i % 90,
+                    i % 45
+                ),
+                &none,
+            )
+            .unwrap();
+        }
+        c.execute("COMMIT", &none).unwrap();
+        // 200 documents gone from the middle of the first batch.
+        for i in 100..300 {
+            c.execute(&format!("DELETE docs:a{i}"), &none).unwrap();
+        }
+        let kept = rows - 200;
+        for sql in [
+            "CREATE INDEX scalar ON docs(n)",
+            "CREATE SEARCH INDEX words ON docs(body) USING FULLTEXT",
+            "CREATE SEARCH INDEX vec ON docs(v) USING VECTOR WITH(dimensions=2,metric='l2')",
+            "CREATE SEARCH INDEX loc ON docs(point) USING SPATIAL",
+            "CREATE SEARCH INDEX tag ON docs(tags) USING ARRAY",
+        ] {
+            c.execute(sql, &none).expect(sql);
+        }
+        let count = |c: &crate::Connection, sql: &str| -> Value {
+            c.execute(sql, &none).unwrap().rows[0][0].clone()
+        };
+        let check = |c: &crate::Connection| {
+            for sql in [
+                "SELECT count(*) FROM search::text('words','common',10000)",
+                "SELECT count(*) FROM search::vector('vec',vector32('[0,1]'),10000)",
+            ] {
+                assert_eq!(count(c, sql), Value::Integer(kept), "{sql}");
+            }
+            assert_eq!(
+                count(c, "SELECT count(*) FROM search::text('words','word1299',5)"),
+                Value::Integer(1)
+            );
+            assert_eq!(
+                count(c, "SELECT count(*) FROM docs WHERE n > 1200"),
+                Value::Integer(rows - 1201)
+            );
+            let first = (0..rows)
+                .filter(|i| !(100..300).contains(i) && i % 3 == 0)
+                .count() as i64;
+            assert_eq!(
+                count(
+                    c,
+                    "SELECT count(*) FROM docs WHERE array::contains(tags,'t0')"
+                ),
+                Value::Integer(first)
+            );
+        };
+        check(&c);
+        // A rebuild reads the same way, and changes nothing.
+        for name in ["scalar", "words", "vec", "loc", "tag"] {
+            c.reindex(name).expect(name);
+        }
+        check(&c);
+    }
     #[test]
     fn rebuild_repairs_missing_auxiliary_entries_from_documents() {
         let c = Database::open(":memory:").unwrap().connect().unwrap();

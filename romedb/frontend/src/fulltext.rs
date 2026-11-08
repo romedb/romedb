@@ -1,7 +1,7 @@
 //! Managed full-text storage and deterministic ranking over pinned native FTS.
 use crate::{
-    canonical, quote, text, Connection, Document, EngineValue, Error, Index, IndexKind, Result,
-    Value,
+    canonical, quote, text, Collection, Connection, Document, EngineValue, Error, Index, IndexKind,
+    Result, Value,
 };
 use serde::{Deserialize, Serialize};
 
@@ -277,7 +277,7 @@ impl Connection {
             }),
         };
         index.validate_text_config()?;
-        self.atomic(|| {
+        self.index_build(|| {
             let mut c = self.catalog(table)?;
             if let Some(existing) = c.indexes.iter().find(|i| i.name == name) {
                 if if_not_exists && existing.kind == index.kind && existing.path == index.path && existing.fulltext == index.fulltext { return Ok(()); }
@@ -287,18 +287,22 @@ impl Connection {
                 return Err(Error::AlreadyExists(name.clone()));
             }
             for path in index.paths() { crate::catalog::compatible_index(&c, path, index.kind)?; }
-            self.build_text_storage(&index, &self.documents(&c)?)?;
+            self.build_text_storage(&index, &c, None)?;
             c.indexes.push(index.clone());
             self.save_catalog(&c)
         })
     }
-    pub(crate) fn build_text_storage(&self, index: &Index, documents: &[Document]) -> Result<()> {
+    pub(crate) fn build_text_storage(
+        &self,
+        index: &Index,
+        collection: &Collection,
+        budget: Option<&mut crate::budget::ResultBudget>,
+    ) -> Result<()> {
         self.run(&index.table_ddl(), &[])?;
         self.run(&index.index_ddl(), &[])?;
-        for batch in documents.chunks(BUILD_BATCH_ROWS) {
-            self.insert_text_build_batch(index, batch)?;
-        }
-        Ok(())
+        self.document_batches(collection, BUILD_BATCH_ROWS, budget, |batch| {
+            self.insert_text_build_batch(index, batch)
+        })
     }
     fn insert_text_build_batch(&self, index: &Index, documents: &[Document]) -> Result<()> {
         let mut values = Vec::new();

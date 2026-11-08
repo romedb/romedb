@@ -483,7 +483,7 @@ impl Connection {
             scalar: None,
             spatial: None,
         };
-        self.atomic(||{
+        self.index_build(||{
             let mut collection=self.catalog(table)?;
             if let Some(old)=collection.indexes.iter().find(|i|i.name==name) {
                 if if_not_exists && old.kind==index.kind && old.path==index.path && old.vector==index.vector {return Ok(());}
@@ -491,11 +491,16 @@ impl Connection {
             }
             if !self.run("SELECT name FROM sqlite_schema WHERE name=?1 COLLATE NOCASE UNION ALL SELECT name FROM __romedb_catalog WHERE name=?1",&[text(&name)])?.is_empty(){return Err(Error::AlreadyExists(name.clone()));}
             crate::catalog::compatible_index(&collection,&index.path,index.kind)?; index.validate_vector_config(&collection)?;
-            self.build_vector_storage(&index, &self.documents(&collection)?)?;
+            self.build_vector_storage(&index, &collection, None)?;
             collection.indexes.push(index.clone()); self.save_catalog(&collection)
         })
     }
-    pub(crate) fn build_vector_storage(&self, index: &Index, documents: &[Document]) -> Result<()> {
+    pub(crate) fn build_vector_storage(
+        &self,
+        index: &Index,
+        collection: &Collection,
+        budget: Option<&mut crate::budget::ResultBudget>,
+    ) -> Result<()> {
         for ddl in [
             index.table_ddl(),
             index.index_ddl(),
@@ -505,32 +510,39 @@ impl Connection {
             self.run(&ddl, &[])?;
         }
         let graph = index.config()?.graph()?;
+        let count = self.run(
+            &format!("SELECT count(*) FROM {}", quote(&collection.storage)),
+            &[],
+        )?;
         graph
-            .reserve_capacity_and_threads(documents.len().max(1), 1)
+            .reserve_capacity_and_threads((integer(&count[0][0])? as usize).max(1), 1)
             .map_err(native)?;
-        for doc in documents {
-            self.ann_boundary()?;
-            let key = index.document_keys(doc)?.remove(0);
-            let id = doc
-                .get("id")
-                .ok_or_else(|| stored("missing id"))?
-                .encode()?;
-            let rows = self.run_index_maintenance(
-                &format!(
-                    "INSERT INTO {} VALUES (?1,?2) RETURNING rowid",
-                    quote(&index.storage)
-                ),
-                &[key, EngineValue::Blob(id)],
-            )?;
-            if let Some(value) = crate::path_value(doc, &index.path)? {
-                if !matches!(value, Value::Null) {
-                    let values = index.config()?.components(value)?;
-                    graph
-                        .add(integer(&rows[0][0])? as u64, &values)
-                        .map_err(native)?;
+        self.document_batches(collection, crate::INDEX_BUILD_ROWS, budget, |documents| {
+            for doc in documents {
+                self.ann_boundary()?;
+                let key = index.document_keys(doc)?.remove(0);
+                let id = doc
+                    .get("id")
+                    .ok_or_else(|| stored("missing id"))?
+                    .encode()?;
+                let rows = self.run_index_maintenance(
+                    &format!(
+                        "INSERT INTO {} VALUES (?1,?2) RETURNING rowid",
+                        quote(&index.storage)
+                    ),
+                    &[key, EngineValue::Blob(id)],
+                )?;
+                if let Some(value) = crate::path_value(doc, &index.path)? {
+                    if !matches!(value, Value::Null) {
+                        let values = index.config()?.components(value)?;
+                        graph
+                            .add(integer(&rows[0][0])? as u64, &values)
+                            .map_err(native)?;
+                    }
                 }
             }
-        }
+            Ok(())
+        })?;
         let bytes = snapshot(&graph)?;
         let digest = Sha256::digest(&bytes).to_vec();
         self.run_index_maintenance(

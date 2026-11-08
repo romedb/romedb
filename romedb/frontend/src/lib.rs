@@ -86,6 +86,10 @@ use turso_core::{
 pub use value::{Document, Key, Parameters, Record, Value};
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+/// Documents an index build reads at a time. A build holds one batch in memory.
+pub(crate) const INDEX_BUILD_ROWS: usize = 1024;
+/// Document bytes an offline index build reads between checkpoints of its WAL.
+const OFFLINE_CHECKPOINT_BYTES: usize = 256 * 1024 * 1024;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -438,6 +442,7 @@ impl Database {
             engine,
             manual_wal: self.manual_wal,
             next_atomic_id: std::sync::atomic::AtomicU64::new(0),
+            offline_build: std::sync::atomic::AtomicBool::new(false),
             next_subquery_id: std::sync::atomic::AtomicU64::new(0),
             write_buffer_limits: None,
             ann_cache: Default::default(),
@@ -571,6 +576,7 @@ pub struct Connection {
     manual_wal: bool,
     next_atomic_id: std::sync::atomic::AtomicU64,
     next_subquery_id: std::sync::atomic::AtomicU64,
+    offline_build: std::sync::atomic::AtomicBool,
     write_buffer_limits: Option<ResultLimits>,
     ann_cache: std::sync::Mutex<Option<ann::Cache>>,
     work_meter: std::sync::Mutex<Option<Arc<turso_core::execution_meter::ExecutionMeter>>>,
@@ -870,6 +876,91 @@ impl Connection {
         .map(|row| decode_document(&row[0]))
         .collect()
     }
+    /// For a private copy of a database, which a failed build throws away. An
+    /// index build then commits each batch, so its memory and log stay small,
+    /// however large the table. In one transaction, every statement's before
+    /// images stay in memory until the end, and the commit writes each changed
+    /// page a second time. Never set this on a database in use: a build that
+    /// fails leaves the tables of a partial index behind.
+    pub fn set_offline_build(&self, enabled: bool) {
+        self.offline_build
+            .store(enabled, std::sync::atomic::Ordering::Relaxed);
+    }
+    fn offline_build(&self) -> bool {
+        self.offline_build
+            .load(std::sync::atomic::Ordering::Relaxed)
+            && self.engine.get_auto_commit()
+    }
+    /// One index build: one transaction, except on a private copy.
+    fn index_build<T>(&self, build: impl FnOnce() -> Result<T>) -> Result<T> {
+        if self.offline_build() {
+            parser_stack(build)
+        } else {
+            self.atomic(build)
+        }
+    }
+    /// A collection's documents in rowid order, `rows` at a time, so an index
+    /// build holds one batch and not the whole table. `visit` must not change
+    /// the collection's own rows. A rebuild passes `budget`, which charges every
+    /// document, so `REINDEX` keeps the caller's limit over the whole table.
+    fn document_batches(
+        &self,
+        collection: &Collection,
+        rows: usize,
+        mut budget: Option<&mut budget::ResultBudget>,
+        mut visit: impl FnMut(&[Document]) -> Result<()>,
+    ) -> Result<()> {
+        let offline = self.offline_build();
+        let mut unsaved = 0usize;
+        let sql = format!(
+            "SELECT rowid,doc FROM {} WHERE rowid>?1 ORDER BY rowid LIMIT {rows}",
+            quote(&collection.storage)
+        );
+        let mut after = i64::MIN;
+        loop {
+            let found = self.run_customer(
+                &sql,
+                &[EngineValue::Numeric(turso_core::Numeric::Integer(after))],
+            )?;
+            let documents = found
+                .iter()
+                .map(|row| decode_document(&row[1]))
+                .collect::<Result<Vec<_>>>()?;
+            if let Some(budget) = budget.as_deref_mut() {
+                documents
+                    .iter()
+                    .try_for_each(|document| budget.document(document))?;
+            }
+            if !documents.is_empty() {
+                if offline {
+                    self.run("BEGIN", &[])?;
+                }
+                visit(&documents)?;
+                if offline {
+                    self.run("COMMIT", &[])?;
+                    unsaved += found
+                        .iter()
+                        .map(|row| match &row[1] {
+                            EngineValue::Blob(bytes) => bytes.len(),
+                            _ => 0,
+                        })
+                        .sum::<usize>();
+                    if unsaved >= OFFLINE_CHECKPOINT_BYTES {
+                        self.run("PRAGMA wal_checkpoint(TRUNCATE)", &[])?;
+                        unsaved = 0;
+                    }
+                }
+            }
+            if found.len() < rows {
+                return Ok(());
+            }
+            let EngineValue::Numeric(turso_core::Numeric::Integer(rowid)) = found[rows - 1][0]
+            else {
+                return Err(Error::Storage("invalid document rowid".into()));
+            };
+            after = rowid;
+        }
+    }
     pub fn get(&self, record: &Record) -> Result<Option<Document>> {
         let collection = self.catalog(&record.table)?;
         self.get_in(&collection, record)
@@ -1042,7 +1133,7 @@ impl Connection {
         }
         let path = paths[0].clone();
         let name = canonical(name)?;
-        self.atomic(|| {
+        self.index_build(|| {
             let mut c = self.catalog(table)?;
             let existing = self.run(
                 "SELECT type FROM sqlite_schema WHERE name=?1 COLLATE NOCASE",
@@ -1106,9 +1197,11 @@ impl Connection {
             for object in index.extra_schema() {
                 self.run(&object.ddl, &[])?;
             }
-            for doc in self.documents(&c)? {
-                self.insert_index(&index, &doc)?;
-            }
+            self.document_batches(&c, INDEX_BUILD_ROWS, None, |documents| {
+                documents
+                    .iter()
+                    .try_for_each(|doc| self.insert_index(&index, doc))
+            })?;
             c.indexes.push(index);
             self.save_catalog(&c)
         })
