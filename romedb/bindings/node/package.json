@@ -1,6 +1,6 @@
 {
   "name": "@romedb/node",
-  "version": "0.2.18",
+  "version": "0.2.19",
   "description": "RomeDB for Node.js: the embedded database (Linux x64 native addon) and a Web-API client for romedb serve and RomeDB Cloud",
   "main": "index.cjs",
   "types": "index.d.ts",
@@ -20,7 +20,7 @@
     "node": ">=22"
   },
   "dependencies": {
-    "@romedb/client": "0.2.18"
+    "@romedb/client": "0.2.19"
   },
   "devDependencies": {
     "typescript": "5.8.3"
