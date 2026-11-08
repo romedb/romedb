@@ -1,0 +1,107 @@
+{
+  "version": "0.2.18",
+  "qualified": true,
+  "qualifiedAtUtc": "2026-11-08T08:05:39.152966+00:00",
+  "sourceCommit": "cbcf6f3f7b6adc28f1ae890482f3c1d1297667c2",
+  "sourceArchiveSha256": "f2aaa897703ef95e2c1a129e5702eaa8908ceac08fb9e31bf682b81c391c3803",
+  "cargoLockSha256": "c0586ca666bd2976dea6626037f2238933f59ac9e7a3057ec7ab009167dde68e",
+  "buildManifestSha256": "026e41c8ae81adcbf39930fc0f4b04777d1cc6961854b9a871679267d2ea2254",
+  "buildChecksumsSha256": "d02a3ba2b8b35722e326b43f142fcaee6f34c9f1d7d5358453d145b2ba776b9c",
+  "buildProfile": "romedb-production",
+  "sourceCi": "https://github.com/romedb/romedb/actions/runs/42453645371",
+  "sourceTests": {
+    "rust": 1146,
+    "rustIgnored": 4,
+    "node": 225,
+    "cAbi": 5,
+    "releasePolicy": 2,
+    "upgradeTable": 4,
+    "formatting": "passed",
+    "scopedClippy": "passed",
+    "strictTypeScript": "passed"
+  },
+  "installedGroups": [
+    "c-abi",
+    "cli",
+    "cli-v22",
+    "cli-graph",
+    "cli-spatial",
+    "sqlite-adoption",
+    "cli-elf",
+    "c-elf",
+    "node-0",
+    "node-client-0",
+    "node-1",
+    "node-client-1",
+    "python-0",
+    "python-1",
+    "python-2",
+    "php-package",
+    "go-package",
+    "swift-package",
+    "node-upgrade-install",
+    "node-ownership-0",
+    "v0213-upgrade-restore-0",
+    "v0214-upgrade-restore-0",
+    "v0215-upgrade-restore-0",
+    "v0216-upgrade-restore-0",
+    "v0217-upgrade-restore-0",
+    "node-ownership-1",
+    "v0213-upgrade-restore-1",
+    "v0214-upgrade-restore-1",
+    "v0215-upgrade-restore-1",
+    "v0216-upgrade-restore-1",
+    "v0217-upgrade-restore-1",
+    "nuget-package"
+  ],
+  "nodeVersions": [
+    "22.0.0",
+    "24.19.0"
+  ],
+  "pythonVersions": [
+    "3.10.21",
+    "3.12.3",
+    "3.14.7"
+  ],
+  "standaloneRustConsumer": "passed with the romedb-production profile; 335 registry/git package identities match the workspace lockfile",
+  "upgradeRestore": "Passed from the 0.2.13, 0.2.14, 0.2.15, 0.2.16 and 0.2.17 packages on Node 22.0.0 and 24.19.0 (groups v0213-upgrade-restore to v0217-upgrade-restore). 0.2.13 is the floor: it changed the stored value prefix, and earlier files are refused.",
+  "engine": {
+    "upstream": "Turso v0.8.3",
+    "upstreamCommit": "607bff9fd0e547a25a97b3bf06e83bcc5d99d53c",
+    "previousUpstream": "607bff9fd0e547a25a97b3bf06e83bcc5d99d53c",
+    "exceptions": "the maintained engine exceptions retained, none added (romedb/docs/core-exceptions.md)",
+    "storageFormat": "__romedb_ schema prefix, .romedb extension, stored values prefixed RDB 01 (FDB 01 before 0.2.13); openEmbedded and serve use MVCC files; collections with a * array path index use catalog version 8, others keep version 7 or earlier",
+    "sync": "romedb/romedb#30",
+    "change": "no engine core change; search::text asks the native index once for its best hits; the same engine and patches as 0.2.17 (Turso v0.8.3, Tantivy 0.27.0)"
+  },
+  "spatial": {
+    "catalogVersion": 7,
+    "explainReadsNoData": "metered EXPLAIN reports zero rows read for every spatial form (spatial_explain_reads_no_documents_or_index_entries)",
+    "cliSpatialCheck": "passed"
+  },
+  "supportedScope": {
+    "platform": "Linux x64",
+    "clients": [
+      "rust",
+      "node",
+      "python",
+      "php",
+      "swift",
+      "csharp",
+      "go"
+    ],
+    "ownership": "One owning process per database file; shared clients connect to its service"
+  },
+  "security": {
+    "unresolvedFindings": 0,
+    "acceptedInformational": [],
+    "advisoryDatabase": "309392b18f6b17022f82c701f300433126901068",
+    "resolvedForRelease": []
+  },
+  "documentationOverrides": {
+    "ENVELOPE.md": "Historical 2.1.0 measurements; the raw-evidence link points to the immutable fastdb-v2.1.0 release"
+  },
+  "performance": "Historical 2.1.0 operating envelope retained; fresh bounded application sample, not capacity guarantees",
+  "buildHost": "Built and qualified under scripts/romedb-heavy (shared lock, two jobs, cgroup memory ceiling)",
+  "publication": "Qualified for publication; anonymous public-download verification is separate"
+}
