@@ -63,10 +63,15 @@ ORDER BY h.score DESC, h.id;
   top-k search. The materialized hit set prevents predicate/limit pushdown from
   changing this contract.
 - The native plan must select the FTS index or preparation fails. There is no
-  text-scan fallback. Native LIMIT -1 retrieves every live indexed match without
-  a shared document counter. All matching hits are materialized before stable
-  sorting and the public limit. Working memory and search cost can grow with
-  corpus/match counts; result limits bound returned data, not collector memory.
+  text-scan fallback. Since 0.2.18 a search without allowed IDs asks the native
+  index for its best hits in score order, twice the limit plus 16, and doubles
+  that window until every hit that ties with the last one wanted is inside it.
+  It reads them once while the statement is planned and gives them to the
+  statement as rows, as `search::nearest` does, so the statement runs in one
+  snapshot. Cost grows with the size of the tie at the limit, not with the
+  number of matches. A search with allowed IDs still retrieves every live
+  match (native LIMIT -1) and materializes it before the filter, stable sorting
+  and the public limit, so its cost can grow with the match count.
 - Collection integrity checks compare source documents with managed text fields,
   IDs and the count. They do not prove every native Tantivy posting is intact.
   Owned schema and the native directory are checked on connection open;
@@ -77,9 +82,12 @@ ORDER BY h.score DESC, h.id;
 ## Historical native issues and qualification (0.7.2)
 
 Native `ORDER BY score DESC,id LIMIT n` can return arbitrary members of a score
-tie because it limits in the FTS method before ID sorting. The frontend avoids
-this with an explicitly materialized complete hit set. A 40-document tie fixture
-returns the same first three typed IDs as the fully ordered result.
+tie because it limits in the FTS method before ID sorting. The frontend avoided
+this with an explicitly materialized complete hit set until 0.2.18, and now
+widens the native window past the whole tie instead. A 40-document tie fixture
+returns the same first three typed IDs as the fully ordered result, and a
+3,000-document fixture with ties of 30 and about 430 matches the full ordering
+at limits from 1 to 500 while reading under 200 rows.
 
 The native shared directory cache can retain a different connection's pager.
 The approved fix restricts reuse to the requesting pager before the existing
