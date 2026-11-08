@@ -97,21 +97,47 @@ impl Connection {
         managed: Option<&(Collection, Index)>,
     ) -> Result<()> {
         let mut mine = self.collections()?;
+        let theirs = source.collections()?;
         if let Some((owner, new)) = managed {
+            // Saving the new index can raise its collection's catalog version.
+            let version = theirs
+                .iter()
+                .find(|c| c.name == owner.name)
+                .map(|c| c.version);
             for collection in &mut mine {
                 if collection.name == owner.name {
                     collection.indexes.retain(|index| index.name != new.name);
+                    collection.version = version.unwrap_or(collection.version);
                 }
             }
         }
-        let theirs = source.collections()?;
-        let json = |value: &[Collection]| {
+        let json = |value: &Collection| {
             serde_json::to_value(value).map_err(|e| Error::Storage(e.to_string()))
         };
-        if json(&mine)? != json(&theirs)? {
+        let names = |list: &[Collection]| list.iter().map(|c| c.name.clone()).collect::<Vec<_>>();
+        if names(&mine) != names(&theirs) {
             return Err(Error::Validation(
-                "the catalog changed during the index build".into(),
+                "the catalog changed during the index build (its collections)".into(),
             ));
+        }
+        for (a, b) in mine.iter().zip(&theirs) {
+            let (a, b) = (json(a)?, json(b)?);
+            if a != b {
+                let field = a
+                    .as_object()
+                    .zip(b.as_object())
+                    .and_then(|(a, b)| {
+                        a.keys()
+                            .chain(b.keys())
+                            .find(|key| a.get(*key) != b.get(*key))
+                            .cloned()
+                    })
+                    .unwrap_or_default();
+                return Err(Error::Validation(format!(
+                    "the catalog changed during the index build ({} {field})",
+                    a["name"].as_str().unwrap_or_default()
+                )));
+            }
         }
         Ok(())
     }

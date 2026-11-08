@@ -101,10 +101,13 @@ fn a_copy_with_a_new_index_takes_every_write_made_while_it_built() {
     copy(&source, &a, &b);
     let copy_db = Database::open(b.to_str().unwrap()).unwrap();
     let built = copy_db.connect().unwrap();
+    // A job builds on its copy with batch commits, as Cloud does.
+    built.set_offline_build(true);
     q(
         &built,
         "CREATE SEARCH INDEX articles_body ON articles(body) USING FULLTEXT",
     );
+    built.set_offline_build(false);
     writes(&source);
 
     let report = built.catch_up_from(&source, "articles_body").unwrap();
@@ -252,4 +255,35 @@ fn an_index_on_a_plain_table_follows_its_copied_rows() {
     );
     assert!(format!("{plan:?}").contains("plain_v"), "{plan:?}");
     assert!(built.catch_up_from(&source, "missing_index").is_err());
+}
+
+#[test]
+fn a_collection_with_no_index_before_takes_its_first() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = (dir.path().join("a.db"), dir.path().join("b.db"));
+    let source_db = Database::open(a.to_str().unwrap()).unwrap();
+    let source = source_db.connect().unwrap();
+    seed(&source);
+    copy(&source, &a, &b);
+    let copy_db = Database::open(b.to_str().unwrap()).unwrap();
+    let built = copy_db.connect().unwrap();
+    built.set_offline_build(true);
+    q(
+        &built,
+        "CREATE SEARCH INDEX notes_v ON notes(label) USING FULLTEXT",
+    );
+    built.set_offline_build(false);
+    q(
+        &source,
+        "INSERT INTO notes {id:notes:labelled,v:1,label:'found here'}",
+    );
+    let report = built.catch_up_from(&source, "notes_v").unwrap();
+    assert_eq!(report.documents, 1, "{report:?}");
+    assert_eq!(
+        ids(&built, "SELECT id FROM search::text('notes_v','found',10)"),
+        vec![format!(
+            "{:?}",
+            rows(&source, "SELECT id FROM notes WHERE id=notes:labelled")[0][0]
+        )]
+    );
 }
