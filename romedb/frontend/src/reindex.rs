@@ -1,4 +1,4 @@
-use crate::{quote, Connection, Error, IndexKind, Result};
+use crate::{Connection, Error, IndexKind, Result};
 
 impl Connection {
     pub fn reindex(&self, name: &str) -> Result<()> {
@@ -67,8 +67,7 @@ impl Connection {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::{Database, Parameters, Value};
+    use crate::{quote, Database, Parameters, Value};
     // Past a batch of each kind of build, with gaps in the rowids where rows were
     // deleted: a build reads the table in batches and must see every document.
     #[test]
@@ -186,8 +185,7 @@ mod tests {
 
 #[cfg(test)]
 mod failure_tests {
-    use super::*;
-    use crate::{Database, Parameters, Value};
+    use crate::{quote, Database, Parameters, Value};
     #[test]
     fn failed_unique_rebuild_restores_prior_index_after_inserting_a_prefix() {
         let c = Database::open(":memory:").unwrap().connect().unwrap();
