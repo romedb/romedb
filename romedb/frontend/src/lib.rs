@@ -9,6 +9,8 @@ mod unnest;
 pub use budget::ResultLimits;
 mod array_index;
 mod catalog;
+mod catch_up;
+pub use catch_up::CatchUp;
 mod check;
 mod collections;
 mod computed;
