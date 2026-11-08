@@ -112,8 +112,10 @@ job, which takes about 4 minutes on 10 GB, and much longer for a full-text index
 an hour for 2,000,000 documents. It returns `{ id, bytes }`, where `bytes` is the new
 database size.
 
-Writes get 409 until the build ends, and reads carry on. If `signal` aborts, `waitMs`
-runs out or the client closes, the build is canceled and writes start again. A build
+Reads carry on throughout. Writes get 409 only while the log folds at the start, and
+again at the end while the build catches up with the writes it missed; in between they
+go on. If `signal` aborts, `waitMs` runs out or the client closes, the build is canceled
+and writes start again. A build
 that fails throws `RDB_INDEX_BUILD` with the reason, such as duplicate values, and the
 database stays as it was. Local URLs refuse `buildIndex()`.
 
