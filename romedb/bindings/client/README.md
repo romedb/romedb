@@ -105,6 +105,18 @@ are ignored. To skip it, pass `warm: false`.
 application knows that a query is coming, for example when a page or a function
 starts. Local URLs refuse `warm()`.
 
+`await rql.buildIndex(sql)` builds an index too large for one commit. On Cloud, a
+`CREATE INDEX` in a query stops at about 50,000 rows, so use this for a large table. It
+takes one `CREATE [UNIQUE] INDEX` or `CREATE SEARCH INDEX` statement, and waits for the
+job, which takes about 4 minutes on 10 GB, and much longer for a full-text index: about
+an hour for 2,000,000 documents. It returns `{ id, bytes }`, where `bytes` is the new
+database size.
+
+Writes get 409 until the build ends, and reads carry on. If `signal` aborts, `waitMs`
+runs out or the client closes, the build is canceled and writes start again. A build
+that fails throws `RDB_INDEX_BUILD` with the reason, such as duplicate values, and the
+database stays as it was. Local URLs refuse `buildIndex()`.
+
 ## Local directories
 
 An organization URL on a loopback host, such as a database of `romedb serve

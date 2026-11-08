@@ -164,10 +164,7 @@ class RemoteDatabase {
     if (!plainObject(options) || Object.keys(options).some(key => !['signal', 'timeoutMs', 'waitMs', 'emptyTables', 'newIdentity'].includes(key))) throw new TypeError('export options take signal, timeoutMs, emptyTables and newIdentity');
     checkCopyOptions(options);
     const duration = timeout(options.timeoutMs ?? this.#timeout);
-    if (options.signal !== undefined && !(options.signal instanceof AbortSignal)) throw new TypeError('signal must be an AbortSignal');
-    if (options.signal?.aborted) throw new ClientError('RDB_CANCELLED', 'Request cancelled before dispatch', 'not-sent');
-    if (this.#active.size >= 32) throw new ClientError('RDB_LIMIT', 'Client request limit reached', 'not-sent');
-    if (options.waitMs !== undefined && (!Number.isInteger(options.waitMs) || options.waitMs < 1 || options.waitMs > MAX_EXPORT_WAIT)) throw new RangeError(`waitMs must be 1..${MAX_EXPORT_WAIT}`);
+    this.#checkJob(options);
     const finished = this.#cloud ? await this.#exportJob(options, duration) : undefined;
     const controller = new AbortController();
     const abort = () => controller.abort();
@@ -221,14 +218,24 @@ class RemoteDatabase {
   // and waits for it. It gives the path of the finished file, or undefined from a
   // service without jobs, whose `/file` builds the copy while the request waits.
   async #exportJob(options, duration) {
+    const job = await this.#job('/file-exports', 'file export', options, duration, { query: fileQuery(options), optional: true });
+    return job && `/file-exports/${job.id}/file`;
+  }
+  // Starts a job and waits for it, up to waitMs, and gives its finished state. A job
+  // with `cancel` is canceled when the wait ends early, because nobody is left to
+  // answer for it. With `optional`, a service without such jobs gives undefined.
+  async #job(route, name, options, duration, { query = '', body, optional = false, cancel = false, failure = 'RDB_STORAGE', outcome = 'read-failed' }) {
     const controller = new AbortController();
     const abort = () => controller.abort();
     options.signal?.addEventListener('abort', abort, { once: true });
     this.#active.add(controller);
     const credential = this.#token, deadline = Date.now() + (options.waitMs ?? MAX_EXPORT_WAIT);
-    const call = (method, path) => this.#fetch(this.#url + path, {
-      method, redirect: 'manual', signal: AbortSignal.any([controller.signal, AbortSignal.timeout(duration)]),
-      headers: { authorization: `Bearer ${credential}`, accept: 'application/json', ...(this.#id === undefined ? {} : { 'x-romedb-database-id': this.#id }) },
+    const label = name[0].toUpperCase() + name.slice(1);
+    const headers = { authorization: `Bearer ${credential}`, accept: 'application/json', ...(this.#id === undefined ? {} : { 'x-romedb-database-id': this.#id }) };
+    const call = (method, path, content, signal = AbortSignal.any([controller.signal, AbortSignal.timeout(duration)])) => this.#fetch(this.#url + path, {
+      method, redirect: 'manual', signal,
+      headers: content === undefined ? headers : { ...headers, 'content-type': 'application/json' },
+      ...(content === undefined ? {} : { body: content }),
     });
     const refused = async response => {
       const retryAfterMs = retryAfter(response.headers.get('retry-after'));
@@ -236,33 +243,52 @@ class RemoteDatabase {
       const code = plainObject(reply?.error) && typeof reply.error.code === 'string' && /^RDB_[A-Z0-9_]{1,80}$/.test(reply.error.code) ? reply.error.code : httpCode(response.status);
       return new ClientError(code, safeMessage(reply, credential), 'read-failed', { status: response.status, ...(retryAfterMs === undefined ? {} : { retryAfterMs }) });
     };
+    let running;
     try {
-      const started = await call('POST', '/file-exports' + fileQuery(options));
-      if ([404, 405, 503].includes(started.status) && started.headers.get('retry-after') === null) { await started.body?.cancel(); return undefined; }
+      const started = await call('POST', route + query, body);
+      if (optional && [404, 405, 503].includes(started.status) && started.headers.get('retry-after') === null) { await started.body?.cancel(); return undefined; }
       if (started.status !== 202) throw await refused(started);
       const job = await boundedJson(started, MAX_RESPONSE);
-      if (!plainObject(job) || typeof job.id !== 'string' || !/^[0-9a-f-]{36}$/.test(job.id)) throw new ClientError('RDB_PROTOCOL', 'Invalid file export response', 'read-failed');
+      if (!plainObject(job) || typeof job.id !== 'string' || !/^[0-9a-f-]{36}$/.test(job.id)) throw new ClientError('RDB_PROTOCOL', `Invalid ${name} response`, 'read-failed');
+      running = job.id;
       for (let failures = 0; ;) {
-        if (Date.now() >= deadline) throw new ClientError('RDB_TIMEOUT', 'The file export is still running', 'read-failed');
+        if (Date.now() >= deadline) throw new ClientError('RDB_TIMEOUT', `The ${name} is still running`, 'read-failed');
         await pause(EXPORT_POLL_MS, controller.signal);
-        const reply = await call('GET', `/file-exports/${job.id}`).catch(error => {
+        const reply = await call('GET', `${route}/${job.id}`).catch(error => {
           if (controller.signal.aborted || ++failures > EXPORT_POLL_FAILURES) throw error;
         });
         if (!reply) continue;
         if (!reply.ok) throw await refused(reply);
         failures = 0;
         const state = await boundedJson(reply, MAX_RESPONSE);
-        if (state?.state === 'ready') return `/file-exports/${job.id}/file`;
-        if (state?.state === 'failed') throw new ClientError('RDB_STORAGE', typeof state.error === 'string' ? state.error : 'The file export did not finish', 'read-failed');
-        if (state?.state !== 'running') throw new ClientError('RDB_PROTOCOL', 'Invalid file export state', 'read-failed');
+        if (state?.state === 'ready') { running = undefined; return state; }
+        if (state?.state === 'failed') { running = undefined; throw new ClientError(failure, typeof state.error === 'string' ? state.error : `The ${name} did not finish`, outcome); }
+        if (state?.state !== 'running') throw new ClientError('RDB_PROTOCOL', `Invalid ${name} state`, 'read-failed');
       }
     } catch (error) {
+      if (cancel && running !== undefined) await call('DELETE', `${route}/${running}`, undefined, AbortSignal.timeout(Math.min(duration, CANCEL_MS))).then(reply => reply.body?.cancel()).catch(() => {});
       if (error instanceof ClientError) throw error;
-      throw new ClientError(controller.signal.aborted ? 'RDB_CANCELLED' : 'RDB_TRANSPORT', 'File export request failed', 'read-failed');
+      throw new ClientError(controller.signal.aborted ? 'RDB_CANCELLED' : 'RDB_TRANSPORT', `${label} request failed`, 'read-failed');
     } finally {
       options.signal?.removeEventListener('abort', abort);
       this.#active.delete(controller);
     }
+  }
+  async buildIndex(sql, options = {}) {
+    this.#assertOpen();
+    if (!this.#cloud) throw new ClientError('RDB_UNSUPPORTED', 'buildIndex applies only to Cloud database URLs; run CREATE INDEX as a query', 'not-sent');
+    if (typeof sql !== 'string' || !sql.trim()) throw new TypeError('sql must be one CREATE INDEX statement');
+    if (!plainObject(options) || Object.keys(options).some(key => !['signal', 'timeoutMs', 'waitMs'].includes(key))) throw new TypeError('index build options take signal, timeoutMs and waitMs');
+    const duration = timeout(options.timeoutMs ?? this.#timeout);
+    this.#checkJob(options);
+    const job = await this.#job('/index-builds', 'index build', options, duration, { body: JSON.stringify({ sql }), cancel: true, failure: 'RDB_INDEX_BUILD', outcome: 'rolled-back' });
+    return { id: job.id, bytes: job.bytes };
+  }
+  #checkJob(options) {
+    if (options.signal !== undefined && !(options.signal instanceof AbortSignal)) throw new TypeError('signal must be an AbortSignal');
+    if (options.signal?.aborted) throw new ClientError('RDB_CANCELLED', 'Request cancelled before dispatch', 'not-sent');
+    if (this.#active.size >= 32) throw new ClientError('RDB_LIMIT', 'Client request limit reached', 'not-sent');
+    if (options.waitMs !== undefined && (!Number.isInteger(options.waitMs) || options.waitMs < 1 || options.waitMs > MAX_EXPORT_WAIT)) throw new RangeError(`waitMs must be 1..${MAX_EXPORT_WAIT}`);
   }
   async close() {
     this.#closed = true;
@@ -490,7 +516,7 @@ function encodeWorkLimits(value) {
   return Object.fromEntries(Object.keys(ceilings).filter(key => Object.hasOwn(value, key)).map(key => [key, value[key]]));
 }
 function checkSequence(value) { if (!sequence(value)) throw new RangeError('sequence requires a nonnegative safe integer below Number.MAX_SAFE_INTEGER'); }
-const MAX_EXPORT_WAIT = 3 * 3600_000, EXPORT_POLL_MS = 2000, EXPORT_POLL_FAILURES = 10;
+const MAX_EXPORT_WAIT = 3 * 3600_000, EXPORT_POLL_MS = 2000, EXPORT_POLL_FAILURES = 10, CANCEL_MS = 10_000;
 function timeout(value) { if (!Number.isInteger(value) || value < 1 || value > 120_000) throw new RangeError('timeoutMs must be 1..120000'); return value; }
 function byteLength(text) { return encoder.encode(text).byteLength; }
 function checkBodySize(body, queryVersion = 2) {
