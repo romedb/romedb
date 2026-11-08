@@ -17,6 +17,12 @@ export interface FileExportOptions extends RequestOptions, CopyOptions {
   /** How long Cloud's job may take to build the file. The default is 3 hours, the longest it runs. */
   waitMs?: number;
 }
+export interface IndexBuildOptions extends RequestOptions {
+  /** How long to wait for the job. The default is 3 hours, longer than a build runs. */
+  waitMs?: number;
+}
+/** A finished index build. `bytes` is the database size with the index. */
+export interface IndexBuild { id: string; bytes: number; }
 export interface WorkLimits { rowsRead?: number; rowMutations?: number; vmSteps?: number; }
 export interface ReadOptions extends RequestOptions { afterSequence?: number; workLimits?: WorkLimits; }
 export interface WriteOptions extends ReadOptions { requestId?: string; ifSequence?: number; }
@@ -91,6 +97,14 @@ export class RemoteDatabase implements Client {
    * for a day.
    */
   exportFile(options?: FileExportOptions): Promise<DatabaseFile>;
+  /**
+   * Build an index too large for one commit, on Cloud only. Takes one CREATE [UNIQUE] INDEX or
+   * CREATE SEARCH INDEX statement, and waits for the job. Writes get 409 until it ends, and reads
+   * carry on. timeoutMs covers each request. If signal aborts, waitMs runs out or the client closes,
+   * the build is canceled, so writes start again. A failed build gives RDB_INDEX_BUILD with the reason, and
+   * leaves the database as it was.
+   */
+  buildIndex(sql: string, options?: IndexBuildOptions): Promise<IndexBuild>;
   readonly sequence: number;
   readonly databaseId: string;
   info(options?: RequestOptions): Promise<DatabaseInfo>;

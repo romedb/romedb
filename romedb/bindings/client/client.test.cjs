@@ -696,6 +696,57 @@ test('exportFile on Cloud starts a job, waits for it and downloads the finished 
   } finally { await remote.close(); }
 });
 
+test('buildIndex on Cloud starts a job, waits for it and gives the new size', async () => {
+  const id = '44444444-4444-4444-8444-444444444444', calls = [];
+  let states = [{ state: 'running', phase: 'draining' }, { state: 'ready', bytes: 8192 }], body;
+  const remote = await connect({ url: cloud, token: 'test-token', warm: false, fetch: async (url, options) => {
+    calls.push(`${options.method} ${url.replace(cloud, '')}`);
+    if (options.method === 'POST') { body = options; return json({ id, state: 'running', phase: 'draining' }, 202); }
+    if (options.method === 'DELETE') return json({ id, state: 'failed', error: 'The index build was canceled' });
+    return json({ id, ...states.shift() });
+  } });
+  try {
+    assert.deepEqual(await remote.buildIndex('CREATE INDEX a ON t(b)', { timeoutMs: 5000 }), { id, bytes: 8192 });
+    assert.deepEqual(calls, ['POST /index-builds', `GET /index-builds/${id}`, `GET /index-builds/${id}`]);
+    assert.equal(body.body, '{"sql":"CREATE INDEX a ON t(b)"}');
+    assert.equal(body.headers['content-type'], 'application/json');
+
+    // The engine's reason reaches the caller, and a finished build has nothing to cancel.
+    calls.length = 0; states = [{ state: 'failed', error: 'UNIQUE constraint failed: t.b' }];
+    await assert.rejects(remote.buildIndex('CREATE UNIQUE INDEX a ON t(b)'), error =>
+      error.code === 'RDB_INDEX_BUILD' && error.outcome === 'rolled-back' && /UNIQUE/.test(error.message));
+    assert.equal(calls.some(call => call.startsWith('DELETE')), false);
+
+    // Nobody waits for a build that stops writes, so it does not go on alone.
+    calls.length = 0; states = [{ state: 'running', phase: 'building' }, { state: 'running', phase: 'building' }];
+    await assert.rejects(remote.buildIndex('CREATE INDEX a ON t(b)', { waitMs: 1 }), error => error.code === 'RDB_TIMEOUT');
+    assert.equal(calls.at(-1), `DELETE /index-builds/${id}`);
+
+    calls.length = 0; states = Array(9).fill({ state: 'running', phase: 'building' });
+    const stop = new AbortController(), running = remote.buildIndex('CREATE INDEX a ON t(b)', { signal: stop.signal });
+    stop.abort();
+    await assert.rejects(running, error => error.code === 'RDB_CANCELLED');
+    await new Promise(resolve => setTimeout(resolve, 0));
+    assert.equal(calls.at(-1), `DELETE /index-builds/${id}`);
+
+    await assert.rejects(remote.buildIndex(''), TypeError);
+    await assert.rejects(remote.buildIndex('CREATE INDEX a ON t(b)', { other: true }), TypeError);
+    await assert.rejects(remote.buildIndex('CREATE INDEX a ON t(b)', { waitMs: 0 }), RangeError);
+  } finally { await remote.close(); }
+});
+
+test('buildIndex reports a refused start, and a local URL has no index builds', async () => {
+  const remote = await connect({ url: cloud, token: 'test-token', warm: false, fetch: async () =>
+    Response.json({ error: { code: 'RDB_BUSY', message: 'An index is already building' } }, { status: 409, headers: { 'retry-after': '5' } }) });
+  try {
+    await assert.rejects(remote.buildIndex('CREATE INDEX a ON t(b)'), error => error.code === 'RDB_BUSY' && error.retryAfterMs === 5000 && error.status === 409);
+  } finally { await remote.close(); }
+  const local = await connect({ url: 'http://127.0.0.1:4321', token: 'test-token', fetch: async () => json(details(2)) });
+  try {
+    await assert.rejects(local.buildIndex('CREATE INDEX a ON t(b)'), error => error.code === 'RDB_UNSUPPORTED' && error.outcome === 'not-sent');
+  } finally { await local.close(); }
+});
+
 test('exportFile on Cloud reports a busy job and leaves no timer behind', async () => {
   const remote = await connect({ url: cloud, token: 'test-token', warm: false, fetch: async () =>
     Response.json({ error: { code: 'RDB_BUSY', message: 'Another database job is running; retry shortly' } }, { status: 429, headers: { 'retry-after': '30' } }) });
