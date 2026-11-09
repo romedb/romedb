@@ -6,7 +6,7 @@
 - Upgrade behavior and validation: [0.8.3 notes](docs/turso-0.8.3.md);
   [core exception review](docs/core-exceptions.md).
 - RomeDB fork: `git@github.com:romedb/romedb.git` (remote `origin`). Upstream ancestry is preserved; inspect current refs rather than relying on historical branch names.
-- Toolchain: upstream Rust 1.88; locally tested with 1.88.0 on Linux x86_64.
+- Toolchain: upstream Rust 1.88. Since 2026-11-10 the workspace builds with Rust 1.89 (`rust-toolchain.toml`), because `rusqlite` 0.41, which bundles SQLite 3.54.1 and fixes RUSTSEC-2026-0459, requires it. Locally tested with 1.89.0 on Linux x86_64.
 - Engine dependency: in-workspace `turso_core` with default features plus `conn_raw_api` for engine WAL hooks and `fts` for V2 full-text search. V2 opens opt into index methods; managed search owns the public surface.
 - This release exposes `Connection::prepare`, `prepare_stmt`, and blocking statement execution. RomeDB retains its separate-frontend boundary and the explicitly registered core exceptions.
 

@@ -206,6 +206,9 @@ name (`default+fold+stem-english`). Prefix expansion now builds the expanded wor
 term queries, so a stored stem is never stemmed again. Keep it until upstream FTS
 offers folding and stemming options; the register has the regressions.
 
+The workspace builds with Rust 1.89 (`rust-toolchain.toml`), not upstream's 1.88, because
+`rusqlite` 0.41 needs it (RUSTSEC-2026-0459). Keep 1.89 or later on a sync.
+
 On an upstream sync:
 - Keep the patch unless upstream changed `SavepointOp::Release` to resume a
   commit in progress (`ProgramState::commit_state` not `Ready`).

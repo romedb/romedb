@@ -1,9 +1,9 @@
 {
-  "rustVersion": "1.88.0",
+  "rustVersion": "1.89.0",
   "target": "x86_64-unknown-linux-gnu",
-  "componentUrl": "https://static.rust-lang.org/dist/2025-06-26/rustc-1.88.0-x86_64-unknown-linux-gnu.tar.xz",
-  "componentSha256": "b049fd57fce274d10013e2cf0e05f215f68f6580865abc52178f66ae9bf43fd8",
+  "componentUrl": "https://static.rust-lang.org/dist/2025-08-07/rustc-1.89.0-x86_64-unknown-linux-gnu.tar.xz",
+  "componentSha256": "b42c254e1349df86bd40bc28fdf386172a1a46f2eeabe3c7a08a75cf1fb60e27",
   "sourcePath": "share/doc/rust/COPYRIGHT-library.html",
-  "fileSha256": "3d3f60160f5214efa0a7fd804102d02ce9ea6af04b5249a19eeb243450246ae9",
+  "fileSha256": "9934873304420fc1720c09cd92ad272240508da2ea69279d638a7820db4415ff",
   "scope": "Unmodified standard-library notice file from the installed pinned Rust compiler distribution; includes the standard library and its build dependencies, not a claim every listed component is linked."
 }

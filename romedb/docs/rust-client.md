@@ -7,7 +7,7 @@ The Rust client is the `romedb` crate under `romedb/frontend`. V1 is available t
 romedb = { path = "../turso/romedb/frontend" }
 ```
 
-Adjust the path for the application. Keep that checkout at the intended commit, retain the application's Cargo.lock, and qualify dependency changes. Cargo does not automatically use a dependency repository's lockfile as the application's lockfile. The tested baseline uses Rust 1.88.0; the pinned engine and dependencies are documented in [UPSTREAM.md](../UPSTREAM.md).
+Adjust the path for the application. Keep that checkout at the intended commit, retain the application's Cargo.lock, and qualify dependency changes. Cargo does not automatically use a dependency repository's lockfile as the application's lockfile. The tested baseline uses Rust 1.89.0; the pinned engine and dependencies are documented in [UPSTREAM.md](../UPSTREAM.md).
 
 ```rust
 use romedb::{Database, Parameters, Value};

@@ -29,7 +29,7 @@ library available to the system loader.
 
 ## Build and test
 
-From the engine checkout, with Rust 1.88.0 and the language toolchains installed:
+From the engine checkout, with Rust 1.89.0 and the language toolchains installed:
 
 ```sh
 cargo build --locked -p romedb-c

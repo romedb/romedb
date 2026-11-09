@@ -61,7 +61,8 @@ pub fn run(config: &Config) -> Run {
 
                 for _ in 0..batch_size {
                     let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
-                    stmt.execute((id, format!("run{run}_{id}"))).unwrap();
+                    stmt.execute((i64::try_from(id).unwrap(), format!("run{run}_{id}")))
+                        .unwrap();
                 }
                 let t2 = Instant::now();
 
