@@ -61,7 +61,7 @@ package plus linker `-L`/runtime `rpath`. Go uses a local module replacement,
 cgo and `CGO_LDFLAGS=-L/absolute/path/to/bundle/lib`. C# consumes the local NuGet
 package and requires the same native library at runtime. Package-registry
 publication is not implied by this bundle. Rust uses the included pinned source
-archive and a path dependency on `romedb/frontend` with Rust 1.88.0.
+archive and a path dependency on `romedb/frontend` with Rust 1.89.0.
 
 ## Query documents and spatial data
 

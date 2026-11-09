@@ -425,7 +425,7 @@ impl Connection {
                         "SELECT edge_id FROM {} WHERE {column} = ?1{limit}",
                         quote(&edge.adjacency)
                     ),
-                    &[id.clone()],
+                    std::slice::from_ref(&id),
                 )? {
                     if let Some(EngineValue::Blob(edge_id)) = row.into_iter().next() {
                         incident.insert(edge_id);

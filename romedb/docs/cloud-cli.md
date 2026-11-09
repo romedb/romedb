@@ -2,7 +2,7 @@
 
 ## Candidate package
 
-From a clean committed engine checkout, with Rust 1.88.0, Node 24, Python 3.12+
+From a clean committed engine checkout, with Rust 1.89.0, Node 24, Python 3.12+
 and the locked Cargo cache available:
 
 ```sh

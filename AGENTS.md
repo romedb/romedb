@@ -199,6 +199,9 @@ that start with it and are in the most documents, before Tantivy builds the quer
 Queries without such a word build exactly as before. Keep it until upstream expands a
 one-word prefix with BM25 scores; the register has the regressions.
 
+The workspace builds with Rust 1.89 (`rust-toolchain.toml`), not upstream's 1.88, because
+`rusqlite` 0.41 needs it (RUSTSEC-2026-0459). Keep 1.89 or later on a sync.
+
 On an upstream sync:
 - Keep the patch unless upstream changed `SavepointOp::Release` to resume a
   commit in progress (`ProgramState::commit_state` not `Ready`).

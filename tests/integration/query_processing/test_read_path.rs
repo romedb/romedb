@@ -1050,7 +1050,7 @@ fn test_parameter_column_names(tmp_db: TempDatabase) {
     let sqlite_conn = rusqlite::Connection::open_in_memory().unwrap();
     for (sql, expected) in cases {
         let stmt = sqlite_conn.prepare(sql).unwrap();
-        let names: Vec<&str> = stmt.column_names();
+        let names: Vec<&str> = stmt.column_names().collect();
         assert_eq!(names, *expected, "SQLite column names mismatch for: {sql}");
     }
 

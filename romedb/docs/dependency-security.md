@@ -263,7 +263,7 @@ not packages certified by this crate scan.
 
 ## Repeatable scan
 
-Use the configured Rust 1.88 toolchain and a clean checkout of the desired
+Use the configured Rust 1.89 toolchain and a clean checkout of the desired
 advisory database revision. Run from the repository root:
 
 ```sh

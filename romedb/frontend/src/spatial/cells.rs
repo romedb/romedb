@@ -237,7 +237,7 @@ mod tests {
     fn hierarchy_disk_distance_and_area_follow_h3() {
         let cell = text("8a1fb46622dffff");
         assert_eq!(
-            call("cell_resolution", &[cell.clone()]).unwrap(),
+            call("cell_resolution", std::slice::from_ref(&cell)).unwrap(),
             Value::Integer(10)
         );
         let parent = call("cell_parent", &[cell.clone(), Value::Integer(9)]).unwrap();
