@@ -14,6 +14,10 @@ pub(crate) struct Config {
     pub min_gram: Option<usize>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_gram: Option<usize>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub fold: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stemmer: Option<String>,
     #[serde(default = "legacy_storage_version")]
     pub storage_version: u32,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -27,6 +31,7 @@ const fn legacy_storage_version() -> u32 {
 pub(crate) struct Weight(pub f32);
 impl Eq for Weight {}
 pub(crate) const WEIGHTS_CATALOG_VERSION: u32 = 9;
+pub(crate) const FOLD_STEMMER_CATALOG_VERSION: u32 = 10;
 const TOKENIZER: &str = "tantivy-default-0.26";
 // Stay below the pinned native FTS cursor's 1,000-document flush threshold,
 // and within 2,176 bound parameters: 128 rows of sixteen text fields plus the
@@ -42,7 +47,13 @@ fn invalid(message: &str) -> Error {
 
 impl Config {
     pub(crate) fn is_custom(&self) -> bool {
-        self.tokenizer != TOKENIZER || self.min_gram.is_some() || self.max_gram.is_some()
+        self.tokenizer != TOKENIZER
+            || self.min_gram.is_some()
+            || self.max_gram.is_some()
+            || self.folds_or_stems()
+    }
+    pub(crate) fn folds_or_stems(&self) -> bool {
+        self.fold || self.stemmer.is_some()
     }
     pub(crate) fn options(&self) -> Result<crate::FullTextOptions> {
         let name = self
@@ -54,6 +65,8 @@ impl Config {
             tokenizer: name.into(),
             min_gram: self.min_gram,
             max_gram: self.max_gram,
+            fold: self.fold,
+            stemmer: self.stemmer.clone(),
         };
         if options.normalized()? != options || (self.is_custom() && self.storage_version != 2) {
             return Err(invalid("noncanonical analyzer configuration"));
@@ -185,6 +198,12 @@ impl Index {
             parameters.push(format!("tokenizer='{}'", options.tokenizer));
             if let Some((min, max)) = options.min_gram.zip(options.max_gram) {
                 parameters.push(format!("min_gram={min},max_gram={max}"));
+            }
+            if options.fold {
+                parameters.push("fold=1".into());
+            }
+            if let Some(stemmer) = &options.stemmer {
+                parameters.push(format!("stemmer='{stemmer}'"));
             }
         }
         if !config.weights.is_empty() {
@@ -322,6 +341,8 @@ impl Connection {
                 tokenizer: options.identity(),
                 min_gram: options.min_gram,
                 max_gram: options.max_gram,
+                fold: options.fold,
+                stemmer: options.stemmer.clone(),
                 storage_version: 2,
                 weights,
             }),
@@ -833,6 +854,64 @@ mod tests {
         .unwrap();
         let unweighted = c.catalog("docs").unwrap().indexes.remove(1);
         assert!(unweighted.fulltext.unwrap().weights.is_empty());
+    }
+    #[test]
+    fn folded_and_stemmed_text_indexes_need_catalog_version_10() {
+        let db = crate::Database::open(":memory:").unwrap();
+        let c = db.connect().unwrap();
+        c.execute("INSERT INTO docs {body:'Café'}", &crate::Parameters::new())
+            .unwrap();
+        let options = crate::FullTextOptions {
+            fold: true,
+            stemmer: Some("English".into()),
+            ..Default::default()
+        };
+        c.create_fulltext_index_with_options(
+            "docs",
+            "stemmed",
+            vec![vec!["body".into()]],
+            options,
+            false,
+        )
+        .unwrap();
+        let catalog = c.catalog("docs").unwrap();
+        assert_eq!(catalog.version, FOLD_STEMMER_CATALOG_VERSION);
+        let index = &catalog.indexes[0];
+        let config = index.fulltext.as_ref().unwrap();
+        assert!(config.fold);
+        assert_eq!(config.stemmer.as_deref(), Some("english"));
+        assert!(index
+            .text_index_ddl()
+            .ends_with(" WITH (tokenizer='default',fold=1,stemmer='english')"));
+        let original = serde_json::to_value(&catalog).unwrap();
+        assert!(crate::catalog::decode(&original.to_string(), "docs").is_ok());
+        for (path, value) in [
+            ("/version", serde_json::json!(WEIGHTS_CATALOG_VERSION)),
+            ("/indexes/0/fulltext/stemmer", serde_json::json!("English")),
+            ("/indexes/0/fulltext/stemmer", serde_json::json!("klingon")),
+            ("/indexes/0/fulltext/fold", serde_json::json!("yes")),
+            (
+                "/indexes/0/fulltext/tokenizer",
+                serde_json::json!("tantivy-ngram-0.26"),
+            ),
+        ] {
+            let mut changed = original.clone();
+            *changed.pointer_mut(path).unwrap() = value;
+            assert!(
+                crate::catalog::decode(&changed.to_string(), "docs").is_err(),
+                "{path}"
+            );
+        }
+        let mut unfolded = original.clone();
+        unfolded["indexes"][0]["fulltext"]
+            .as_object_mut()
+            .unwrap()
+            .remove("fold");
+        unfolded["indexes"][0]["fulltext"]
+            .as_object_mut()
+            .unwrap()
+            .remove("stemmer");
+        assert!(crate::catalog::decode(&unfolded.to_string(), "docs").is_ok());
     }
     #[test]
     fn text_audit_detects_stale_fields_counts_and_missing_entries() {

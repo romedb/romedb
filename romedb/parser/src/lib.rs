@@ -169,6 +169,8 @@ pub enum Statement {
         min_gram: Option<usize>,
         max_gram: Option<usize>,
         weights: Option<String>,
+        fold: Option<bool>,
+        stemmer: Option<String>,
     },
     CreateArrayIndex {
         if_not_exists: bool,
@@ -1366,6 +1368,8 @@ pub fn parse(input: &str) -> Result<Statement> {
             let mut min_gram = None;
             let mut max_gram = None;
             let mut weights = None;
+            let mut fold = None;
+            let mut stemmer = None;
             if p.eat("WITH") {
                 if !p.eat("(") {
                     return Err(p.error("expected analyzer options"));
@@ -1386,6 +1390,16 @@ pub fn parse(input: &str) -> Result<Statement> {
                         "weights" if weights.is_none() && token.kind == Kind::String => {
                             weights = Some(token.text.clone())
                         }
+                        "stemmer" if stemmer.is_none() && token.kind == Kind::String => {
+                            stemmer = Some(token.text.clone())
+                        }
+                        "fold" if fold.is_none() && token.kind == Kind::Word => {
+                            fold = Some(match token.text.to_ascii_lowercase().as_str() {
+                                "true" => true,
+                                "false" => false,
+                                _ => return Err(p.error("expected fold=true or fold=false")),
+                            })
+                        }
                         "min_gram" | "max_gram" if token.kind == Kind::Number => {
                             let value = token
                                 .text
@@ -1402,7 +1416,7 @@ pub fn parse(input: &str) -> Result<Statement> {
                         }
                         _ => {
                             return Err(p.error(
-                                "expected unique tokenizer, weights, min_gram or max_gram option",
+                                "expected unique tokenizer, weights, min_gram, max_gram, fold or stemmer option",
                             ))
                         }
                     }
@@ -1427,6 +1441,8 @@ pub fn parse(input: &str) -> Result<Statement> {
                 min_gram,
                 max_gram,
                 weights,
+                fold,
+                stemmer,
             });
         }
         if p.eat("ARRAY") {

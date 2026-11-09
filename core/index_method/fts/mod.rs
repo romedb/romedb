@@ -58,7 +58,7 @@ use turso_parser::ast::{Select, SortOrder};
 use uncased::UncasedStr;
 
 mod analysis;
-pub use analysis::{analyze_text, AnalyzedToken};
+pub use analysis::{analyze_text, AnalyzedToken, Analyzer, FOLDING_TOKENIZERS, STEMMER_LANGUAGES};
 mod directory;
 mod format;
 mod prefix;
@@ -595,9 +595,9 @@ pub struct FtsIndexAttachment {
     patterns: Vec<Select>,
     /// Weights for each field in FTS scoring, from the WITH clause.
     field_weights: HashMap<String, f32>,
-    /// (min_gram, max_gram) for the ngram tokenizer, from the WITH clause
-    /// `min_gram`/`max_gram` keys. [DEFAULT_NGRAM_WINDOW] unless configured.
-    ngram_window: (usize, usize),
+    /// The tokenizer and filters from the WITH clause keys `tokenizer`,
+    /// `min_gram`, `max_gram`, `fold` and `stemmer`.
+    analyzer: Analyzer,
     shared: Arc<FtsShared>,
 }
 
@@ -611,7 +611,14 @@ pub const SUPPORTED_TOKENIZERS: &[&str] = &[
 ];
 
 /// Supported keys in the WITH clause of an FTS index
-pub const SUPPORTED_WITH_KEYS: &[&str] = &["tokenizer", "weights", "min_gram", "max_gram"];
+pub const SUPPORTED_WITH_KEYS: &[&str] = &[
+    "tokenizer",
+    "weights",
+    "min_gram",
+    "max_gram",
+    "fold",
+    "stemmer",
+];
 
 /// Ngram window used when `min_gram`/`max_gram` are not given.
 pub const DEFAULT_NGRAM_WINDOW: (usize, usize) = (2, 3);
@@ -706,6 +713,30 @@ impl FtsIndexAttachment {
                 ngram_window.0, ngram_window.1
             )));
         }
+        let fold = match parameters.get(UncasedStr::new("fold")) {
+            None => false,
+            Some(Value::Numeric(crate::numeric::Numeric::Integer(0))) => false,
+            Some(Value::Numeric(crate::numeric::Numeric::Integer(1))) => true,
+            Some(_) => {
+                return Err(LimboError::ParseError(
+                    "FTS WITH parameter 'fold' must be 0 or 1".to_string(),
+                ))
+            }
+        };
+        let stemmer = match parameters.get(UncasedStr::new("stemmer")) {
+            None => None,
+            Some(Value::Text(t)) => Some(
+                t.to_string()
+                    .trim_matches(|c| c == '\'' || c == '"')
+                    .to_string(),
+            ),
+            Some(_) => {
+                return Err(LimboError::ParseError(
+                    "FTS WITH parameter 'stemmer' must be a language name".to_string(),
+                ))
+            }
+        };
+        let analyzer = Analyzer::new(&tokenizer_name, ngram_window, fold, stemmer.as_deref())?;
 
         // Parse field weights from WITH clause: weights='body=2.0,title=1.0'
         let field_weights = if let Some(weights_value) = parameters.get(UncasedStr::new("weights"))
@@ -740,7 +771,7 @@ impl FtsIndexAttachment {
         for col in &cfg.columns {
             let opts = tantivy::schema::TextOptions::default().set_indexing_options(
                 tantivy::schema::TextFieldIndexing::default()
-                    .set_tokenizer(&tokenizer_name)
+                    .set_tokenizer(&analyzer.name())
                     .set_index_option(tantivy::schema::IndexRecordOption::WithFreqsAndPositions),
             );
             let field = schema_builder.add_text_field(&col.name, opts);
@@ -811,7 +842,7 @@ impl FtsIndexAttachment {
             text_fields,
             patterns,
             field_weights,
-            ngram_window,
+            analyzer,
             shared: Arc::new(FtsShared::default()),
         })
     }
@@ -1011,8 +1042,7 @@ pub struct FtsCursor {
     rowid_field: Field,
     identity_hi_field: Field,
     identity_lo_field: Field,
-    /// (min_gram, max_gram) window for the ngram tokenizer
-    ngram_window: (usize, usize),
+    analyzer: Analyzer,
     text_fields: Vec<(IndexColumn, Field)>,
     /// The user-visible index name, for error messages.
     index_name: String,
@@ -1107,7 +1137,7 @@ impl FtsCursor {
             rowid_field: attachment.rowid_field,
             identity_hi_field: attachment.identity_hi_field,
             identity_lo_field: attachment.identity_lo_field,
-            ngram_window: attachment.ngram_window,
+            analyzer: attachment.analyzer.clone(),
             text_fields,
             index_name: attachment.cfg.index_name.clone(),
             store,
@@ -1234,7 +1264,7 @@ impl FtsCursor {
 
     /// Register custom tokenizers with a Tantivy index.
     fn register_tokenizers(&self, index: &Index) {
-        analysis::register(index.tokenizers(), self.ngram_window);
+        self.analyzer.register(index.tokenizers());
     }
 
     fn build_query_parser(&self, index: &Index) -> Arc<tantivy::query::QueryParser> {
@@ -3098,8 +3128,16 @@ impl IndexMethodCursor for FtsCursor {
             }
         }
         let index = self.index.as_ref().expect("index built with the searcher");
-        let query = prefix::parse_query(parser, index, searcher, &self.default_fields, &query_str)
-            .map_err(LimboError::InternalError)?;
+        let query = prefix::Expander {
+            parser,
+            index,
+            searcher,
+            analyzer: &self.analyzer,
+            default_fields: &self.default_fields,
+            field_boosts: &self.field_boosts,
+        }
+        .parse_query(&query_str)
+        .map_err(LimboError::InternalError)?;
 
         // TopDocs keeps a heap proportional to its limit. Cap that heap at the
         // number of live documents: this preserves unlimited-query semantics
