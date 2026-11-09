@@ -4,11 +4,11 @@ Generated from the pinned Cargo dependency inventory and checksummed source arch
 
 This is a partial notice collection. It supplements LICENSE.md and THIRD_PARTY_NOTICES.md. Inline attributions, unconventional filenames and other bundled components require further review before a complete distribution-notice claim.
 
-Target: `x86_64-unknown-linux-gnu`. Cargo.lock SHA-256: `495f15c91ae37f560329bd33dba6d4add48b8ba2767b0055a699a170afb8491f`.
+Target: `x86_64-unknown-linux-gnu`. Cargo.lock SHA-256: `fe7380f31bf76a5f59ac3a31a0c1ee8c6fa4cccebc6aab26dfd5407c2b9133e6`.
 
 ## Packages without collected archive or supplemental texts
 
-romedb-cli 0.2.22, romedb-service 0.2.22, romedb 0.2.22, romeql-parser 0.2.22
+
 
 ## Source file index
 
@@ -556,9 +556,8 @@ romedb-cli 0.2.22, romedb-service 0.2.22, romedb 0.2.22, romeql-parser 0.2.22
 ### libm 0.2.11
 - `LICENSE.txt`: [source text 3823dda7cf046602f4b4e77ec8e227863dc4736037cc85bb33d9f19febe16bb7](#text-3823dda7cf046602f4b4e77ec8e227863dc4736037cc85bb33d9f19febe16bb7)
 
-### libsqlite3-sys 0.38.2
+### libsqlite3-sys 0.39.1
 - `LICENSE`: [source text c10c1f27337546471e5f7e4e97fdd398b35b9d4e126115dcd22de8d8e65abf6f](#text-c10c1f27337546471e5f7e4e97fdd398b35b9d4e126115dcd22de8d8e65abf6f)
-- `sqlcipher/LICENSE`: [source text ea4fcb309f14a22065e1ea45362d494d320012249ed865fe9c7c0946db754131](#text-ea4fcb309f14a22065e1ea45362d494d320012249ed865fe9c7c0946db754131)
 
 ### link-cplusplus 1.0.12
 - `LICENSE-APACHE`: [source text 62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a](#text-62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a)
@@ -796,6 +795,18 @@ romedb-cli 0.2.22, romedb-service 0.2.22, romedb 0.2.22, romeql-parser 0.2.22
 - `LICENSE-APACHE`: [source text a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2](#text-a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2)
 - `LICENSE-MIT`: [source text 42d3bf7e7d4d49d72c0555d14ed99c3ee7ce9ce3cbffbc38bbafe8c103f50969](#text-42d3bf7e7d4d49d72c0555d14ed99c3ee7ce9ce3cbffbc38bbafe8c103f50969)
 
+### romedb-cli 0.2.22
+- Workspace `LICENSE.md`: [source text b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5](#text-b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5)
+
+### romedb-service 0.2.22
+- Workspace `LICENSE.md`: [source text b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5](#text-b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5)
+
+### romedb 0.2.22
+- Workspace `LICENSE.md`: [source text b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5](#text-b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5)
+
+### romeql-parser 0.2.22
+- Workspace `LICENSE.md`: [source text b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5](#text-b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5)
+
 ### rquickjs-core 0.13.0
 - Repository source [https://raw.githubusercontent.com/DelSkayn/rquickjs/f3039c8d931417049ce6133b3ff4550ca38438a5/LICENSE](https://raw.githubusercontent.com/DelSkayn/rquickjs/f3039c8d931417049ce6133b3ff4550ca38438a5/LICENSE): [source text 976ad3d07927343ab99b31510625acba89eac8e0e517c712925620ddeda91b70](#text-976ad3d07927343ab99b31510625acba89eac8e0e517c712925620ddeda91b70)
 
@@ -805,7 +816,7 @@ romedb-cli 0.2.22, romedb-service 0.2.22, romedb 0.2.22, romeql-parser 0.2.22
 ### rquickjs 0.13.0
 - `LICENSE`: [source text 976ad3d07927343ab99b31510625acba89eac8e0e517c712925620ddeda91b70](#text-976ad3d07927343ab99b31510625acba89eac8e0e517c712925620ddeda91b70)
 
-### rusqlite 0.40.2
+### rusqlite 0.41.1
 - `LICENSE`: [source text c10c1f27337546471e5f7e4e97fdd398b35b9d4e126115dcd22de8d8e65abf6f](#text-c10c1f27337546471e5f7e4e97fdd398b35b9d4e126115dcd22de8d8e65abf6f)
 
 ### rustc-hash 2.1.1
@@ -19206,35 +19217,6 @@ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
-
-<a id="text-ea4fcb309f14a22065e1ea45362d494d320012249ed865fe9c7c0946db754131"></a>
-
-## Source text ea4fcb309f14a22065e1ea45362d494d320012249ed865fe9c7c0946db754131
-
-Copyright (c) 2008-2020 Zetetic LLC
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-    * Redistributions of source code must retain the above copyright
-      notice, this list of conditions and the following disclaimer.
-    * Redistributions in binary form must reproduce the above copyright
-      notice, this list of conditions and the following disclaimer in the
-      documentation and/or other materials provided with the distribution.
-    * Neither the name of the ZETETIC LLC nor the
-      names of its contributors may be used to endorse or promote products
-      derived from this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY ZETETIC LLC ''AS IS'' AND ANY
-EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL ZETETIC LLC BE LIABLE FOR ANY
-DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 <a id="text-eafbfa606bc005ed7fd2f623d65af17ffe4ef7c017221ac14405bf4140771ea9"></a>
 

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "target": "x86_64-unknown-linux-gnu",
-  "inventorySha256": "a38f5780c5ef6380d9bcb3a42448424162fba4183bbb11b5946ed9d4c7d52059",
+  "inventorySha256": "a3f77733fc8439e2591d7603f50cf18506ac70b5cd71dc243beee693518d7ece",
   "scope": "Checksummed crate archive notice candidates; not complete notices or linked-binary evidence",
   "packages": [
     {
@@ -2537,20 +2537,15 @@
     },
     {
       "name": "libsqlite3-sys",
-      "version": "0.38.2",
+      "version": "0.39.1",
       "status": "archive_verified",
-      "archiveSha256": "f1d20bef17f513b9b3004532233187769cd072d790971f4e4da0e346eb6401e8",
+      "archiveSha256": "14a5f01b87b92705d07b433c06f96cbc764637d81a0bffb5734ce17cf0f9a2b3",
       "declaredLicenseFile": null,
       "noticeCandidates": [
         {
           "path": "LICENSE",
           "bytes": 1067,
           "sha256": "c10c1f27337546471e5f7e4e97fdd398b35b9d4e126115dcd22de8d8e65abf6f"
-        },
-        {
-          "path": "sqlcipher/LICENSE",
-          "bytes": 1467,
-          "sha256": "ea4fcb309f14a22065e1ea45362d494d320012249ed865fe9c7c0946db754131"
         }
       ]
     },
@@ -3738,9 +3733,9 @@
     },
     {
       "name": "rusqlite",
-      "version": "0.40.2",
+      "version": "0.41.1",
       "status": "archive_verified",
-      "archiveSha256": "23f2a97da3e3873c73cb2a2e71b35c40ff95e0b1eefa8d72d8499a6928c3b5b3",
+      "archiveSha256": "da9bba6f3506135e120a6586df05be18b48d18896600646a4bec8f993d91a594",
       "declaredLicenseFile": null,
       "noticeCandidates": [
         {

@@ -1,7 +1,7 @@
 {
-  "reviewed_at": "2026-11-09T16:55:15.227215+00:00",
-  "source_commit": "da49ee853f2dcee0b00971dab24a629727bea3fc",
-  "cargo_lock_sha256": "495f15c91ae37f560329bd33dba6d4add48b8ba2767b0055a699a170afb8491f",
+  "reviewed_at": "2026-11-09T18:45:13.513138+00:00",
+  "source_commit": "4b3906798a6e5bea4ad671fa153e76b648a3237a",
+  "cargo_lock_sha256": "fe7380f31bf76a5f59ac3a31a0c1ee8c6fa4cccebc6aab26dfd5407c2b9133e6",
   "advisory_database": {
     "repository": "https://github.com/RustSec/advisory-db.git",
     "commit": "d9cb059f3217db87aeccd190b81eaffe8cc29cb9",
@@ -639,7 +639,7 @@
     },
     {
       "name": "libsqlite3-sys",
-      "version": "0.38.2"
+      "version": "0.39.1"
     },
     {
       "name": "link-cplusplus",
@@ -971,7 +971,7 @@
     },
     {
       "name": "rusqlite",
-      "version": "0.40.2"
+      "version": "0.41.1"
     },
     {
       "name": "rustc-hash",
@@ -1466,17 +1466,7 @@
       "version": "2.1.2+zstd.1.5.7"
     }
   ],
-  "findings": [
-    {
-      "kind": "vulnerability",
-      "package": "libsqlite3-sys",
-      "version": "0.38.2",
-      "id": "RUSTSEC-2026-0459",
-      "title": "`libsqlite3-sys` via C SQLite CVE-2026-119375",
-      "url": "https://rustsec.org/advisories/RUSTSEC-2026-0459.html",
-      "accepted_informational": false
-    }
-  ],
+  "findings": [],
   "excluded_workspace_findings": [
     {
       "kind": "vulnerability",
@@ -1631,7 +1621,7 @@
       "url": "https://rustsec.org/advisories/RUSTSEC-2026-0205.html"
     }
   ],
-  "unresolved_count": 1,
+  "unresolved_count": 0,
   "limits": [
     "Version/target reachability, not compiled-function reachability or exploitability analysis",
     "Dev-only and non-Linux dependencies excluded; yanked-package check disabled",

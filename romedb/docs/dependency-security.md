@@ -1,20 +1,18 @@
 # Dependency security review for 0.2.22
-Reviewed 2026-11-09 for the Linux x64 0.2.22 candidate. The exact lockfile scan
+Reviewed 2026-11-10 for the Linux x64 0.2.22 candidate. The exact lockfile scan
 covers 361 package/version identities against the RustSec advisory database at
 `d9cb059f3217db87aeccd190b81eaffe8cc29cb9` (1,430 advisories) using the pinned
-`cargo-audit 0.22.2` binary. It found one finding in the shipping closure, which
-is not resolved for this candidate. The lockfile differs from 0.2.21 only in the
-nine RomeDB workspace package versions, so 0.2.21 has the same finding; the
-advisory was added to the database after the 0.2.21 review.
+`cargo-audit 0.22.2` binary. It found zero findings in the shipping closure, with
+no accepted exceptions.
 
-- RUSTSEC-2026-0459 (CVE-2026-119375), `libsqlite3-sys` 0.38.2, which bundles
-  SQLite 3.53. SQLite before 3.54.0 can return uninitialized page-cache memory
-  when it opens a database file together with a `-wal` file of a different page
-  size. Only `romedb-cli` reaches it, through `rusqlite` 0.40.2, when it reads a
-  SQLite file and that file's `-wal`. The fixed `libsqlite3-sys` 0.39 comes with
-  `rusqlite` 0.41, which needs Rust 1.89; the workspace builds with Rust 1.88.
-  RomeDB Cloud's import refuses a source that has a `-wal`, `-shm` or `-journal`
-  file and opens it read-only, so the condition cannot occur there.
+The lockfile differs from 0.2.21 in the nine RomeDB workspace package versions and
+in two packages updated for RUSTSEC-2026-0459 (CVE-2026-119375): `rusqlite` 0.40.2
+to 0.41.1 and `libsqlite3-sys` 0.38.2 to 0.39.1, which bundles SQLite 3.54.1. SQLite
+before 3.54.0 can return uninitialized page-cache memory when it opens a database
+together with a `-wal` file of a different page size; `romedb-cli` reached it when
+it read a SQLite file and that file's `-wal`. 0.2.21 has the finding, which the
+advisory database added after the 0.2.21 review. `rusqlite` 0.41 needs Rust 1.89,
+so 0.2.22 builds with Rust 1.89.0.
 
 ## Dependency security review for 0.2.21
 Reviewed 2026-11-09 for the Linux x64 0.2.21 candidate. The exact lockfile scan
