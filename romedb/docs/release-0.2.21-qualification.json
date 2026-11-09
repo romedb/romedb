@@ -1,0 +1,113 @@
+{
+  "version": "0.2.21",
+  "qualified": true,
+  "qualifiedAtUtc": "2026-11-09T09:38:39.241049+00:00",
+  "sourceCommit": "d95a58af2eba702ebb67408a800da206e2b7c265",
+  "sourceArchiveSha256": "918ef8e377246607b0c2b43c2088c0eb4d98bf44fb596eb99f2ddfa91ad018a6",
+  "cargoLockSha256": "5a88f7f6d7b7b72909570521b961882ec2562bea189f2fad6d56b7b1e9947612",
+  "buildManifestSha256": "7974819018ab1075b27779ccac10acd2e2d5eaf2b4c00c547c4fddb88de43cef",
+  "buildChecksumsSha256": "0020d3f56cb2db80b64bfced5d88d34df6159c688558bb7ac62580fde15fc527",
+  "buildProfile": "romedb-production",
+  "sourceCi": "https://github.com/romedb/romedb/actions/runs/42581961780",
+  "sourceTests": {
+    "rust": 1158,
+    "rustIgnored": 4,
+    "node": 225,
+    "cAbi": 5,
+    "releasePolicy": 2,
+    "upgradeTable": 4,
+    "formatting": "passed",
+    "scopedClippy": "passed",
+    "strictTypeScript": "passed"
+  },
+  "installedGroups": [
+    "c-abi",
+    "cli",
+    "cli-v22",
+    "cli-graph",
+    "cli-spatial",
+    "sqlite-adoption",
+    "cli-elf",
+    "c-elf",
+    "node-0",
+    "node-client-0",
+    "node-1",
+    "node-client-1",
+    "python-0",
+    "python-1",
+    "python-2",
+    "php-package",
+    "go-package",
+    "swift-package",
+    "node-upgrade-install",
+    "node-ownership-0",
+    "v0213-upgrade-restore-0",
+    "v0214-upgrade-restore-0",
+    "v0215-upgrade-restore-0",
+    "v0216-upgrade-restore-0",
+    "v0217-upgrade-restore-0",
+    "v0218-upgrade-restore-0",
+    "v0219-upgrade-restore-0",
+    "v0220-upgrade-restore-0",
+    "node-ownership-1",
+    "v0213-upgrade-restore-1",
+    "v0214-upgrade-restore-1",
+    "v0215-upgrade-restore-1",
+    "v0216-upgrade-restore-1",
+    "v0217-upgrade-restore-1",
+    "v0218-upgrade-restore-1",
+    "v0219-upgrade-restore-1",
+    "v0220-upgrade-restore-1",
+    "nuget-package"
+  ],
+  "nodeVersions": [
+    "22.0.0",
+    "24.19.0"
+  ],
+  "pythonVersions": [
+    "3.10.21",
+    "3.12.3",
+    "3.14.7"
+  ],
+  "standaloneRustConsumer": "passed with the romedb-production profile; 335 registry/git package identities match the workspace lockfile",
+  "upgradeRestore": "Passed from the 0.2.13 to 0.2.20 packages on Node 22.0.0 and 24.19.0 (groups v0213-upgrade-restore to v0220-upgrade-restore). 0.2.13 is the floor: it changed the stored value prefix, and earlier files are refused. A collection with a weighted full-text index uses catalog version 9, which 0.2.20 and earlier refuse.",
+  "engine": {
+    "upstream": "Turso v0.8.3",
+    "upstreamCommit": "607bff9fd0e547a25a97b3bf06e83bcc5d99d53c",
+    "previousUpstream": "607bff9fd0e547a25a97b3bf06e83bcc5d99d53c",
+    "exceptions": "the maintained engine exceptions retained, one added: FTS single-word prefixes (romedb/docs/core-exceptions.md)",
+    "storageFormat": "__romedb_ schema prefix, .romedb extension, stored values prefixed RDB 01 (FDB 01 before 0.2.13); openEmbedded and serve use MVCC files; collections with a * array path index use catalog version 8, others keep version 7 or earlier; collections with a weighted full-text index use catalog version 9",
+    "sync": "romedb/romedb#30",
+    "change": "one engine core patch: core/index_method/fts/prefix.rs expands a one-word prefix (hel*) into the 64 indexed words that start with it and are in the most documents, before Tantivy builds the query; a query without a prefix builds as before. Field weights use the engine weights option, and search::snippet is a frontend helper. Same upstream as 0.2.20 (Turso v0.8.3, Tantivy 0.27.0)"
+  },
+  "spatial": {
+    "catalogVersion": 7,
+    "explainReadsNoData": "metered EXPLAIN reports zero rows read for every spatial form (spatial_explain_reads_no_documents_or_index_entries)",
+    "cliSpatialCheck": "passed"
+  },
+  "supportedScope": {
+    "platform": "Linux x64",
+    "clients": [
+      "rust",
+      "node",
+      "python",
+      "php",
+      "swift",
+      "csharp",
+      "go"
+    ],
+    "ownership": "One owning process per database file; shared clients connect to its service"
+  },
+  "security": {
+    "unresolvedFindings": 0,
+    "acceptedInformational": [],
+    "advisoryDatabase": "7a40350e1b8ba5b656d909f88222a8059a83d88d",
+    "resolvedForRelease": []
+  },
+  "documentationOverrides": {
+    "ENVELOPE.md": "Historical 2.1.0 measurements; the raw-evidence link points to the immutable fastdb-v2.1.0 release"
+  },
+  "performance": "Historical 2.1.0 operating envelope retained; fresh bounded application sample, not capacity guarantees",
+  "buildHost": "Built and qualified under scripts/romedb-heavy (shared lock, two jobs, cgroup memory ceiling)",
+  "publication": "Qualified for publication; anonymous public-download verification is separate"
+}
