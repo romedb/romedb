@@ -77,6 +77,26 @@ ORDER BY h.score DESC, h.id;
   numeric BM25 `score`. Higher scores rank first; equal scores use ascending
   stored typed-ID encoding, not numeric-key ordering. Use an outer `ORDER BY`
   when presentation order matters. Scores depend on the indexed corpus.
+- `search::snippet(index, text, query, size)` (source after 0.2.20) returns the
+  part of `text` that best shows a match for `query`, as an array of
+  `{ text, match }` objects, where `match` is true on the words the query
+  matched. It returns plain text, never markup, so the caller decides how to
+  show a match. It analyzes `text` with the named index's tokenizer, so matching
+  follows the index: a phrase matches its words in order, a prefix matches the
+  words that start with it, words in a negative clause are not marked, and on an
+  ngram index each place the query text appears is marked, ignoring case. A
+  phrase with slop (`"quick fox"~1`) marks its words one by one. The fragment has
+  at most `size` characters (40 through 1000) and starts and ends at whole words
+  when the text has word breaks. It is the fragment with the most different query
+  words, then the most matches, then the earliest; when that fits in the first
+  `size` characters it starts at the beginning of the text. Runs of whitespace
+  become one space, and a cut start or end shows as `…` in the first or last
+  part. With no match the start of the text comes back as one part with `match`
+  false; empty text gives an empty array. Null text or a null query gives null.
+  The index name must be a string literal; text, query and size may be bound
+  values or expressions. The query follows the rules and errors of
+  `search::text`, and text is limited to 1 MiB. The Rust API is
+  `Connection::snippet_text`.
 - The limit selects ranked hits before an outer `WHERE` or join filter. Such
   filters may produce fewer than the requested count. This is not pre-filtered
   top-k search. The materialized hit set prevents predicate/limit pushdown from

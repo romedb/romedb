@@ -688,3 +688,263 @@ fn field_weights_must_name_index_paths_with_positive_numbers() {
         1
     );
 }
+
+fn parts(value: &Value) -> Vec<(String, bool)> {
+    let Value::Array(parts) = value else {
+        panic!("{value:?}")
+    };
+    parts
+        .iter()
+        .map(|part| {
+            let Value::Object(part) = part else { panic!() };
+            let (Value::String(text), Value::Boolean(matched)) = (&part["text"], &part["match"])
+            else {
+                panic!("{part:?}")
+            };
+            (text.clone(), *matched)
+        })
+        .collect()
+}
+fn snippet(c: &romedb::Connection, index: &str, text: &str, query: &str) -> Vec<(String, bool)> {
+    parts(&c.snippet_text(index, text, query, 40).unwrap())
+}
+fn part(text: &str, matched: bool) -> (String, bool) {
+    (text.into(), matched)
+}
+fn marked(parts: &[(String, bool)]) -> Vec<&str> {
+    parts
+        .iter()
+        .filter(|(_, matched)| *matched)
+        .map(|(text, _)| text.as_str())
+        .collect()
+}
+
+#[test]
+fn a_snippet_marks_the_query_words_in_the_best_fragment() {
+    let c = Database::open(":memory:").unwrap().connect().unwrap();
+    q(&c, "CREATE TABLE docs");
+    q(
+        &c,
+        "CREATE SEARCH INDEX docs_text ON docs(title,body) USING FULLTEXT",
+    );
+    let fox = "The quick brown fox jumps over the lazy dog.";
+    assert_eq!(
+        snippet(&c, "docs_text", fox, "FOX"),
+        vec![
+            part("The quick brown ", false),
+            part("fox", true),
+            part(" jumps over the lazy\u{2026}", false)
+        ]
+    );
+    assert_eq!(
+        snippet(&c, "docs_text", fox, "\"lazy dog\""),
+        vec![
+            part("\u{2026}quick brown fox jumps over the ", false),
+            part("lazy dog", true),
+            part(".", false)
+        ]
+    );
+    for (query, expected) in [
+        ("jum*", vec!["jumps"]),
+        ("+quick +jum*", vec!["quick", "jumps"]),
+        ("\"brown fo\"*", vec!["brown fox"]),
+        ("\"quick fox\"~1", vec!["quick", "fox"]),
+        ("\"quick fox\"", vec![]),
+        ("fox -dog", vec!["fox"]),
+        ("(cat OR fox) AND lazy", vec!["fox", "lazy"]),
+    ] {
+        assert_eq!(
+            marked(&snippet(&c, "docs_text", fox, query)),
+            expected,
+            "{query}"
+        );
+    }
+    let text = format!(
+        "alpha {}alpha beta{}",
+        "filler ".repeat(30),
+        " filler".repeat(30)
+    );
+    let best = snippet(&c, "docs_text", &text, "alpha beta");
+    assert_eq!(marked(&best), vec!["alpha", "beta"]);
+    assert!(best[0].0.starts_with('\u{2026}') && best.last().unwrap().0.ends_with('\u{2026}'));
+    let early = snippet(&c, "docs_text", &text, "zebra");
+    assert_eq!(early.len(), 1);
+    assert!(
+        !early[0].1 && early[0].0.starts_with("alpha filler") && early[0].0.ends_with('\u{2026}')
+    );
+    assert_eq!(
+        snippet(&c, "docs_text", "alpha\n\n   beta  ", "beta"),
+        vec![part("alpha ", false), part("beta", true)]
+    );
+    assert!(snippet(&c, "docs_text", "", "beta").is_empty());
+    assert!(snippet(&c, "docs_text", " \n ", "beta").is_empty());
+    let long = "word ".repeat(400);
+    for size in [40, 160, 1000] {
+        let cut = parts(&c.snippet_text("docs_text", &long, "word", size).unwrap());
+        let joined: String = cut.iter().map(|(text, _)| text.as_str()).collect();
+        let joined = joined.trim_end_matches('\u{2026}');
+        assert!(joined.chars().count() <= size, "{size}");
+        assert!(long.starts_with(joined), "{size}");
+        assert_eq!(marked(&cut).len(), (size + 1) / 5, "{size}");
+    }
+}
+
+#[test]
+fn a_snippet_follows_the_index_tokenizer_and_unicode_text() {
+    let c = Database::open(":memory:").unwrap().connect().unwrap();
+    q(&c, "CREATE TABLE docs");
+    q(&c, "CREATE SEARCH INDEX words ON docs(body) USING FULLTEXT");
+    q(&c, "CREATE SEARCH INDEX grams ON docs(body) USING FULLTEXT WITH(tokenizer='ngram',min_gram=2,max_gram=3)");
+    q(
+        &c,
+        "CREATE SEARCH INDEX exact ON docs(body) USING FULLTEXT WITH(tokenizer='raw')",
+    );
+    q(
+        &c,
+        "CREATE SEARCH INDEX cased ON docs(body) USING FULLTEXT WITH(tokenizer='simple')",
+    );
+    let vietnamese = "Tiếng Việt có dấu: Hà Nội là thủ đô của VIỆT Nam 🇻🇳 và có nhiều hồ đẹp.";
+    assert_eq!(
+        marked(&snippet(&c, "words", vietnamese, "việt hồ")),
+        vec!["VIỆT", "hồ"]
+    );
+    let found = parts(&c.snippet_text("words", vietnamese, "việt hồ", 160).unwrap());
+    assert_eq!(marked(&found), vec!["Việt", "VIỆT", "hồ"]);
+    assert_eq!(
+        found
+            .iter()
+            .map(|(text, _)| text.as_str())
+            .collect::<String>(),
+        vietnamese
+    );
+    let emoji = format!("{}needle{}", "😀 ".repeat(100), " 😀".repeat(100));
+    let around = snippet(&c, "words", &emoji, "needle");
+    let joined: String = around.iter().map(|(text, _)| text.as_str()).collect();
+    let inner = joined.trim_matches('\u{2026}');
+    assert!(
+        emoji.contains(inner) && inner.chars().count() <= 40,
+        "{joined}"
+    );
+    assert_eq!(marked(&around), vec!["needle"]);
+    assert_eq!(
+        snippet(&c, "grams", "Database systems store DATA", "data"),
+        vec![
+            part("Data", true),
+            part("base systems store ", false),
+            part("DATA", true)
+        ]
+    );
+    assert_eq!(
+        marked(&snippet(&c, "grams", "Hello, Hà Nội", "hel* nộ")),
+        vec!["Hel", "Nộ"]
+    );
+    assert!(marked(&snippet(&c, "grams", "abc", "a")).is_empty());
+    assert_eq!(
+        marked(&snippet(&c, "exact", "Hello World", "\"Hello World\"")),
+        vec!["Hello World"]
+    );
+    assert!(marked(&snippet(&c, "exact", "Hello World", "hello")).is_empty());
+    assert!(marked(&snippet(&c, "cased", "Hello hello", "hello")) == vec!["hello"]);
+}
+
+#[test]
+fn a_snippet_works_in_queries_writes_and_rejects_bad_arguments() {
+    let c = Database::open(":memory:").unwrap().connect().unwrap();
+    q(&c, "CREATE TABLE docs");
+    q(
+        &c,
+        "CREATE SEARCH INDEX docs_text ON docs(title,body) USING FULLTEXT",
+    );
+    q(&c, "CREATE INDEX docs_title ON docs(title)");
+    q(
+        &c,
+        "INSERT INTO docs {id:docs:a,title:'Hello',body:'Say hello to the world'}",
+    );
+    q(&c, "INSERT INTO docs {id:docs:b,title:'Bye',body:null}");
+    let query = |sql: &str| {
+        c.execute(
+            sql,
+            &Parameters::from([("$q".into(), Value::String("hello".into()))]),
+        )
+    };
+    let result = query("SELECT h.id,search::snippet('docs_text',d.body,$q,40) AS snippet FROM search::text('docs_text',$q,10) h JOIN docs d ON d.id=h.id").unwrap();
+    assert_eq!(result.columns[1], "snippet");
+    assert_eq!(
+        parts(&result.rows[0][1]),
+        vec![
+            part("Say ", false),
+            part("hello", true),
+            part(" to the world", false)
+        ]
+    );
+    let result =
+        query("SELECT search::snippet('docs_text',body,$q,40) FROM docs ORDER BY id").unwrap();
+    assert!(
+        !result.columns[0].contains("__romedb"),
+        "{}",
+        result.columns[0]
+    );
+    assert_eq!(result.rows[1][0], Value::Null);
+    assert_eq!(
+        q(&c, "SELECT search::snippet('docs_text','hello',null,40)").rows,
+        vec![vec![Value::Null]]
+    );
+    q(&c, "INSERT INTO results {id:results:a,parts:search::snippet('docs_text','hello world','world',40)}");
+    q(
+        &c,
+        "UPDATE results SET parts=search::snippet('docs_text','bye world','bye',40)",
+    );
+    assert_eq!(
+        parts(&q(&c, "SELECT parts FROM results").rows[0][0]),
+        vec![part("bye", true), part(" world", false)]
+    );
+    for (sql, code) in [
+        (
+            "SELECT search::snippet('docs_text',body,$q,39) FROM docs",
+            "RDB_VALIDATION",
+        ),
+        (
+            "SELECT search::snippet('docs_text',body,$q,1001) FROM docs",
+            "RDB_VALIDATION",
+        ),
+        (
+            "SELECT search::snippet('docs_text',body,$q,'40') FROM docs",
+            "RDB_VALIDATION",
+        ),
+        (
+            "SELECT search::snippet('docs_text',body,'h*',40) FROM docs WHERE $q=$q",
+            "RDB_VALIDATION",
+        ),
+        (
+            "SELECT search::snippet('docs_text',body,'title:hello',40) FROM docs WHERE $q=$q",
+            "RDB_VALIDATION",
+        ),
+        (
+            "SELECT search::snippet('docs_text',7,$q,40)",
+            "RDB_VALIDATION",
+        ),
+        (
+            "SELECT search::snippet('docs_text',body,7,40) FROM docs WHERE $q=$q",
+            "RDB_VALIDATION",
+        ),
+        (
+            "SELECT search::snippet('docs_title',body,$q,40) FROM docs",
+            "RDB_VALIDATION",
+        ),
+        (
+            "SELECT search::snippet('missing',body,$q,40) FROM docs",
+            "RDB_NOT_FOUND",
+        ),
+    ] {
+        assert_eq!(query(sql).unwrap_err().code(), code, "{sql}");
+    }
+    assert!(query("SELECT search::snippet($q,body,$q,40) FROM docs").is_err());
+    let error = c
+        .snippet_text("docs_text", &"x".repeat(1024 * 1024 + 1), "hello", 40)
+        .unwrap_err();
+    assert_eq!(error.code(), "RDB_LIMIT");
+    assert_eq!(
+        parts(&c.snippet_text("docs_text", "hello", "hello", 41).unwrap()),
+        vec![part("hello", true)]
+    );
+}
