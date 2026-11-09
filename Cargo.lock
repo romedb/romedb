@@ -5524,7 +5524,7 @@ dependencies = [
 
 [[package]]
 name = "romedb"
-version = "0.2.20"
+version = "0.2.21"
 dependencies = [
  "h3o",
  "half",
@@ -5544,7 +5544,7 @@ dependencies = [
 
 [[package]]
 name = "romedb-c"
-version = "0.2.20"
+version = "0.2.21"
 dependencies = [
  "romedb",
  "romedb-protocol",
@@ -5553,7 +5553,7 @@ dependencies = [
 
 [[package]]
 name = "romedb-cli"
-version = "0.2.20"
+version = "0.2.21"
 dependencies = [
  "libc",
  "reqwest",
@@ -5572,7 +5572,7 @@ dependencies = [
 
 [[package]]
 name = "romedb-node"
-version = "0.2.20"
+version = "0.2.21"
 dependencies = [
  "napi",
  "napi-build",
@@ -5583,7 +5583,7 @@ dependencies = [
 
 [[package]]
 name = "romedb-protocol"
-version = "0.2.20"
+version = "0.2.21"
 dependencies = [
  "romedb",
  "serde",
@@ -5592,7 +5592,7 @@ dependencies = [
 
 [[package]]
 name = "romedb-python"
-version = "0.2.20"
+version = "0.2.21"
 dependencies = [
  "pyo3",
  "romedb",
@@ -5602,7 +5602,7 @@ dependencies = [
 
 [[package]]
 name = "romedb-service"
-version = "0.2.20"
+version = "0.2.21"
 dependencies = [
  "bytes",
  "http-body-util",
@@ -5622,7 +5622,7 @@ dependencies = [
 
 [[package]]
 name = "romedb-tests"
-version = "0.2.20"
+version = "0.2.21"
 dependencies = [
  "romedb",
  "romeql-parser",
@@ -5632,7 +5632,7 @@ dependencies = [
 
 [[package]]
 name = "romeql-parser"
-version = "0.2.20"
+version = "0.2.21"
 dependencies = [
  "serde",
  "thiserror 2.0.16",
