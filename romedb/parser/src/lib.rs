@@ -168,6 +168,7 @@ pub enum Statement {
         tokenizer: Option<String>,
         min_gram: Option<usize>,
         max_gram: Option<usize>,
+        weights: Option<String>,
     },
     CreateArrayIndex {
         if_not_exists: bool,
@@ -1364,6 +1365,7 @@ pub fn parse(input: &str) -> Result<Statement> {
             let mut tokenizer = None;
             let mut min_gram = None;
             let mut max_gram = None;
+            let mut weights = None;
             if p.eat("WITH") {
                 if !p.eat("(") {
                     return Err(p.error("expected analyzer options"));
@@ -1381,6 +1383,9 @@ pub fn parse(input: &str) -> Result<Statement> {
                         "tokenizer" if tokenizer.is_none() && token.kind == Kind::String => {
                             tokenizer = Some(token.text.clone())
                         }
+                        "weights" if weights.is_none() && token.kind == Kind::String => {
+                            weights = Some(token.text.clone())
+                        }
                         "min_gram" | "max_gram" if token.kind == Kind::Number => {
                             let value = token
                                 .text
@@ -1396,9 +1401,9 @@ pub fn parse(input: &str) -> Result<Statement> {
                             }
                         }
                         _ => {
-                            return Err(
-                                p.error("expected unique tokenizer, min_gram or max_gram option")
-                            )
+                            return Err(p.error(
+                                "expected unique tokenizer, weights, min_gram or max_gram option",
+                            ))
                         }
                     }
                     p.pos += 1;
@@ -1421,6 +1426,7 @@ pub fn parse(input: &str) -> Result<Statement> {
                 tokenizer,
                 min_gram,
                 max_gram,
+                weights,
             });
         }
         if p.eat("ARRAY") {

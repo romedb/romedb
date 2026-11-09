@@ -534,3 +534,157 @@ fn text_index_recovers_committed_wal_after_process_exit() {
         2
     );
 }
+
+fn search_error(c: &romedb::Connection, index: &str, query: &str) -> romedb::Error {
+    c.execute(
+        &format!("SELECT id FROM search::text('{index}',$query,10)"),
+        &Parameters::from([("$query".into(), Value::String(query.into()))]),
+    )
+    .unwrap_err()
+}
+
+#[test]
+fn a_prefix_finds_the_words_that_start_with_it() {
+    let db = Database::open(":memory:").unwrap();
+    let c = db.connect().unwrap();
+    for sql in [
+        "INSERT INTO articles {id:articles:a,title:'Hello world'}",
+        "INSERT INTO articles {id:articles:b,title:'Help desk'}",
+        "INSERT INTO articles {id:articles:c,title:'Shell game'}",
+        "INSERT INTO articles {id:articles:d,title:'Fast help'}",
+        "CREATE SEARCH INDEX articles_text ON articles(title) USING FULLTEXT",
+    ] {
+        q(&c, sql);
+    }
+    for (query, count) in [
+        ("hel*", 3),
+        ("HEL*", 3),
+        ("\"hel\"*", 3),
+        ("+fast +hel*", 1),
+        ("hel* -desk", 2),
+        ("+game +hel*", 0),
+        ("xyz*", 0),
+        ("\"fast he\"*", 1),
+        ("hel", 0),
+    ] {
+        assert_eq!(hits(&c, query, 10).len(), count, "{query}");
+    }
+    for (query, message) in [
+        ("h*", "at least 2 characters"),
+        ("\"h\"*", "at least 2 characters"),
+        ("!*", "at least 2 characters"),
+        ("hel**", "one * at the end"),
+        ("he*l*", "one * at the end"),
+    ] {
+        let error = search_error(&c, "articles_text", query);
+        assert_eq!(error.code(), "RDB_VALIDATION", "{query}: {error}");
+        assert!(error.to_string().contains(message), "{query}: {error}");
+    }
+}
+
+#[test]
+fn field_weights_rank_title_matches_first_and_last_through_reopen_reindex_and_export() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("weights.romedb");
+    std::fs::File::create(&path).unwrap();
+    let db = Database::create_mvcc(path.to_str().unwrap()).unwrap();
+    let c = db.connect().unwrap();
+    for sql in [
+        "INSERT INTO articles {id:articles:a,title:'rust guide book',body:'how to write programs well'}",
+        "INSERT INTO articles {id:articles:b,title:'other',body:'rust'}",
+        "INSERT INTO articles {id:articles:c,title:'more',body:'nothing here'}",
+        "CREATE SEARCH INDEX plain ON articles(title,body) USING FULLTEXT",
+        "CREATE SEARCH INDEX weighted ON articles(title,body) USING FULLTEXT WITH (weights='title=3')",
+    ] {
+        q(&c, sql);
+    }
+    let best = |c: &romedb::Connection, index: &str| {
+        let rows = q(
+            c,
+            &format!("SELECT id FROM search::text('{index}','rust',10) ORDER BY score DESC"),
+        )
+        .rows;
+        rows.iter()
+            .map(|row| format!("{:?}", row[0]))
+            .collect::<Vec<_>>()
+    };
+    let plain = best(&c, "plain");
+    let weighted = best(&c, "weighted");
+    assert_eq!(plain.len(), 2);
+    assert!(plain[0].contains('b'), "{plain:?}");
+    assert!(weighted[0].contains('a'), "{weighted:?}");
+
+    q(
+        &c,
+        "CREATE SEARCH INDEX IF NOT EXISTS weighted ON articles(title,body) USING FULLTEXT WITH (weights='title=3,body=1')",
+    );
+    let error = c
+        .execute(
+            "CREATE SEARCH INDEX IF NOT EXISTS weighted ON articles(title,body) USING FULLTEXT WITH (weights='title=2')",
+            &Parameters::new(),
+        )
+        .unwrap_err();
+    assert_eq!(error.code(), "RDB_ALREADY_EXISTS", "{error}");
+    let info = format!("{:?}", q(&c, "INFO FOR TABLE articles"));
+    assert!(info.contains("\"weights\""), "{info}");
+
+    q(&c, "REINDEX weighted");
+    assert_eq!(best(&c, "weighted"), weighted);
+    let copy = directory.path().join("copy.romedb");
+    db.start_file_export(
+        &copy,
+        &Default::default(),
+        &romedb::CancellationToken::new(),
+    )
+    .unwrap()
+    .finish()
+    .unwrap();
+    drop(c);
+    drop(db);
+    for file in [&path, &copy] {
+        let db = Database::open(file.to_str().unwrap()).unwrap();
+        let c = db.connect().unwrap();
+        assert_eq!(best(&c, "weighted"), weighted, "{}", file.display());
+        assert_eq!(best(&c, "plain"), plain, "{}", file.display());
+    }
+}
+
+#[test]
+fn field_weights_must_name_index_paths_with_positive_numbers() {
+    let c = Database::open(":memory:").unwrap().connect().unwrap();
+    q(&c, "CREATE TABLE articles");
+    for weights in [
+        "title=0",
+        "title=-1",
+        "title=abc",
+        "title=inf",
+        "title=NaN",
+        "nope=2",
+        "title=2,title=3",
+        "title",
+        "",
+        "meta=2",
+    ] {
+        let error = c
+            .execute(
+                &format!("CREATE SEARCH INDEX w ON articles(title,meta.summary) USING FULLTEXT WITH (weights='{weights}')"),
+                &Parameters::new(),
+            )
+            .unwrap_err();
+        assert_eq!(error.code(), "RDB_VALIDATION", "{weights}: {error}");
+    }
+    q(
+        &c,
+        "CREATE SEARCH INDEX w ON articles(title,meta.summary) USING FULLTEXT WITH (weights='meta.summary=0.5', tokenizer='simple')",
+    );
+    q(
+        &c,
+        "INSERT INTO articles {title:'Rust',meta:{summary:'Rust'}}",
+    );
+    assert_eq!(
+        q(&c, "SELECT id FROM search::text('w','Rust',10)")
+            .rows
+            .len(),
+        1
+    );
+}

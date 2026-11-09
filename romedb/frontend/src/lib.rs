@@ -848,6 +848,14 @@ impl Connection {
                 .version
                 .max(array_index::ARRAY_PATH_CATALOG_VERSION);
         }
+        if collection.indexes.iter().any(|index| {
+            index
+                .fulltext
+                .as_ref()
+                .is_some_and(|config| !config.weights.is_empty())
+        }) {
+            collection.version = collection.version.max(fulltext::WEIGHTS_CATALOG_VERSION);
+        }
         self.run(
             "UPDATE __romedb_catalog SET metadata = ?1 WHERE name = ?2",
             &[
@@ -1775,8 +1783,9 @@ impl Connection {
                 tokenizer,
                 min_gram,
                 max_gram,
+                weights,
             } => {
-                self.create_fulltext_index_with_options(
+                self.create_fulltext_index_with_weights(
                     &table,
                     &name,
                     paths,
@@ -1785,6 +1794,7 @@ impl Connection {
                         min_gram,
                         max_gram,
                     },
+                    weights.as_deref(),
                     if_not_exists,
                 )?;
                 Ok(QueryResult::command(0))

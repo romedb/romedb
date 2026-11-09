@@ -268,7 +268,22 @@ fn fulltext_index_declarations_preserve_ordered_paths() {
             paths: vec![vec!["title".into()], vec!["profile".into(), "body".into()]],
             tokenizer: None,
             min_gram: None,
-            max_gram: None
+            max_gram: None,
+            weights: None
+        }
+    );
+    assert_eq!(
+        parse("CREATE SEARCH INDEX t ON posts(title,profile.body) USING FULLTEXT WITH (weights='title=3,profile.body=1', tokenizer='simple')")
+            .unwrap(),
+        Statement::CreateFullTextIndex {
+            if_not_exists: false,
+            table: "posts".into(),
+            name: "t".into(),
+            paths: vec![vec!["title".into()], vec!["profile".into(), "body".into()]],
+            tokenizer: Some("simple".into()),
+            min_gram: None,
+            max_gram: None,
+            weights: Some("title=3,profile.body=1".into())
         }
     );
     for sql in [
@@ -276,6 +291,8 @@ fn fulltext_index_declarations_preserve_ordered_paths() {
         "CREATE SEARCH INDEX i ON posts(title,) USING FULLTEXT",
         "CREATE SEARCH INDEX i ON posts(title) USING FULLTEXT extra",
         "CREATE SEARCH INDEX i ON posts(title + body) USING FULLTEXT",
+        "CREATE SEARCH INDEX i ON posts(title) USING FULLTEXT WITH (weights=3)",
+        "CREATE SEARCH INDEX i ON posts(title) USING FULLTEXT WITH (weights='title=3',weights='title=2')",
     ] {
         assert!(parse(sql).is_err(), "{sql}");
     }
