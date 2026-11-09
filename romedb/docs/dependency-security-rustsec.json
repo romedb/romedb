@@ -1,12 +1,12 @@
 {
-  "reviewed_at": "2026-11-09T07:50:45.834476+00:00",
-  "source_commit": "89d6a4f0a19d37944f06a8c327d126d65c2115e3",
-  "cargo_lock_sha256": "5a88f7f6d7b7b72909570521b961882ec2562bea189f2fad6d56b7b1e9947612",
+  "reviewed_at": "2026-11-09T16:55:15.227215+00:00",
+  "source_commit": "da49ee853f2dcee0b00971dab24a629727bea3fc",
+  "cargo_lock_sha256": "495f15c91ae37f560329bd33dba6d4add48b8ba2767b0055a699a170afb8491f",
   "advisory_database": {
     "repository": "https://github.com/RustSec/advisory-db.git",
-    "commit": "7a40350e1b8ba5b656d909f88222a8059a83d88d",
-    "committed_at": "2026-11-08T16:03:42-07:00",
-    "advisory_count": 1422
+    "commit": "d9cb059f3217db87aeccd190b81eaffe8cc29cb9",
+    "committed_at": "2026-11-09T17:13:08+01:00",
+    "advisory_count": 1430
   },
   "scanner": "cargo-audit 0.22.2",
   "target": "x86_64-unknown-linux-gnu",
@@ -927,35 +927,35 @@
     },
     {
       "name": "romedb",
-      "version": "0.2.21"
+      "version": "0.2.22"
     },
     {
       "name": "romedb-c",
-      "version": "0.2.21"
+      "version": "0.2.22"
     },
     {
       "name": "romedb-cli",
-      "version": "0.2.21"
+      "version": "0.2.22"
     },
     {
       "name": "romedb-node",
-      "version": "0.2.21"
+      "version": "0.2.22"
     },
     {
       "name": "romedb-protocol",
-      "version": "0.2.21"
+      "version": "0.2.22"
     },
     {
       "name": "romedb-python",
-      "version": "0.2.21"
+      "version": "0.2.22"
     },
     {
       "name": "romedb-service",
-      "version": "0.2.21"
+      "version": "0.2.22"
     },
     {
       "name": "romeql-parser",
-      "version": "0.2.21"
+      "version": "0.2.22"
     },
     {
       "name": "rquickjs",
@@ -1466,7 +1466,17 @@
       "version": "2.1.2+zstd.1.5.7"
     }
   ],
-  "findings": [],
+  "findings": [
+    {
+      "kind": "vulnerability",
+      "package": "libsqlite3-sys",
+      "version": "0.38.2",
+      "id": "RUSTSEC-2026-0459",
+      "title": "`libsqlite3-sys` via C SQLite CVE-2026-119375",
+      "url": "https://rustsec.org/advisories/RUSTSEC-2026-0459.html",
+      "accepted_informational": false
+    }
+  ],
   "excluded_workspace_findings": [
     {
       "kind": "vulnerability",
@@ -1621,7 +1631,7 @@
       "url": "https://rustsec.org/advisories/RUSTSEC-2026-0205.html"
     }
   ],
-  "unresolved_count": 0,
+  "unresolved_count": 1,
   "limits": [
     "Version/target reachability, not compiled-function reachability or exploitability analysis",
     "Dev-only and non-Linux dependencies excluded; yanked-package check disabled",
