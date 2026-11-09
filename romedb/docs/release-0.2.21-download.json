@@ -1,0 +1,49 @@
+{
+  "version": "0.2.21",
+  "verifiedAtUtc": "2026-11-09T09:48:11.701030+00:00",
+  "releaseUrl": "https://github.com/romedb/romedb/releases/tag/romedb-v0.2.21",
+  "archiveUrl": "https://github.com/romedb/romedb/releases/download/romedb-v0.2.21/romedb-0.2.21-linux-x64.tar.gz",
+  "archiveSha256": "0c86352b4bff95677c2e430342ea025da051e0b784b65e93062c01e9f0632f4a",
+  "archiveBytes": 105724864,
+  "archiveReproduced": "the downloaded tar.gz is byte-identical to the archive built from the assembled bundle (fixed owner and commit-time mtimes)",
+  "sourceCommit": "d95a58af2eba702ebb67408a800da206e2b7c265",
+  "sourceArchiveSha256": "918ef8e377246607b0c2b43c2088c0eb4d98bf44fb596eb99f2ddfa91ad018a6",
+  "anonymousDownload": true,
+  "outerChecksumMatches": true,
+  "internalChecksumsPass": true,
+  "internalFiles": 188,
+  "sourceArchiveMatchesTag": true,
+  "cAbiSmoke": "passed",
+  "cliVersion": "bin/romedb --version prints 'romedb 0.2.21'",
+  "nodePackageAsset": {
+    "url": "https://github.com/romedb/romedb/releases/download/romedb-v0.2.21/romedb-node-0.2.21.tgz",
+    "sha256": "1f7f9e9239c1d408c5e49095e8f00fd5a9a8cd187f2171ae19abfa806c60311c",
+    "bytes": 16036297,
+    "matchesBundle": "byte-identical to packages/romedb-node-0.2.21.tgz in the archive"
+  },
+  "npmPackage": {
+    "url": "https://www.npmjs.com/package/@romedb/node/v/0.2.21",
+    "tarball": "https://registry.npmjs.org/@romedb/node/-/node-0.2.21.tgz",
+    "matchesAsset": "the registry tarball is byte-identical to romedb-node-0.2.21.tgz",
+    "dependsOn": "@romedb/client 0.2.21",
+    "publishedBy": "GitHub Actions run https://github.com/romedb/romedb/actions/runs/42595114834 of npm-publish.yml through npm trusted publishing, without an npm token",
+    "provenance": "npm audit signatures reports a verified attestation; transparency log https://search.sigstore.dev/?logIndex=3762956170"
+  },
+  "consumerChecks": "from clean npm and pnpm installs of @romedb/client and @romedb/node 0.2.21, on Node 22.0.0 and 24.19.0: one installed copy of @romedb/client; Float64, Record and Vector are the same objects through @romedb/client, @romedb/node/client, @romedb/node/values and @romedb/node/embedded-client; an embedded database takes values made by @romedb/client and returns them as its classes; exportFile with emptyTables and newIdentity, the serve --directory copies, saved requests, DELETE record shorthand and RDB_ codes pass. A project that lists only @romedb/node gets @romedb/client 0.2.21. With @romedb/client 0.2.20 beside @romedb/node 0.2.21, npm installs two copies and the embedded client refuses a Record from the other copy with unsupported parameter value",
+  "workersCheck": "Workers bundled by esbuild (platform neutral) from @romedb/client and from @romedb/node/client are the same size (53,625 bytes), have no node: import and ran in Miniflare against serve --directory, including exportFile",
+  "cloudCheck": "on a new Cloud database running 0.2.21: hel* found both documents with hello; with weights title=3 the title match ranked first, for an index made in a query and for one built by a buildIndex job, and the body match ranked first without weights; search::snippet in a join returned marked parts; INFO FOR TABLE listed the weights; h* and a snippet size of 20 were refused with RDB_VALIDATION",
+  "manifestSha256": "7974819018ab1075b27779ccac10acd2e2d5eaf2b4c00c547c4fddb88de43cef",
+  "clientPackageAsset": {
+    "url": "https://github.com/romedb/romedb/releases/download/romedb-v0.2.21/romedb-client-0.2.21.tgz",
+    "sha256": "c35ee9a37309b6eda97f662adf61af2f8572e4938a35d22a61743696556934e1",
+    "bytes": 31975,
+    "matchesBundle": "byte-identical to packages/romedb-client-0.2.21.tgz in the archive"
+  },
+  "npmClientPackage": {
+    "url": "https://www.npmjs.com/package/@romedb/client/v/0.2.21",
+    "tarball": "https://registry.npmjs.org/@romedb/client/-/client-0.2.21.tgz",
+    "matchesAsset": "the registry tarball is byte-identical to romedb-client-0.2.21.tgz",
+    "publishedBy": "the same run, before @romedb/node",
+    "provenance": "npm audit signatures reports a verified attestation; transparency log https://search.sigstore.dev/?logIndex=3762955932"
+  }
+}
