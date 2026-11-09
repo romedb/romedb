@@ -48,11 +48,30 @@ ORDER BY h.score DESC, h.id;
   quoted phrases, prefix phrases, boolean AND/OR, parentheses, required and
   prohibited terms, and `*`. Query input is limited to 4096 UTF-8 bytes and AST
   nesting 32. Field qualifiers, boosts, regexes, sets and ranges reject explicitly.
-  Bare terms combine with OR by default. Phrase prefixes require at least two
-  terms (for example `"big bad wo"*`). Negative-only clauses reject, including
+  Bare terms combine with OR by default. Since the source after 0.2.20, `hel*` finds
+  documents with any indexed word that starts with `hel` after the index's analyzer
+  runs, so `HEL*` is the same query. `"hel"*` is the same as `hel*`, and a
+  phrase prefix of two or more words (for example `"big bad wo"*`) is unchanged. A
+  prefix combines like a word: `+fast +hel*`, `hel* -help` and inside
+  parentheses. It needs at least 2 characters before the `*`, and takes one `*`
+  at the end of a word (`hel**` and `he*l*` reject). It matches at most the 64
+  indexed words that are in the most documents, and each scores with BM25 as if
+  the query named that word, so `hel*` scores a document that contains `hello`
+  as `hello` would. On an ngram index `hel*` is the same as `hel`, because an
+  ngram index already matches parts of words. A prefix with no matching word
+  matches nothing, also inside `+fast +xyz*`. Negative-only clauses reject, including
   the pinned parser's `NOT` subclauses: use `+fast -guide` to exclude a term,
   rather than `fast AND NOT guide`, which the native parser mishandles. Matching
   and syntax errors otherwise follow the pinned Tantivy query parser.
+- `WITH (weights='title=3,meta.summary=2')` multiplies each named field's score
+  (source after 0.2.20). Each key is one of the index's paths, written with dots;
+  each value is a finite, positive number; paths left out weigh 1. Weights are part
+  of the definition: `IF NOT EXISTS` with other weights rejects, `INFO FOR TABLE`
+  lists `weights` in path order, and `REINDEX`, reopening and file exports keep
+  them. A weighted index raises its collection to catalog version 9, which earlier
+  binaries refuse with "unsupported collection metadata version". Weights that are
+  all 1 store nothing and leave the catalog version unchanged. To change weights,
+  drop the index and create it again.
 - `search::text(index, query, limit)` requires immutable literal or parameter
   arguments and a limit from 0 through 10000. It returns typed `id` and native
   numeric BM25 `score`. Higher scores rank first; equal scores use ascending

@@ -7,6 +7,28 @@ below tracks upstream replacement candidates; no patch is removed from the
 existing pinned engine merely because a newer upstream revision contains a fix.
 No automatic removal or periodic monitoring is configured.
 
+## FTS single-word prefixes (2026-11-09)
+
+Tantivy 0.27's query parser has no expansion for a one-word prefix. It reads `hel*` as
+the word `hel`, so the query found nothing, and `"hel"*` failed with
+`PhrasePrefixRequiresAtLeastTwoTerms`. `core/index_method/fts/prefix.rs` now parses the
+query with Tantivy's lenient grammar, as `parse_query_lenient` did, and replaces each
+one-word prefix in the tree before `build_query_from_user_input_ast_lenient` builds the
+query. The prefix is analyzed with the field's tokenizer; each segment's term dictionary
+gives the words that start with it; the 64 in the most documents (`MAX_PREFIX_TERMS`)
+become an OR of plain words, so each scores with BM25. An analyzed prefix shorter than
+`MIN_PREFIX_CHARS` (2) is an error, a prefix that analyzes to two or more words becomes a
+phrase prefix, and an ngram index reads `hel*` as `hel`. A query without such a prefix
+builds the same query as before. The only call site is `query_start` in
+`core/index_method/fts/mod.rs`. No storage change, no new dependency.
+
+Keep this exception until upstream Tantivy or Turso expands a one-word prefix with
+BM25 scores. On a sync, check that `query_start` still calls `prefix::parse_query`, and
+that re-analyzing an indexed word gives the same word for every tokenizer in
+`analysis::register` (the expansion relies on it). The regressions are the four
+`fts_single_word_prefix_*` tests in `tests/integration/index_method/mod.rs` and
+`a_prefix_finds_the_words_that_start_with_it` in `romedb/tests/tests/fulltext.rs`.
+
 ## VACUUM INTO in batches (2026-11-06)
 
 `VACUUM INTO` built its copy as one transaction, and on an MVCC source as one MVCC

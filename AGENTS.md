@@ -173,7 +173,7 @@ tests and the condition for dropping each patch, is
 [romedb/docs/core-exceptions.md](romedb/docs/core-exceptions.md); the current
 upstream base is in [romedb/UPSTREAM.md](romedb/UPSTREAM.md).
 
-Newest patch (2026-11-02): **MVCC savepoint commit resume**, `core/vdbe/execute.rs`,
+Older patch (2026-11-02): **MVCC savepoint commit resume**, `core/vdbe/execute.rs`,
 `SavepointOp::Release` in `op_savepoint`. When `RELEASE` of the savepoint that
 opened a transaction commits it, and that commit waits on I/O (on MVCC files, the
 automatic checkpoint at about 4 MB of log), the resumed instruction now finishes
@@ -191,6 +191,13 @@ Newer patch (2026-11-06): **VACUUM INTO in batches**, `core/vdbe/vacuum.rs` and
 before its header, and is removed after a failure. In-place `VACUUM` does not change. Keep it
 until upstream stops building `VACUUM INTO` as one transaction; the register has the
 regressions.
+
+Newest patch (2026-11-09): **FTS single-word prefixes**, `core/index_method/fts/prefix.rs`,
+called from `query_start` in `core/index_method/fts/mod.rs`. A query word ending in `*`
+(`hel*`, or the one-word phrase prefix `"hel"*`) becomes an OR of the 64 indexed words
+that start with it and are in the most documents, before Tantivy builds the query.
+Queries without such a word build exactly as before. Keep it until upstream expands a
+one-word prefix with BM25 scores; the register has the regressions.
 
 On an upstream sync:
 - Keep the patch unless upstream changed `SavepointOp::Release` to resume a

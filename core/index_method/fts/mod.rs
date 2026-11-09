@@ -61,6 +61,8 @@ mod analysis;
 pub use analysis::{analyze_text, AnalyzedToken};
 mod directory;
 mod format;
+mod prefix;
+pub use prefix::{MAX_PREFIX_TERMS, MIN_PREFIX_CHARS};
 mod rows;
 
 use directory::{BuildDirectory, SnapshotDirectory};
@@ -3095,10 +3097,9 @@ impl IndexMethodCursor for FtsCursor {
                 _ => {}
             }
         }
-        let (query, parse_errors) = parser.parse_query_lenient(&query_str);
-        if let Some(error) = parse_errors.first() {
-            return Err(LimboError::InternalError(format!("FTS parse error: {error:?}")).into());
-        }
+        let index = self.index.as_ref().expect("index built with the searcher");
+        let query = prefix::parse_query(parser, index, searcher, &self.default_fields, &query_str)
+            .map_err(LimboError::InternalError)?;
 
         // TopDocs keeps a heap proportional to its limit. Cap that heap at the
         // number of live documents: this preserves unlimited-query semantics

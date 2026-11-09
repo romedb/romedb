@@ -16,10 +16,17 @@ pub(crate) struct Config {
     pub max_gram: Option<usize>,
     #[serde(default = "legacy_storage_version")]
     pub storage_version: u32,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub weights: Vec<Weight>,
 }
 const fn legacy_storage_version() -> u32 {
     1
 }
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub(crate) struct Weight(pub f32);
+impl Eq for Weight {}
+pub(crate) const WEIGHTS_CATALOG_VERSION: u32 = 9;
 const TOKENIZER: &str = "tantivy-default-0.26";
 // Stay below the pinned native FTS cursor's 1,000-document flush threshold,
 // and within 2,176 bound parameters: 128 rows of sixteen text fields plus the
@@ -109,6 +116,13 @@ impl Index {
                 if seen.len() > 16 {
                     return Err(invalid("at most 16 text fields per index"));
                 }
+                if !config.weights.is_empty()
+                    && (config.weights.len() != seen.len()
+                        || config.storage_version != 2
+                        || !config.weights.iter().all(|w| w.0.is_finite() && w.0 > 0.0))
+                {
+                    return Err(invalid("invalid field weights"));
+                }
                 Ok(())
             }
             (
@@ -151,6 +165,9 @@ impl Index {
                 .join(","),
         }
     }
+    fn text_columns(&self) -> impl Iterator<Item = String> {
+        std::iter::once("key".to_owned()).chain((1..self.paths().count()).map(|i| format!("f{i}")))
+    }
     pub(crate) fn text_table_ddl(&self) -> String {
         let extra = (1..self.paths().count())
             .map(|i| format!(",f{i} TEXT"))
@@ -162,16 +179,27 @@ impl Index {
     }
     pub(crate) fn text_index_ddl(&self) -> String {
         let config = self.fulltext.as_ref().expect("fulltext config");
-        let suffix = if config.is_custom() {
+        let mut parameters = Vec::new();
+        if config.is_custom() {
             let options = config.options().expect("validated analyzer");
-            let sizes = options
-                .min_gram
-                .zip(options.max_gram)
-                .map(|(min, max)| format!(",min_gram={min},max_gram={max}"))
-                .unwrap_or_default();
-            format!(" WITH (tokenizer='{}'{sizes})", options.tokenizer)
-        } else {
+            parameters.push(format!("tokenizer='{}'", options.tokenizer));
+            if let Some((min, max)) = options.min_gram.zip(options.max_gram) {
+                parameters.push(format!("min_gram={min},max_gram={max}"));
+            }
+        }
+        if !config.weights.is_empty() {
+            let weights = self
+                .text_columns()
+                .zip(&config.weights)
+                .map(|(column, weight)| format!("{column}={}", weight.0))
+                .collect::<Vec<_>>()
+                .join(",");
+            parameters.push(format!("weights='{weights}'"));
+        }
+        let suffix = if parameters.is_empty() {
             String::new()
+        } else {
+            format!(" WITH ({})", parameters.join(","))
         };
         format!(
             "CREATE INDEX {} ON {} USING fts ({}){suffix}",
@@ -252,7 +280,24 @@ impl Connection {
         options: crate::FullTextOptions,
         if_not_exists: bool,
     ) -> Result<()> {
+        self.create_fulltext_index_with_weights(table, name, paths, options, None, if_not_exists)
+    }
+    /// `weights` is `path=weight,...` with each path written with dots, as in
+    /// `title=3,meta.summary=2`. Paths it leaves out weigh 1.
+    pub fn create_fulltext_index_with_weights(
+        &self,
+        table: &str,
+        name: &str,
+        paths: Vec<Vec<String>>,
+        options: crate::FullTextOptions,
+        weights: Option<&str>,
+        if_not_exists: bool,
+    ) -> Result<()> {
         let options = options.normalized()?;
+        let weights = weights
+            .map(|text| parse_weights(text, &paths))
+            .transpose()?
+            .unwrap_or_default();
         let name = canonical(name)?;
         let Some(path) = paths.first() else {
             return Err(invalid("at least one text field is required"));
@@ -278,6 +323,7 @@ impl Connection {
                 min_gram: options.min_gram,
                 max_gram: options.max_gram,
                 storage_version: 2,
+                weights,
             }),
         };
         index.validate_text_config()?;
@@ -547,6 +593,44 @@ impl Connection {
     }
 }
 
+fn parse_weights(text: &str, paths: &[Vec<String>]) -> Result<Vec<Weight>> {
+    let mut weights: Vec<Option<f32>> = vec![None; paths.len()];
+    for part in text.split(',') {
+        let (key, value) = part
+            .split_once('=')
+            .ok_or_else(|| invalid("weights are written as path=weight, separated by commas"))?;
+        let key = key.trim();
+        let mut slots = paths
+            .iter()
+            .enumerate()
+            .filter(|(_, path)| path.join(".") == key);
+        let (Some((slot, _)), None) = (slots.next(), slots.next()) else {
+            return Err(invalid(&format!(
+                "weights name {key}, which is not one of the index's paths"
+            )));
+        };
+        let weight: f32 = value
+            .trim()
+            .parse()
+            .map_err(|_| invalid(&format!("the weight of {key} is not a number")))?;
+        if !weight.is_finite() || weight <= 0.0 {
+            return Err(invalid(&format!(
+                "the weight of {key} must be a positive number"
+            )));
+        }
+        if weights[slot].replace(weight).is_some() {
+            return Err(invalid(&format!("weights name {key} twice")));
+        }
+    }
+    if weights.iter().all(|w| w.is_none_or(|w| w == 1.0)) {
+        return Ok(Vec::new());
+    }
+    Ok(weights
+        .into_iter()
+        .map(|w| Weight(w.unwrap_or(1.0)))
+        .collect())
+}
+
 fn text_hit(row: &[EngineValue]) -> Result<(Vec<u8>, f64)> {
     let [EngineValue::Blob(id), score] = row else {
         return Err(Error::Storage("invalid full-text hit".into()));
@@ -589,15 +673,50 @@ fn validate_query(query: &str) -> Result<()> {
                 }
                 pending.extend(children.iter().map(|(_, node)| (node, depth + 1)))
             }
-            UserInputAst::Leaf(leaf)
-                if matches!(leaf.as_ref(), UserInputLeaf::Literal(l) if l.field_name.is_none())
-                    || matches!(leaf.as_ref(), UserInputLeaf::All) => {}
-            _ => {
-                return Err(invalid(
-                    "queries support unqualified terms, phrases, prefixes, boolean clauses and *",
-                ))
-            }
+            UserInputAst::Leaf(leaf) => match leaf.as_ref() {
+                UserInputLeaf::All => {}
+                UserInputLeaf::Literal(literal) if literal.field_name.is_none() => {
+                    validate_prefix(literal)?
+                }
+                _ => return Err(unsupported_query()),
+            },
+            UserInputAst::Boost(..) => return Err(unsupported_query()),
         }
+    }
+    Ok(())
+}
+
+fn unsupported_query() -> Error {
+    invalid("queries support unqualified terms, phrases, prefixes, boolean clauses and *")
+}
+
+fn validate_prefix(literal: &tantivy_query_grammar::UserInputLiteral) -> Result<()> {
+    use turso_core::index_method::fts::MIN_PREFIX_CHARS;
+    let stem = if literal.prefix {
+        literal.phrase.as_str()
+    } else if literal.delimiter == tantivy_query_grammar::Delimiter::None {
+        match literal.phrase.strip_suffix('*') {
+            Some(stem) if !stem.is_empty() => stem,
+            _ => return Ok(()),
+        }
+    } else {
+        return Ok(());
+    };
+    if !literal.prefix && stem.contains('*') {
+        return Err(invalid("a prefix takes one * at the end of a word"));
+    }
+    let words: Vec<&str> = stem
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|word| !word.is_empty())
+        .collect();
+    if words.len() <= 1
+        && words
+            .first()
+            .is_none_or(|w| w.chars().count() < MIN_PREFIX_CHARS)
+    {
+        return Err(invalid(&format!(
+            "a prefix needs at least {MIN_PREFIX_CHARS} characters before *"
+        )));
     }
     Ok(())
 }
@@ -656,6 +775,64 @@ mod tests {
                 None
             )
             .is_err());
+    }
+    #[test]
+    fn weighted_text_indexes_need_catalog_version_9() {
+        let db = crate::Database::open(":memory:").unwrap();
+        let c = db.connect().unwrap();
+        c.execute(
+            "INSERT INTO docs {title:'hello',body:'world'}",
+            &crate::Parameters::new(),
+        )
+        .unwrap();
+        c.create_fulltext_index_with_weights(
+            "docs",
+            "weighted",
+            vec![vec!["title".into()], vec!["body".into()]],
+            crate::FullTextOptions::default(),
+            Some("title=3"),
+            false,
+        )
+        .unwrap();
+        let catalog = c.catalog("docs").unwrap();
+        assert_eq!(catalog.version, WEIGHTS_CATALOG_VERSION);
+        let index = &catalog.indexes[0];
+        assert_eq!(
+            index.fulltext.as_ref().unwrap().weights,
+            vec![Weight(3.0), Weight(1.0)]
+        );
+        assert!(index
+            .text_index_ddl()
+            .ends_with(" WITH (weights='key=3,f1=1')"));
+        let original = serde_json::to_value(&catalog).unwrap();
+        assert!(crate::catalog::decode(&original.to_string(), "docs").is_ok());
+        for (path, value) in [
+            ("/version", serde_json::json!(8)),
+            ("/indexes/0/fulltext/weights", serde_json::json!([3.0])),
+            ("/indexes/0/fulltext/weights", serde_json::json!([0.0, 1.0])),
+            (
+                "/indexes/0/fulltext/weights",
+                serde_json::json!([-1.0, 1.0]),
+            ),
+        ] {
+            let mut changed = original.clone();
+            *changed.pointer_mut(path).unwrap() = value;
+            assert!(
+                crate::catalog::decode(&changed.to_string(), "docs").is_err(),
+                "{path}"
+            );
+        }
+        c.create_fulltext_index_with_weights(
+            "docs",
+            "unweighted",
+            vec![vec!["title".into()]],
+            crate::FullTextOptions::default(),
+            Some("title=1"),
+            false,
+        )
+        .unwrap();
+        let unweighted = c.catalog("docs").unwrap().indexes.remove(1);
+        assert!(unweighted.fulltext.unwrap().weights.is_empty());
     }
     #[test]
     fn text_audit_detects_stale_fields_counts_and_missing_entries() {
