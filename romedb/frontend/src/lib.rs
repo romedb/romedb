@@ -28,6 +28,7 @@ mod analyzer;
 mod fulltext;
 mod mutation_result;
 mod reindex;
+mod snippet;
 pub use analyzer::FullTextOptions;
 mod functions;
 mod graph;

@@ -280,11 +280,21 @@ impl Connection {
             return match args.as_slice() {
                 [Value::String(index), Value::String(input)] => self.analyze_text(index, input),
                 [Value::String(index), Value::Null] => {
-                    self.analyzer_options(index)?;
+                    self.analyzer_options(index, "search::analyze")?;
                     Ok(Value::Null)
                 }
                 _ => Err(Error::Validation(
                     "search::analyze expects an index name and text".into(),
+                )),
+            };
+        }
+        if name.eq_ignore_ascii_case("search::snippet") {
+            return match args.as_slice() {
+                [Value::String(index), text, query, size] => {
+                    self.snippet_values(index, text, query, size)
+                }
+                _ => Err(Error::Validation(
+                    "search::snippet expects an index name, text, query and size".into(),
                 )),
             };
         }
