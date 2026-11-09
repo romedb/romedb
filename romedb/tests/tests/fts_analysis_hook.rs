@@ -1,12 +1,16 @@
-use turso_core::index_method::fts::analyze_text;
+use turso_core::index_method::fts::{analyze_text, Analyzer};
 
 fn tokens(
     name: &str,
     window: (usize, usize),
     input: &str,
 ) -> Vec<(String, usize, usize, usize, usize)> {
+    filtered_tokens(&Analyzer::new(name, window, false, None).unwrap(), input)
+}
+
+fn filtered_tokens(analyzer: &Analyzer, input: &str) -> Vec<(String, usize, usize, usize, usize)> {
     let mut values = Vec::new();
-    analyze_text::<turso_core::LimboError>(name, window, input, |token| {
+    analyze_text::<turso_core::LimboError>(analyzer, input, |token| {
         values.push((
             token.text.into(),
             token.offset_from,
@@ -59,7 +63,8 @@ fn shared_analyzers_preserve_case_unicode_offsets_and_long_token_rules() {
 #[test]
 fn token_visitors_stop_on_the_callers_error_and_reject_unknown_configurations() {
     let mut seen = 0;
-    let error = analyze_text::<romedb::Error>("ngram", (1, 3), "database", |_| {
+    let grams = Analyzer::new("ngram", (1, 3), false, None).unwrap();
+    let error = analyze_text::<romedb::Error>(&grams, "database", |_| {
         seen += 1;
         if seen == 3 {
             Err(romedb::Error::Limit("token budget".into()))
@@ -71,13 +76,63 @@ fn token_visitors_stop_on_the_callers_error_and_reject_unknown_configurations() 
     assert_eq!(error.code(), "RDB_LIMIT");
     assert_eq!(seen, 3);
     for (name, window) in [("missing", (2, 3)), ("ngram", (0, 3)), ("ngram", (3, 2))] {
-        assert!(
-            analyze_text::<turso_core::LimboError>(name, window, "x", |_| panic!(
-                "invalid configuration emitted a token"
+        assert!(Analyzer::new(name, window, false, None)
+            .and_then(|analyzer| analyze_text::<turso_core::LimboError>(
+                &analyzer,
+                "x",
+                |_| panic!("invalid configuration emitted a token")
             ))
-            .is_err()
+            .is_err());
+    }
+    for (name, fold, stemmer) in [
+        ("raw", true, None),
+        ("ngram", true, None),
+        ("simple", false, Some("english")),
+        ("default", false, Some("klingon")),
+        ("default", false, Some("English")),
+    ] {
+        assert!(
+            Analyzer::new(name, (2, 3), fold, stemmer).is_err(),
+            "{name} {fold} {stemmer:?}"
         );
     }
+}
+
+#[test]
+fn folding_and_stemming_keep_offsets_and_positions() {
+    let text = "Cafés RUNNING, Ærø";
+    let both = Analyzer::new("default", (2, 3), true, Some("english")).unwrap();
+    assert_eq!(
+        filtered_tokens(&both, text),
+        vec![
+            ("cafe".into(), 0, 6, 0, 1),
+            ("run".into(), 7, 14, 1, 1),
+            ("aero".into(), 16, 21, 2, 1)
+        ]
+    );
+    assert_eq!(
+        filtered_tokens(&both.without_stemmer(), text)
+            .into_iter()
+            .map(|t| t.0)
+            .collect::<Vec<_>>(),
+        vec!["cafes", "running", "aero"]
+    );
+    let folded = Analyzer::new("simple", (2, 3), true, None).unwrap();
+    assert_eq!(
+        filtered_tokens(&folded, text)
+            .into_iter()
+            .map(|t| t.0)
+            .collect::<Vec<_>>(),
+        vec!["Cafes", "RUNNING", "AEro"]
+    );
+    let french = Analyzer::new("default", (2, 3), false, Some("french")).unwrap();
+    assert_eq!(
+        filtered_tokens(&french, "continuellement")
+            .into_iter()
+            .map(|t| t.0)
+            .collect::<Vec<_>>(),
+        vec!["continuel"]
+    );
 }
 
 #[test]

@@ -948,3 +948,226 @@ fn a_snippet_works_in_queries_writes_and_rejects_bad_arguments() {
         vec![part("hello", true)]
     );
 }
+
+fn ids(c: &romedb::Connection, index: &str, query: &str) -> Vec<String> {
+    c.execute(
+        &format!("SELECT id FROM search::text('{index}',$query,10) ORDER BY id"),
+        &Parameters::from([("$query".into(), Value::String(query.into()))]),
+    )
+    .unwrap_or_else(|e| panic!("{index} {query}: {e}"))
+    .rows
+    .into_iter()
+    .map(|row| match &row[0] {
+        Value::Record(romedb::Record {
+            key: romedb::Key::String(key),
+            ..
+        }) => key.clone(),
+        other => panic!("{other:?}"),
+    })
+    .collect()
+}
+
+#[test]
+fn folding_and_stemming_match_accents_and_word_forms_through_reindex_and_export() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("stemming.romedb");
+    std::fs::File::create(&path).unwrap();
+    let db = Database::create_mvcc(path.to_str().unwrap()).unwrap();
+    let c = db.connect().unwrap();
+    for sql in [
+        "INSERT INTO articles {id:articles:a,title:'Café crème',body:'running shoes for the trail'}",
+        "INSERT INTO articles {id:articles:b,title:'Runs',body:'he runs daily'}",
+        "INSERT INTO articles {id:articles:c,title:'Résumé tips',body:'information about the agreed plan'}",
+        "INSERT INTO articles {id:articles:d,title:'Cart',body:'a cartoon show'}",
+        "CREATE SEARCH INDEX plain ON articles(title,body) USING FULLTEXT",
+        "CREATE SEARCH INDEX stemmed ON articles(title,body) USING FULLTEXT WITH (fold=true, stemmer='English')",
+    ] {
+        q(&c, sql);
+    }
+    let checks = |c: &romedb::Connection| {
+        for (index, query, expected) in [
+            ("stemmed", "cafe", vec!["a"]),
+            ("stemmed", "CAFÉ", vec!["a"]),
+            ("stemmed", "resume", vec!["c"]),
+            ("stemmed", "run", vec!["a", "b"]),
+            ("stemmed", "\"running shoes\"", vec!["a"]),
+            ("stemmed", "\"run shoe\"", vec!["a"]),
+            ("stemmed", "\"shoes running\"", vec![]),
+            ("stemmed", "runni*", vec!["a", "b"]),
+            ("stemmed", "informatio*", vec!["c"]),
+            ("stemmed", "agr*", vec!["c"]),
+            ("stemmed", "carto*", vec!["d"]),
+            ("stemmed", "+show +carto*", vec!["d"]),
+            ("plain", "cafe", vec![]),
+            ("plain", "run", vec![]),
+            ("plain", "runs", vec!["b"]),
+        ] {
+            assert_eq!(ids(c, index, query), expected, "{index} {query}");
+        }
+    };
+    checks(&c);
+    assert_eq!(
+        q(
+            &c,
+            "SELECT search::analyze('stemmed','Cafés RUNNING agreed')"
+        )
+        .rows[0][0],
+        c.analyze_text("stemmed", "Cafés RUNNING agreed").unwrap()
+    );
+    let tokens = c.analyze_text("stemmed", "Cafés RUNNING agreed").unwrap();
+    assert_eq!(
+        format!("{tokens:?}").matches("\"cafe\"").count(),
+        1,
+        "{tokens:?}"
+    );
+    for word in ["\"run\"", "\"agre\""] {
+        assert!(format!("{tokens:?}").contains(word), "{tokens:?}");
+    }
+    assert_eq!(
+        marked(&snippet(
+            &c,
+            "stemmed",
+            "He was running to the café",
+            "run cafe"
+        )),
+        vec!["running", "café"]
+    );
+    assert_eq!(
+        marked(&snippet(&c, "stemmed", "Information desks", "informatio*")),
+        vec!["Information"]
+    );
+    assert_eq!(
+        marked(&snippet(&c, "stemmed", "running and runs", "runni*")),
+        vec!["running", "runs"]
+    );
+    assert_eq!(
+        marked(&snippet(&c, "stemmed", "a cart and a cartoon", "carto*")),
+        vec!["cartoon"]
+    );
+    assert_eq!(
+        marked(&snippet(
+            &c,
+            "stemmed",
+            "running shoes, shoes running",
+            "\"run shoe\""
+        )),
+        vec!["running shoes"]
+    );
+    assert_eq!(
+        marked(&snippet(
+            &c,
+            "plain",
+            "He was running to the café",
+            "run cafe"
+        )),
+        Vec::<&str>::new()
+    );
+    let info = format!("{:?}", q(&c, "INFO FOR TABLE articles"));
+    assert!(info.contains("\"fold\": Boolean(true)"), "{info}");
+    assert!(info.contains("\"stemmer\": String(\"english\")"), "{info}");
+    q(
+        &c,
+        "CREATE SEARCH INDEX IF NOT EXISTS stemmed ON articles(title,body) USING FULLTEXT WITH (stemmer='english',fold=true)",
+    );
+    for options in [
+        "fold=true",
+        "stemmer='english'",
+        "fold=true,stemmer='french'",
+    ] {
+        let error = c
+            .execute(
+                &format!("CREATE SEARCH INDEX IF NOT EXISTS stemmed ON articles(title,body) USING FULLTEXT WITH ({options})"),
+                &Parameters::new(),
+            )
+            .unwrap_err();
+        assert_eq!(error.code(), "RDB_ALREADY_EXISTS", "{options}: {error}");
+    }
+    q(&c, "REINDEX stemmed");
+    checks(&c);
+    let copy = directory.path().join("copy.romedb");
+    db.start_file_export(
+        &copy,
+        &Default::default(),
+        &romedb::CancellationToken::new(),
+    )
+    .unwrap()
+    .finish()
+    .unwrap();
+    drop(c);
+    drop(db);
+    for file in [&path, &copy] {
+        let db = Database::open(file.to_str().unwrap()).unwrap();
+        let c = db.connect().unwrap();
+        checks(&c);
+        q(
+            &c,
+            "INSERT INTO articles {id:articles:e,title:'Naïve runners'}",
+        );
+        assert_eq!(ids(&c, "stemmed", "naive runner"), vec!["e"]);
+    }
+}
+
+#[test]
+fn fold_and_stemmer_options_are_checked() {
+    let c = Database::open(":memory:").unwrap().connect().unwrap();
+    q(&c, "CREATE TABLE articles");
+    for (options, code) in [
+        ("stemmer='klingon'", "RDB_VALIDATION"),
+        ("tokenizer='ngram',fold=true", "RDB_VALIDATION"),
+        ("tokenizer='raw',fold=true", "RDB_VALIDATION"),
+        ("tokenizer='simple',stemmer='english'", "RDB_VALIDATION"),
+        ("tokenizer='whitespace',stemmer='english'", "RDB_VALIDATION"),
+        ("tokenizer='ngram',stemmer='english'", "RDB_VALIDATION"),
+        ("fold=1", "RDB_SYNTAX"),
+        ("fold='true'", "RDB_SYNTAX"),
+        ("fold=yes", "RDB_SYNTAX"),
+        ("stemmer=english", "RDB_SYNTAX"),
+        ("fold=true,fold=false", "RDB_SYNTAX"),
+    ] {
+        let error = c
+            .execute(
+                &format!(
+                    "CREATE SEARCH INDEX bad ON articles(title) USING FULLTEXT WITH ({options})"
+                ),
+                &Parameters::new(),
+            )
+            .unwrap_err();
+        assert_eq!(error.code(), code, "{options}: {error}");
+    }
+    let error = c
+        .execute(
+            "CREATE SEARCH INDEX bad ON articles(title) USING FULLTEXT WITH (stemmer='klingon')",
+            &Parameters::new(),
+        )
+        .unwrap_err();
+    assert!(error.to_string().contains("english"), "{error}");
+    for (index, options) in [
+        ("simple_folded", "tokenizer='simple',fold=true"),
+        ("whitespace_folded", "tokenizer='whitespace',fold=true"),
+        ("unfolded", "fold=false"),
+        ("german", "stemmer='german'"),
+    ] {
+        q(
+            &c,
+            &format!(
+                "CREATE SEARCH INDEX {index} ON articles(title) USING FULLTEXT WITH ({options})"
+            ),
+        );
+    }
+    q(
+        &c,
+        "INSERT INTO articles {id:articles:a,title:'CAFÉ Häuser'}",
+    );
+    for (index, query, count) in [
+        ("simple_folded", "CAFE", 1),
+        ("simple_folded", "cafe", 0),
+        ("whitespace_folded", "CAFE", 1),
+        ("unfolded", "cafe", 0),
+        ("german", "haus", 1),
+    ] {
+        assert_eq!(ids(&c, index, query).len(), count, "{index} {query}");
+    }
+    let info = format!("{:?}", q(&c, "INFO FOR TABLE articles"));
+    assert_eq!(info.matches("\"fold\": Boolean(true)").count(), 2, "{info}");
+    assert!(info.contains("\"stemmer\": String(\"german\")"), "{info}");
+}

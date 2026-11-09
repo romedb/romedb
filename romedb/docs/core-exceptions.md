@@ -7,6 +7,39 @@ below tracks upstream replacement candidates; no patch is removed from the
 existing pinned engine merely because a newer upstream revision contains a fix.
 No automatic removal or periodic monitoring is configured.
 
+## FTS folding and stemming (2026-11-09)
+
+Upstream FTS accepts only a tokenizer name, so an index cannot fold accents or stem
+words. `core/index_method/fts/mod.rs` now accepts two more WITH keys: `fold` (0 or 1;
+`default`, `simple` and `whitespace` tokenizers) and `stemmer` (one of the 18 lowercase
+language names in `analysis::STEMMER_LANGUAGES`; `default` tokenizer only). The new
+`Analyzer` in `core/index_method/fts/analysis.rs` validates them and builds the tokenizer,
+then `AsciiFoldingFilter`, then Tantivy's `Stemmer`, and registers that analyzer under
+its own name, such as `default+fold+stem-english`; the schema's text fields use that name.
+An index without the keys uses the same tokenizer names and analyzers as before.
+`analyze_text` now takes an `Analyzer` instead of a tokenizer name and ngram window. The
+`stemmer` feature of Tantivy is on by default, so `frostem` was already a dependency; no
+new dependency and no storage change.
+
+Stemming changes the prefix patch below. A stored stem stemmed again can change
+(`agreed` is stored as `agre`, and `agre` stems to `agr`), so `prefix.rs` no longer
+rewrites a prefix into words for the query parser to analyze. When a query has a
+one-word prefix, it builds the query itself: clauses as `BooleanQuery`, boosts as
+`BoostQuery`, each expanded word as a `TermQuery` per field with the field's weight, and
+every other leaf through the query parser alone. A query without a prefix still goes to
+the parser whole. On a stemmed index a prefix is analyzed without the stemmer and
+matches stored words that start with it or with its stem; with no match, it uses the
+longest stored word that the prefix starts with, of at least half its characters.
+
+Keep this exception until upstream FTS offers folding and stemming. On a sync, check that
+the schema's tokenizer name still comes from `Analyzer::name` and that `register_tokenizers`
+registers it. The regressions are `fts_with_clause_folds_accents_and_stems_words`,
+`fts_with_clause_rejects_bad_fold_and_stemmer` and
+`fts_single_word_prefix_on_a_stemmed_index_matches_the_stored_stems` in
+`tests/integration/index_method/mod.rs`, `folding_and_stemming_keep_offsets_and_positions`
+in `romedb/tests/tests/fts_analysis_hook.rs`, and the two `fold`/`stemmer` tests in
+`romedb/tests/tests/fulltext.rs`.
+
 ## FTS single-word prefixes (2026-11-09)
 
 Tantivy 0.27's query parser has no expansion for a one-word prefix. It reads `hel*` as
@@ -16,16 +49,17 @@ query with Tantivy's lenient grammar, as `parse_query_lenient` did, and replaces
 one-word prefix in the tree before `build_query_from_user_input_ast_lenient` builds the
 query. The prefix is analyzed with the field's tokenizer; each segment's term dictionary
 gives the words that start with it; the 64 in the most documents (`MAX_PREFIX_TERMS`)
-become an OR of plain words, so each scores with BM25. An analyzed prefix shorter than
+become an OR of plain words, so each scores with BM25. Since the folding and stemming
+patch above, those words are built as term queries instead of being given back to the
+parser. An analyzed prefix shorter than
 `MIN_PREFIX_CHARS` (2) is an error, a prefix that analyzes to two or more words becomes a
 phrase prefix, and an ngram index reads `hel*` as `hel`. A query without such a prefix
 builds the same query as before. The only call site is `query_start` in
 `core/index_method/fts/mod.rs`. No storage change, no new dependency.
 
 Keep this exception until upstream Tantivy or Turso expands a one-word prefix with
-BM25 scores. On a sync, check that `query_start` still calls `prefix::parse_query`, and
-that re-analyzing an indexed word gives the same word for every tokenizer in
-`analysis::register` (the expansion relies on it). The regressions are the four
+BM25 scores. On a sync, check that `query_start` still builds the query through
+`prefix::Expander::parse_query`. The regressions are the four
 `fts_single_word_prefix_*` tests in `tests/integration/index_method/mod.rs` and
 `a_prefix_finds_the_words_that_start_with_it` in `romedb/tests/tests/fulltext.rs`.
 

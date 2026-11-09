@@ -857,6 +857,16 @@ impl Connection {
         }) {
             collection.version = collection.version.max(fulltext::WEIGHTS_CATALOG_VERSION);
         }
+        if collection.indexes.iter().any(|index| {
+            index
+                .fulltext
+                .as_ref()
+                .is_some_and(|config| config.folds_or_stems())
+        }) {
+            collection.version = collection
+                .version
+                .max(fulltext::FOLD_STEMMER_CATALOG_VERSION);
+        }
         self.run(
             "UPDATE __romedb_catalog SET metadata = ?1 WHERE name = ?2",
             &[
@@ -1785,6 +1795,8 @@ impl Connection {
                 min_gram,
                 max_gram,
                 weights,
+                fold,
+                stemmer,
             } => {
                 self.create_fulltext_index_with_weights(
                     &table,
@@ -1794,6 +1806,8 @@ impl Connection {
                         tokenizer: tokenizer.unwrap_or_else(|| "default".into()),
                         min_gram,
                         max_gram,
+                        fold: fold.unwrap_or(false),
+                        stemmer,
                     },
                     weights.as_deref(),
                     if_not_exists,

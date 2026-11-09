@@ -192,12 +192,19 @@ before its header, and is removed after a failure. In-place `VACUUM` does not ch
 until upstream stops building `VACUUM INTO` as one transaction; the register has the
 regressions.
 
-Newest patch (2026-11-09): **FTS single-word prefixes**, `core/index_method/fts/prefix.rs`,
+Newer patch (2026-11-09): **FTS single-word prefixes**, `core/index_method/fts/prefix.rs`,
 called from `query_start` in `core/index_method/fts/mod.rs`. A query word ending in `*`
 (`hel*`, or the one-word phrase prefix `"hel"*`) becomes an OR of the 64 indexed words
-that start with it and are in the most documents, before Tantivy builds the query.
-Queries without such a word build exactly as before. Keep it until upstream expands a
-one-word prefix with BM25 scores; the register has the regressions.
+that start with it and are in the most documents. Queries without such a word build
+exactly as before. Keep it until upstream expands a one-word prefix with BM25 scores;
+the register has the regressions.
+
+Newest patch (2026-11-09): **FTS folding and stemming**, the `fold` and `stemmer` WITH
+keys in `core/index_method/fts/mod.rs`, built by `Analyzer` in
+`core/index_method/fts/analysis.rs`. The filtered analyzer is registered under its own
+name (`default+fold+stem-english`). Prefix expansion now builds the expanded words as
+term queries, so a stored stem is never stemmed again. Keep it until upstream FTS
+offers folding and stemming options; the register has the regressions.
 
 On an upstream sync:
 - Keep the patch unless upstream changed `SavepointOp::Release` to resume a
