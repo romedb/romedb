@@ -119,13 +119,14 @@ pub(crate) fn has_calls(sql: &str) -> Result<bool> {
             && parts[0].text.eq_ignore_ascii_case("search")
             && parts[1].text == ":"
             && parts[2].text == ":"
-            && parts[3].text.eq_ignore_ascii_case("analyze")
+            && (parts[3].text.eq_ignore_ascii_case("analyze")
+                || parts[3].text.eq_ignore_ascii_case("snippet"))
             && parts[4].text == "("
     }))
 }
 
 impl crate::Connection {
-    pub(crate) fn analyzer_options(&self, name: &str) -> Result<FullTextOptions> {
+    pub(crate) fn analyzer_options(&self, name: &str, function: &str) -> Result<FullTextOptions> {
         let name = crate::canonical(name)?;
         for collection in self.collections()? {
             if let Some(index) = collection.indexes.iter().find(|index| index.name == name) {
@@ -134,7 +135,7 @@ impl crate::Connection {
                     .fulltext
                     .as_ref()
                     .ok_or_else(|| {
-                        Error::Validation("search::analyze requires a full-text index".into())
+                        Error::Validation(format!("{function} requires a full-text index"))
                     })?
                     .options();
             }
@@ -142,7 +143,7 @@ impl crate::Connection {
         Err(Error::NotFound(name))
     }
     pub fn analyze_text(&self, index: &str, input: &str) -> Result<Value> {
-        self.atomic(|| analyze(&self.analyzer_options(index)?, input))
+        self.atomic(|| analyze(&self.analyzer_options(index, "search::analyze")?, input))
     }
 }
 

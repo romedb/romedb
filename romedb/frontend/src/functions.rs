@@ -603,6 +603,7 @@ fn helper(args: &[ExtValue]) -> ExtValue {
             }
             ("mutation_diff", _) => crate::mutation_result::call_diff(&args)?,
             ("search_analyze", _) => crate::analyzer::call(&args)?,
+            ("search_snippet", _) => crate::snippet::call(&args)?,
             (name, _) if crate::spatial::public_name(name).is_some() => {
                 crate::spatial::call(name, &args)?
             }
@@ -660,6 +661,7 @@ fn helper(args: &[ExtValue]) -> ExtValue {
             helper,
             Some(
                 "search_analyze"
+                    | "search_snippet"
                     | "mutation_diff"
                     | "doc_before"
                     | "doc_after"

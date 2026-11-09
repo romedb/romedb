@@ -643,7 +643,7 @@ fn text_hit(row: &[EngineValue]) -> Result<(Vec<u8>, f64)> {
     Ok((id.clone(), score))
 }
 
-fn validate_query(query: &str) -> Result<()> {
+pub(crate) fn validate_query(query: &str) -> Result<()> {
     use tantivy_query_grammar::{UserInputAst, UserInputLeaf};
     if query.len() > 4096 {
         return Err(Error::Limit("full-text query exceeds 4096 bytes".into()));
