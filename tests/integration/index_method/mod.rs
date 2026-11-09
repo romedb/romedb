@@ -1330,6 +1330,130 @@ fn test_fts_ngram_tokenizer(tmp_db: TempDatabase) {
     assert!(!rows.is_empty());
 }
 
+#[cfg(all(feature = "fts", not(target_family = "wasm")))]
+fn fts_id_list(conn: &Arc<turso_core::Connection>, table: &str, query: &str) -> Vec<i64> {
+    let rows = limbo_exec_rows(
+        conn,
+        &format!("SELECT id FROM {table} WHERE fts_match(body, '{query}') ORDER BY id"),
+    );
+    rows.iter()
+        .map(|row| match row[0] {
+            rusqlite::types::Value::Integer(id) => id,
+            ref other => panic!("unexpected id {other:?}"),
+        })
+        .collect()
+}
+
+#[cfg(all(feature = "fts", not(target_family = "wasm")))]
+#[turso_macros::test]
+fn fts_single_word_prefix_matches_indexed_words_that_start_with_it(tmp_db: TempDatabase) {
+    let conn = tmp_db.connect_limbo();
+    conn.execute("CREATE TABLE p(id INTEGER PRIMARY KEY, body TEXT)")
+        .unwrap();
+    conn.execute("CREATE INDEX fp ON p USING fts(body)")
+        .unwrap();
+    conn.execute(
+        "INSERT INTO p VALUES (1, 'hello world'), (2, 'help me'), (3, 'Helium balloon'), \
+         (4, 'shell script'), (5, 'fast help'), (6, 'fast car')",
+    )
+    .unwrap();
+
+    for (query, expected) in [
+        ("hel*", vec![1, 2, 3, 5]),
+        ("HEL*", vec![1, 2, 3, 5]),
+        ("\"hel\"*", vec![1, 2, 3, 5]),
+        ("+fast +hel*", vec![5]),
+        ("hel* -help", vec![1, 3]),
+        ("(balloon OR hel*) AND world", vec![1]),
+        ("xyz*", vec![]),
+        ("+fast +xyz*", vec![]),
+        ("fast xyz*", vec![5, 6]),
+        ("\"fast he\"*", vec![5]),
+        ("fast-he*", vec![5]),
+        ("hel", vec![]),
+    ] {
+        assert_eq!(fts_id_list(&conn, "p", query), expected, "{query}");
+    }
+
+    let error = limbo_exec_rows_fallible(
+        &tmp_db,
+        &conn,
+        "SELECT id FROM p WHERE fts_match(body, 'h*')",
+    )
+    .unwrap_err();
+    assert!(
+        error.to_string().contains("at least 2 characters"),
+        "{error}"
+    );
+}
+
+#[cfg(all(feature = "fts", not(target_family = "wasm")))]
+#[turso_macros::test]
+fn fts_single_word_prefix_scores_like_the_full_word(tmp_db: TempDatabase) {
+    let conn = tmp_db.connect_limbo();
+    conn.execute("CREATE TABLE p(id INTEGER PRIMARY KEY, body TEXT)")
+        .unwrap();
+    conn.execute("CREATE INDEX fp ON p USING fts(body)")
+        .unwrap();
+    conn.execute(
+        "INSERT INTO p VALUES (1, 'hello world'), (2, 'yellow world'), (3, 'mellow world')",
+    )
+    .unwrap();
+    let score = |query: &str| {
+        let rows = limbo_exec_rows(
+            &conn,
+            &format!("SELECT fts_score(body, '{query}') FROM p WHERE fts_match(body, '{query}')"),
+        );
+        match rows.as_slice() {
+            [row] => match row[0] {
+                rusqlite::types::Value::Real(score) => score,
+                ref other => panic!("unexpected score {other:?}"),
+            },
+            rows => panic!("expected one hit for {query}, got {rows:?}"),
+        }
+    };
+    assert_eq!(score("hel*"), score("hello"));
+}
+
+#[cfg(all(feature = "fts", not(target_family = "wasm")))]
+#[turso_macros::test]
+fn fts_single_word_prefix_keeps_the_words_in_the_most_documents(tmp_db: TempDatabase) {
+    let conn = tmp_db.connect_limbo();
+    conn.execute("CREATE TABLE p(id INTEGER PRIMARY KEY, body TEXT)")
+        .unwrap();
+    conn.execute("CREATE INDEX fp ON p USING fts(body)")
+        .unwrap();
+    for i in 0..1000 {
+        conn.execute(format!("INSERT INTO p VALUES ({i}, 'pre{i:04}')"))
+            .unwrap();
+    }
+    for i in 1000..1003 {
+        conn.execute(format!("INSERT INTO p VALUES ({i}, 'pre0999')"))
+            .unwrap();
+    }
+    let max = turso_core::index_method::fts::MAX_PREFIX_TERMS as i64;
+    let mut expected: Vec<i64> = (0..max - 1).collect();
+    expected.extend([999, 1000, 1001, 1002]);
+    assert_eq!(fts_id_list(&conn, "p", "pre*"), expected);
+}
+
+#[cfg(all(feature = "fts", not(target_family = "wasm")))]
+#[turso_macros::test]
+fn fts_single_word_prefix_on_an_ngram_index_matches_like_the_word(tmp_db: TempDatabase) {
+    let conn = tmp_db.connect_limbo();
+    conn.execute("CREATE TABLE p(id INTEGER PRIMARY KEY, body TEXT)")
+        .unwrap();
+    conn.execute("CREATE INDEX fp ON p USING fts(body) WITH (tokenizer = 'ngram')")
+        .unwrap();
+    conn.execute("INSERT INTO p VALUES (1, 'iPhone 15 Pro'), (2, 'Samsung Galaxy')")
+        .unwrap();
+    assert_eq!(
+        fts_id_list(&conn, "p", "pho*"),
+        fts_id_list(&conn, "p", "pho")
+    );
+    assert_eq!(fts_id_list(&conn, "p", "pho*"), vec![1]);
+}
+
 /// A one-character typo in a WITH clause key must be an error, not a
 /// silently different index (issue #8169).
 #[cfg(all(feature = "fts", not(target_family = "wasm")))]
