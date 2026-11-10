@@ -1,0 +1,117 @@
+{
+  "version": "0.2.22",
+  "qualified": true,
+  "qualifiedAtUtc": "2026-11-10T14:24:09.073655+00:00",
+  "sourceCommit": "18819538548988efc7ba4591b83f607316ae6262",
+  "sourceArchiveSha256": "73a5d3bda561f1678b50ef656e89c6205559905461524e3626703c0e239863cc",
+  "cargoLockSha256": "fe7380f31bf76a5f59ac3a31a0c1ee8c6fa4cccebc6aab26dfd5407c2b9133e6",
+  "buildManifestSha256": "b4a7c55b070f8030f0bcd6344555e2592f76402b3a442af9e2c80e905b80dae8",
+  "buildChecksumsSha256": "ad7998d51063718d2ae96fd23c655c2e461029cd2e96b68d129546cbd72bc671",
+  "buildProfile": "romedb-production",
+  "sourceCi": "https://github.com/romedb/romedb/actions/runs/42815143064",
+  "sourceTests": {
+    "rust": 1162,
+    "rustIgnored": 4,
+    "node": 225,
+    "cAbi": 5,
+    "releasePolicy": 2,
+    "upgradeTable": 4,
+    "formatting": "passed",
+    "scopedClippy": "passed",
+    "strictTypeScript": "passed"
+  },
+  "installedGroups": [
+    "c-abi",
+    "cli",
+    "cli-v22",
+    "cli-graph",
+    "cli-spatial",
+    "sqlite-adoption",
+    "cli-elf",
+    "c-elf",
+    "node-0",
+    "node-client-0",
+    "node-1",
+    "node-client-1",
+    "python-0",
+    "python-1",
+    "python-2",
+    "php-package",
+    "go-package",
+    "swift-package",
+    "node-upgrade-install",
+    "node-ownership-0",
+    "v0213-upgrade-restore-0",
+    "v0214-upgrade-restore-0",
+    "v0215-upgrade-restore-0",
+    "v0216-upgrade-restore-0",
+    "v0217-upgrade-restore-0",
+    "v0218-upgrade-restore-0",
+    "v0219-upgrade-restore-0",
+    "v0220-upgrade-restore-0",
+    "v0221-upgrade-restore-0",
+    "node-ownership-1",
+    "v0213-upgrade-restore-1",
+    "v0214-upgrade-restore-1",
+    "v0215-upgrade-restore-1",
+    "v0216-upgrade-restore-1",
+    "v0217-upgrade-restore-1",
+    "v0218-upgrade-restore-1",
+    "v0219-upgrade-restore-1",
+    "v0220-upgrade-restore-1",
+    "v0221-upgrade-restore-1",
+    "nuget-package"
+  ],
+  "nodeVersions": [
+    "22.0.0",
+    "24.19.0"
+  ],
+  "pythonVersions": [
+    "3.10.21",
+    "3.12.3",
+    "3.14.7"
+  ],
+  "standaloneRustConsumer": "passed with the romedb-production profile; 335 registry/git package identities match the workspace lockfile",
+  "upgradeRestore": "Passed from the 0.2.13 to 0.2.21 packages on Node 22.0.0 and 24.19.0 (groups v0213-upgrade-restore to v0221-upgrade-restore). 0.2.13 is the floor: it changed the stored value prefix, and earlier files are refused. A collection with a full-text index that folds accents or stems words uses catalog version 10, which 0.2.21 and earlier refuse.",
+  "engine": {
+    "upstream": "Turso v0.8.3",
+    "upstreamCommit": "607bff9fd0e547a25a97b3bf06e83bcc5d99d53c",
+    "previousUpstream": "607bff9fd0e547a25a97b3bf06e83bcc5d99d53c",
+    "exceptions": "the maintained engine exceptions retained, one added: FTS folding and stemming (romedb/docs/core-exceptions.md)",
+    "storageFormat": "__romedb_ schema prefix, .romedb extension, stored values prefixed RDB 01 (FDB 01 before 0.2.13); openEmbedded and serve use MVCC files; collections with a * array path index use catalog version 8, others keep version 7 or earlier; collections with a weighted full-text index use catalog version 9; collections with a folded or stemmed full-text index use catalog version 10",
+    "sync": "romedb/romedb#30",
+    "change": "one engine core patch: the fold and stemmer WITH keys in core/index_method/fts add Tantivy AsciiFoldingFilter and the Snowball Stemmer as an analyzer registered under its own name, and prefix expansion builds the expanded words as term queries, so a stored stem is never stemmed again. rusqlite 0.41.1 (bundled SQLite 3.54.1) and Rust 1.89 for RUSTSEC-2026-0459. Same upstream as 0.2.21 (Turso v0.8.3, Tantivy 0.27.0)"
+  },
+  "spatial": {
+    "catalogVersion": 7,
+    "explainReadsNoData": "metered EXPLAIN reports zero rows read for every spatial form (spatial_explain_reads_no_documents_or_index_entries)",
+    "cliSpatialCheck": "passed"
+  },
+  "supportedScope": {
+    "platform": "Linux x64",
+    "clients": [
+      "rust",
+      "node",
+      "python",
+      "php",
+      "swift",
+      "csharp",
+      "go"
+    ],
+    "ownership": "One owning process per database file; shared clients connect to its service"
+  },
+  "security": {
+    "unresolvedFindings": 0,
+    "acceptedInformational": [],
+    "advisoryDatabase": "58a64e69d7a08a2b83a80efa6e4b018a9acb51fc",
+    "resolvedForRelease": [
+      "RUSTSEC-2026-0459 (CVE-2026-119375, SQLite before 3.54.0 can return uninitialized memory when it opens a database whose -wal file has a different page size): rusqlite 0.41.1 bundles SQLite 3.54.1 through libsqlite3-sys 0.39.1; the workspace builds with Rust 1.89, which rusqlite 0.41 needs"
+    ]
+  },
+  "documentationOverrides": {
+    "ENVELOPE.md": "Historical 2.1.0 measurements; the raw-evidence link points to the immutable fastdb-v2.1.0 release"
+  },
+  "performance": "Historical 2.1.0 operating envelope retained; fresh bounded application sample, not capacity guarantees",
+  "buildHost": "Built and qualified under scripts/romedb-heavy (shared lock, two jobs, cgroup memory ceiling)",
+  "publication": "Qualified for publication; anonymous public-download verification is separate"
+}

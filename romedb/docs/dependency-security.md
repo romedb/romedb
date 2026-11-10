@@ -14,6 +14,10 @@ it read a SQLite file and that file's `-wal`. 0.2.21 has the finding, which the
 advisory database added after the 0.2.21 review. `rusqlite` 0.41 needs Rust 1.89,
 so 0.2.22 builds with Rust 1.89.0.
 
+At release time, the same scan of build commit `18819538` against the advisory
+database at `58a64e69d7a08a2b83a80efa6e4b018a9acb51fc` (1,430 advisories) also found
+zero findings.
+
 ## Dependency security review for 0.2.21
 Reviewed 2026-11-09 for the Linux x64 0.2.21 candidate. The exact lockfile scan
 covers 361 package/version identities against the RustSec advisory database at
