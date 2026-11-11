@@ -393,13 +393,15 @@ write unresolved; a client cannot manufacture receipt identity or rollback.
 
 | Budget | Version-1 local default | Existing Cloud contract |
 | --- | --- | --- |
-| Request JSON | 64 KiB | 64 KiB |
-| Statements | 1–32 | 1–32 |
-| Rows per result | 1,000 | 1,000 |
-| Aggregate result JSON | 256 KiB | 256 KiB |
-| Client response envelope | 512 KiB | Client bound; includes metrics and envelope |
-| Active requests | 4 | Bounded native admission; hosted admission also applies |
-| Waiting requests | 32 | Hosted admission/quotas can reject |
+| Request JSON | 8 MiB (64 KiB before the source after 0.2.22) | 1 MiB |
+| Statements | 1–256 (1–32 before) | 1–32 |
+| SQL text per statement | 64 KiB; send data as parameters | 1 MiB |
+| Rows per result | 10,000 (1,000 before) | 1,000 |
+| Aggregate result JSON | 8 MiB (256 KiB before) | 256 KiB |
+| Client response envelope | 16 MiB (512 KiB before) | 512 KiB client bound; includes metrics and envelope |
+| Active requests | 4 slots; a request over 1 MiB takes one slot per started MiB, up to 4 | Bounded native admission; hosted admission also applies |
+| Waiting requests | 32 slots, counted the same way, served in arrival order | Hosted admission/quotas can reject |
+| Request bodies in memory | 64 MiB across all HTTP connections; a body that does not fit gets `RDB_BUSY` | Hosted transport limits apply |
 | Database connections | 5: four admitted requests plus the publication connection | Hosted owner manages its connections |
 | HTTP connections | 64, with at most 36 database jobs | Hosted admission/quotas also apply |
 | Header/body read deadline | 5 seconds per phase | Hosted transport limits also apply |
@@ -410,6 +412,14 @@ write unresolved; a client cannot manufacture receipt identity or rollback.
 | Checked row mutations per request | 100,000 | 100,000 |
 | Checked VM steps per request | 10,000,000 | 10,000,000 |
 | Frontend write buffer | 10,000 rows and 64 MiB per buffer | Existing hosted budgets also apply |
+
+The service reports the first five budgets in its details, under `limits`, as
+`maxRequestBytes`, `maxStatements`, `maxRows`, `maxResultBytes` and
+`maxResponseBytes`, next to `activeRequests` and `queuedRequests`. Clients enforce the
+reported values and fall back to the earlier ones (64 KiB, 32, 1,000, 256 KiB and
+512 KiB; 1 MiB requests on Cloud) for a server that reports none. Cloud reports none
+yet. A write receipt keeps its whole response, so a write that returns many rows also
+keeps them in the database until 64 later writes replace its receipt.
 
 Reads and writes accept optional `workLimits` with nonnegative safe-integer
 `rowsRead`, `rowMutations` and `vmSteps`. These limits may reduce the defaults,

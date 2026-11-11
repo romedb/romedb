@@ -604,3 +604,60 @@ fn a_record_target_insert_sets_the_document_id() {
     );
     assert_eq!(duplicate["error"]["code"], "RDB_CONSTRAINT", "{duplicate}");
 }
+
+#[test]
+fn requests_use_the_raised_size_statement_and_row_limits() {
+    let directory = tempfile::tempdir().unwrap();
+    let service = DatabaseService::create(&directory.path().join("app.romedb")).unwrap();
+    let limits = service.info().unwrap()["limits"].clone();
+    assert_eq!(limits["maxRequestBytes"], romedb::MAX_REQUEST_BYTES);
+    assert_eq!(limits["maxStatements"], 256);
+    assert_eq!(limits["maxRows"], 10_000);
+    assert_eq!(limits["maxResultBytes"], 8 * 1024 * 1024);
+    assert_eq!(limits["maxResponseBytes"], 16 * 1024 * 1024);
+    query(
+        &service,
+        "setup",
+        &["CREATE TABLE notes (id INTEGER PRIMARY KEY, body TEXT)"],
+    );
+    let note = "x".repeat(31_000);
+    let statements = |count: usize| {
+        (0..count)
+            .map(|id| json!({"sql":format!("INSERT INTO notes VALUES({id}, $body) RETURNING body"),"params":{"$body":{"type":"String","value":note}}}))
+            .collect::<Vec<_>>()
+    };
+    let too_many =
+        json!({"requestId":"too-many","afterSequence":1,"statements":statements(257)}).to_string();
+    assert_eq!(service.query(&too_many).unwrap_err().code, "RDB_VALIDATION");
+    let body =
+        json!({"requestId":"large","afterSequence":1,"statements":statements(256)}).to_string();
+    assert!(body.len() > 7 * 1024 * 1024 && body.len() < romedb::MAX_REQUEST_BYTES);
+    let reply = service.query(&body).unwrap();
+    assert!(reply.len() > 7 * 1024 * 1024, "{}", &reply[..200]);
+    let written: Value = serde_json::from_str(&reply).unwrap();
+    assert!(written["error"].is_null());
+    assert_eq!(written["results"].as_array().unwrap().len(), 256);
+    assert_eq!(service.query(&body).unwrap(), reply);
+    let oversized = json!({"requestId":"oversized","afterSequence":2,"statements":[{"sql":"SELECT $body","params":{"$body":{"type":"String","value":"x".repeat(romedb::MAX_REQUEST_BYTES)}}}]}).to_string();
+    assert_eq!(service.query(&oversized).unwrap_err().code, "RDB_LIMIT");
+    let rows = read(&service, "SELECT a.id FROM notes a, notes b LIMIT 10000");
+    assert_eq!(rows["results"][0]["rows"].as_array().unwrap().len(), 10_000);
+    let mut body: Value = serde_json::from_str(&request(
+        "too-many-rows",
+        0,
+        &["SELECT a.id FROM notes a, notes b LIMIT 10001"],
+    ))
+    .unwrap();
+    body["readVersion"] = json!(2);
+    assert_eq!(
+        service.read(&body.to_string()).unwrap_err().code,
+        "RDB_LIMIT"
+    );
+    let notes = read(&service, "SELECT body FROM notes");
+    assert_eq!(notes["results"][0]["rows"].as_array().unwrap().len(), 256);
+    body["statements"] = json!([{"sql":"SELECT body, body AS copy FROM notes"}]);
+    assert_eq!(
+        service.read(&body.to_string()).unwrap_err().code,
+        "RDB_LIMIT"
+    );
+}

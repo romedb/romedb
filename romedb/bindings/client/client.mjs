@@ -7,10 +7,11 @@ const commonjs = { exports: {} };
 // Web APIs only: this file also runs in Workers and browsers through client.mjs.
 const { Float64, Record, Vector, encodeValue, decodeValue, plainObject, text, checkCopyOptions } = require('./values.cjs');
 
-const MAX_REQUEST = 65_536;
-const MAX_CLOUD_REQUEST = 1_048_576;
 const CLOUD_QUERY_VERSION = 3;
 const MAX_RESPONSE = 524_288;
+const EARLIER_LIMITS = Object.freeze({ maxRequestBytes: 65_536, maxStatements: 32, maxRows: 1000, maxResultBytes: 262_144, maxResponseBytes: MAX_RESPONSE });
+const EARLIER_CLOUD_LIMITS = Object.freeze({ ...EARLIER_LIMITS, maxRequestBytes: 1_048_576 });
+const REPORTED_LIMIT_CEILINGS = Object.freeze({ maxRequestBytes: 64 * 1024 * 1024, maxStatements: 4096, maxRows: 1_000_000, maxResultBytes: 64 * 1024 * 1024, maxResponseBytes: 128 * 1024 * 1024 });
 const MAX_SEQUENCE = Number.MAX_SAFE_INTEGER - 1;
 const DATABASE_FILE_TYPE = 'application/vnd.romedb.database';
 const construction = Symbol('RemoteDatabase');
@@ -38,7 +39,7 @@ async function connect(options) {
 }
 
 class RemoteDatabase {
-  #url; #token; #fetch; #timeout; #sequence = 0; #id; #capabilities; #transport;
+  #url; #token; #fetch; #timeout; #sequence = 0; #id; #capabilities; #limits = EARLIER_LIMITS; #transport;
   #closed = false; #active = new Set(); #inflightBytes = 0; #sequenceKnown = false; #deferred = false; #cloud = false; #warm = false; #loopbackOrganization = false;
   constructor(options, key, transport) {
     if (key !== construction) throw new TypeError('use connect()');
@@ -64,7 +65,7 @@ class RemoteDatabase {
     // Cloud database URLs carry the database id and have documented capabilities,
     // so the details request waits until a write needs a current sequence.
     if (this.#cloud && options.deferInfo !== false) {
-      this.#id = cloudId; this.#capabilities = capabilities(this.#url, {}, false); this.#deferred = true;
+      this.#id = cloudId; this.#capabilities = capabilities(this.#url, {}, false); this.#limits = EARLIER_CLOUD_LIMITS; this.#deferred = true;
     }
     this.#warm = this.#cloud && options.warm !== false;
   }
@@ -77,6 +78,7 @@ class RemoteDatabase {
   get sequence() { return this.#sequence; }
   get sequenceKnown() { return this.#sequenceKnown; }
   get databaseId() { return this.#id; }
+  get limits() { return this.#limits; }
   async info(options = {}) {
     const info = await this.#request('', undefined, options, false);
     if (!plainObject(info) || typeof info.id !== 'string' || !/^[A-Za-z0-9_-]{1,80}$/.test(info.id) || !sequence(info.sequence, true) || (this.#id !== undefined && this.#id !== info.id)) {
@@ -84,7 +86,9 @@ class RemoteDatabase {
     }
     if (this.#loopbackOrganization) this.#cloud = info.serviceVersion === undefined;
     const supported = capabilities(this.#url, info, !this.#cloud);
+    const limits = requestLimits(info.limits, this.#cloud ? EARLIER_CLOUD_LIMITS : EARLIER_LIMITS);
     this.#id = info.id;
+    this.#limits = limits;
     this.#sequence = Math.max(this.#sequence, info.sequence);
     this.#sequenceKnown = true;
     this.#capabilities = supported;
@@ -105,11 +109,11 @@ class RemoteDatabase {
     checkSequence(afterSequence);
     const workLimits = encodeWorkLimits(options.workLimits);
     const queryVersion = this.#queryVersion();
-    const body = JSON.stringify({ readVersion: 2, requestId: crypto.randomUUID(), afterSequence, statements: encodeStatements(statements, queryVersion), ...(workLimits === undefined ? {} : { workLimits }) });
-    checkBodySize(body, queryVersion);
+    const body = JSON.stringify({ readVersion: 2, requestId: crypto.randomUUID(), afterSequence, statements: encodeStatements(statements, queryVersion, this.#limits.maxStatements), ...(workLimits === undefined ? {} : { workLimits }) });
+    checkBodySize(body, this.#limits.maxRequestBytes);
     const request = JSON.parse(body);
     const reply = await this.#request('/read', body, options, false, undefined, queryVersion);
-    const result = confirmReply(reply, request, true);
+    const result = confirmReply(reply, request, true, undefined, this.#limits);
     this.#sequence = Math.max(this.#sequence, result.sequence);
     this.#sequenceKnown = true;
     return result;
@@ -129,8 +133,8 @@ class RemoteDatabase {
     if (typeof requestId !== 'string' || !/^[A-Za-z0-9_-]{1,80}$/.test(requestId)) throw new TypeError('requestId requires 1..80 letters, digits, underscores or hyphens');
     const workLimits = encodeWorkLimits(options.workLimits);
     const queryVersion = this.#queryVersion();
-    const body = JSON.stringify({ requestId, afterSequence, ...(options.ifSequence === undefined ? {} : { ifSequence: options.ifSequence }), statements: encodeStatements(statements, queryVersion), ...(workLimits === undefined ? {} : { workLimits }) });
-    checkBodySize(body, queryVersion);
+    const body = JSON.stringify({ requestId, afterSequence, ...(options.ifSequence === undefined ? {} : { ifSequence: options.ifSequence }), statements: encodeStatements(statements, queryVersion, this.#limits.maxStatements), ...(workLimits === undefined ? {} : { workLimits }) });
+    checkBodySize(body, this.#limits.maxRequestBytes);
     return Object.freeze({ version: 2, url: this.#url, databaseId: this.#id, queryVersion, body });
   }
   async submit(prepared, options = {}) {
@@ -138,9 +142,10 @@ class RemoteDatabase {
     const request = validatePrepared(prepared);
     if (this.#capabilities.atomicWrites !== true || this.#capabilities.replayWindow !== 64 || (request.ifSequence !== undefined && this.#capabilities.exactSequenceCondition !== true)) throw new ClientError('RDB_UNSUPPORTED', 'Database does not support this write contract', 'not-sent', { request: prepared });
     if (prepared.url !== this.#url || prepared.databaseId !== this.#id) throw new ClientError('RDB_REQUEST_IDENTITY', 'Saved request belongs to another database', 'not-sent');
+    if (byteLength(prepared.body) > this.#limits.maxRequestBytes || request.statements.length > this.#limits.maxStatements) throw new ClientError('RDB_LIMIT', 'Saved request exceeds the request limits of this database', 'not-sent', { request: prepared });
     try {
       const reply = await this.#request('/query', prepared.body, options, true, prepared, preparedQueryVersion(prepared));
-      const result = confirmReply(reply, request, false, prepared);
+      const result = confirmReply(reply, request, false, prepared, this.#limits);
       this.#sequence = Math.max(this.#sequence, result.sequence);
       this.#sequenceKnown = true;
       return result;
@@ -310,7 +315,7 @@ class RemoteDatabase {
     if (options.signal !== undefined && !(options.signal instanceof AbortSignal)) throw new TypeError('signal must be an AbortSignal');
     if (options.signal?.aborted) throw new ClientError('RDB_CANCELLED', 'Request cancelled before dispatch', 'not-sent', prepared ? { request: prepared } : {});
     const bodyBytes = body === undefined ? 0 : byteLength(body);
-    if (this.#active.size >= 32 || this.#inflightBytes + bodyBytes > 2_097_152) throw new ClientError('RDB_LIMIT', 'Client request limit reached', 'not-sent', prepared ? { request: prepared } : {});
+    if (this.#active.size >= 32 || this.#inflightBytes + bodyBytes > Math.max(2_097_152, 2 * this.#limits.maxRequestBytes)) throw new ClientError('RDB_LIMIT', 'Client request limit reached', 'not-sent', prepared ? { request: prepared } : {});
     const controller = new AbortController();
     const abort = () => controller.abort();
     options.signal?.addEventListener('abort', abort, { once: true });
@@ -346,7 +351,7 @@ class RemoteDatabase {
         await response.body?.cancel();
         throw new ClientError('RDB_PROTOCOL', 'Unsupported database query response version', writing ? 'unknown' : 'read-failed', { status, ...(prepared ? { request: prepared } : {}) });
       }
-      const reply = await boundedJson(response, MAX_RESPONSE);
+      const reply = await boundedJson(response, this.#limits.maxResponseBytes);
       if (plainObject(reply?.error) && typeof reply.error.message === 'string') reply.error.message = redactMessage(reply.error.message, credential);
       if (!response.ok && !(writing && reply?.requestId && reply?.sequence !== undefined)) {
         const code = plainObject(reply?.error) && typeof reply.error.code === 'string' && /^RDB_[A-Z0-9_]{1,80}$/.test(reply.error.code) ? reply.error.code : httpCode(status);
@@ -402,8 +407,8 @@ function normalizeUrl(input) {
   return url.origin + path;
 }
 
-function encodeStatements(statements, queryVersion = 2) {
-  if (!Array.isArray(statements) || statements.length < 1 || statements.length > 32) throw new RangeError('request requires 1..32 statements');
+function encodeStatements(statements, queryVersion, maxStatements) {
+  if (!Array.isArray(statements) || statements.length < 1 || statements.length > maxStatements) throw new RangeError(`request requires 1..${maxStatements} statements`);
   return statements.map(statement => {
     if (!plainObject(statement) || Object.keys(statement).some(key => !['sql', 'params'].includes(key)) || typeof statement.sql !== 'string' || !statement.sql.trim()) throw new TypeError('statement requires SQL and optional params');
     if (statement.params === undefined) return { sql: text(statement.sql) };
@@ -417,7 +422,7 @@ function validatePrepared(prepared) {
   if (!plainObject(prepared) || Object.keys(prepared).sort().join(',') !== fields || ![1, 2].includes(prepared.version) ||
       (prepared.version === 2 && ![2, CLOUD_QUERY_VERSION].includes(prepared.queryVersion)) || typeof prepared.databaseId !== 'string' || !prepared.databaseId ||
       (prepared.url?.startsWith('file:') ? normalizeFileUrl(prepared.url) : normalizeUrl(prepared.url)) !== prepared.url || typeof prepared.body !== 'string') throw new TypeError('invalid saved request');
-  checkBodySize(prepared.body, preparedQueryVersion(prepared));
+  checkBodySize(prepared.body, REPORTED_LIMIT_CEILINGS.maxRequestBytes);
   const body = JSON.parse(prepared.body);
   if (!plainObject(body) || Object.keys(body).some(key => !['requestId', 'afterSequence', 'ifSequence', 'statements', 'workLimits'].includes(key)) || typeof body.requestId !== 'string' || !/^[A-Za-z0-9_-]{1,80}$/.test(body.requestId)) throw new TypeError('invalid saved request identity');
   encodeWorkLimits(body.workLimits);
@@ -426,7 +431,7 @@ function validatePrepared(prepared) {
     checkSequence(body.ifSequence);
     if (body.ifSequence < body.afterSequence) throw new RangeError('invalid saved sequence condition');
   }
-  if (!Array.isArray(body.statements) || body.statements.length < 1 || body.statements.length > 32) throw new TypeError('invalid saved statements');
+  if (!Array.isArray(body.statements) || body.statements.length < 1 || body.statements.length > REPORTED_LIMIT_CEILINGS.maxStatements) throw new TypeError('invalid saved statements');
   for (const statement of body.statements) {
     if (!plainObject(statement) || Object.keys(statement).some(key => !['sql', 'params'].includes(key)) || typeof statement.sql !== 'string' || !statement.sql.trim() || (statement.params !== undefined && !plainObject(statement.params))) throw new TypeError('invalid saved statement');
     for (const value of Object.values(statement.params ?? {})) decodeValue(value);
@@ -434,14 +439,14 @@ function validatePrepared(prepared) {
   return body;
 }
 
-function confirmReply(reply, request, reading, prepared) {
+function confirmReply(reply, request, reading, prepared, limits) {
   const invalid = () => new ClientError('RDB_PROTOCOL', reading ? 'Read response identity or results differ' : 'Write response could not be confirmed; recover the saved request', reading ? 'read-failed' : 'unknown', prepared ? { request: prepared } : {});
   if (!plainObject(reply) || reply.requestId !== request.requestId || !sequence(reply.sequence, true) || (reading ? reply.readVersion !== 2 || reply.sequence < request.afterSequence : reply.readVersion !== undefined || reply.sequence <= request.afterSequence || reply.sequence - request.afterSequence > 64)) throw invalid();
   if (plainObject(reply.error) && typeof reply.error.code === 'string' && /^RDB_[A-Z0-9_]+$/.test(reply.error.code) && typeof reply.error.message === 'string' && reply.results === undefined) throw new ClientError(reply.error.code, reply.error.message.slice(0, 2048), reading ? 'read-failed' : 'rolled-back', { sequence: reply.sequence, request: prepared });
-  if (!Array.isArray(reply.results) || reply.results.length !== request.statements.length || reply.error !== undefined || byteLength(JSON.stringify(reply.results)) > 262_144) throw invalid();
+  if (!Array.isArray(reply.results) || reply.results.length !== request.statements.length || reply.error !== undefined || byteLength(JSON.stringify(reply.results)) > limits.maxResultBytes) throw invalid();
   try {
     const results = reply.results.map(result => {
-      if (!plainObject(result) || !Array.isArray(result.columns) || result.columns.some(name => typeof name !== 'string') || !Array.isArray(result.rows) || result.rows.length > 1000 || typeof result.affected !== 'string' || !/^(?:0|[1-9][0-9]{0,19})$/.test(result.affected) || BigInt(result.affected) > (1n << 64n) - 1n) throw invalid();
+      if (!plainObject(result) || !Array.isArray(result.columns) || result.columns.some(name => typeof name !== 'string') || !Array.isArray(result.rows) || result.rows.length > limits.maxRows || typeof result.affected !== 'string' || !/^(?:0|[1-9][0-9]{0,19})$/.test(result.affected) || BigInt(result.affected) > (1n << 64n) - 1n) throw invalid();
       return { columns: result.columns, rows: result.rows.map(row => {
         if (!Array.isArray(row) || row.length !== result.columns.length) throw invalid();
         return row.map(value => decodeValue(value));
@@ -510,6 +515,16 @@ function capabilities(url, info, local) {
   return { provenance: 'documented', readVersion: 2, atomicWrites: true, replayWindow: 64, exactSequenceCondition: true, negotiatedLimits: false };
 }
 
+function requestLimits(reported, fallback) {
+  if (reported === undefined || reported === null) return fallback;
+  if (!plainObject(reported)) throw new ClientError('RDB_PROTOCOL', 'Invalid database limits', 'read-failed');
+  return Object.freeze(Object.fromEntries(Object.entries(fallback).map(([name, value]) => {
+    const limit = reported[name] ?? value;
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > REPORTED_LIMIT_CEILINGS[name]) throw new ClientError('RDB_PROTOCOL', `Invalid database limit ${name}`, 'read-failed');
+    return [name, limit];
+  })));
+}
+
 function sequence(value, reply = false) { return Number.isSafeInteger(value) && value >= 0 && value <= (reply ? MAX_SEQUENCE + 1 : MAX_SEQUENCE); }
 function encodeWorkLimits(value) {
   if (value === undefined) return undefined;
@@ -524,9 +539,11 @@ function checkSequence(value) { if (!sequence(value)) throw new RangeError('sequ
 const MAX_EXPORT_WAIT = 3 * 3600_000, EXPORT_POLL_MS = 2000, EXPORT_POLL_FAILURES = 10, CANCEL_MS = 10_000;
 function timeout(value) { if (!Number.isInteger(value) || value < 1 || value > 120_000) throw new RangeError('timeoutMs must be 1..120000'); return value; }
 function byteLength(text) { return encoder.encode(text).byteLength; }
-function checkBodySize(body, queryVersion = 2) {
-  if (byteLength(body) > (queryVersion === CLOUD_QUERY_VERSION ? MAX_CLOUD_REQUEST : MAX_REQUEST))
-    throw new RangeError(queryVersion === CLOUD_QUERY_VERSION ? 'request exceeds 1 MiB' : 'request exceeds 64 KiB');
+function checkBodySize(body, limit) {
+  if (byteLength(body) > limit) throw new RangeError(`request exceeds ${byteSize(limit)}`);
+}
+function byteSize(bytes) {
+  return bytes % 1_048_576 === 0 ? `${bytes / 1_048_576} MiB` : bytes % 1024 === 0 ? `${bytes / 1024} KiB` : `${bytes} bytes`;
 }
 function preparedQueryVersion(prepared) { return prepared.version === 1 ? 2 : prepared.queryVersion; }
 // Cloud refuses a queued request with 503 query_queue_* before dispatching it,

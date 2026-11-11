@@ -295,6 +295,13 @@ test('a journal saved for the largest escaped request body can be loaded', async
   assert.ok((await fs.stat(file)).size > 131_072);
   assert.deepEqual(await loadRequest(file), prepared);
   await db.close();
+  const local = await connect({ url: 'http://localhost:4321', token: 'test-token', fetch: async () => json({ ...details(0), limits: { maxRequestBytes: 8_388_608 } }) });
+  const large = local.prepareWrite([{ sql: 'SELECT $x', params: { $x: '\\'.repeat(4_000_000) } }]);
+  const largeFile = path.join(dir, 'large.json');
+  await saveRequest(largeFile, large);
+  assert.ok((await fs.stat(largeFile)).size > 16_000_000);
+  assert.deepEqual(await loadRequest(largeFile), large);
+  await local.close();
 });
 
 test('real HTTP cancellation after dispatch leaves a write unknown; close cancels pending work', async t => {
@@ -540,6 +547,64 @@ test('local services keep version 2: byte arrays and 64 KiB', async () => {
     assert.deepEqual(db.prepareWrite([{ sql: 'SELECT 1' }]).queryVersion, 2);
     assert.throws(() => db.prepareWrite([{ sql: 'INSERT INTO t VALUES($b)', params: { $b: Buffer.alloc(40_000) } }]), /exceeds 64 KiB/);
   } finally { await db.close(); }
+});
+
+test('reported limits are enforced and exported, and missing ones keep the earlier values', async () => {
+  const raised = { maxRequestBytes: 8_388_608, maxStatements: 256, maxRows: 10_000, maxResultBytes: 8_388_608, maxResponseBytes: 16_777_216 };
+  let rows = 10_000, sent = 0;
+  const reply = q => ({ requestId: q.requestId, sequence: 1, readVersion: 2, results: q.statements.map(() => ({ columns: ['n'], rows: Array.from({ length: rows }, () => [encodeValue(1n)]), affected: '0' })) });
+  const db = await connect({ url: 'http://localhost:4321', token: 'test-token', fetch: async (_url, options) => {
+    if (options.method === 'GET') return json({ ...details(0), limits: { ...raised, activeRequests: 4 } });
+    sent++;
+    return json(reply(JSON.parse(options.body)));
+  } });
+  try {
+    assert.deepEqual({ ...db.limits }, raised);
+    assert.ok(Object.isFrozen(db.limits));
+    const many = Array.from({ length: 256 }, () => ({ sql: 'SELECT 1' }));
+    rows = 1;
+    assert.equal((await db.read(many)).results.length, 256);
+    assert.throws(() => db.prepareWrite([...many, { sql: 'SELECT 1' }]), /1\.\.256 statements/);
+    const large = db.prepareWrite([{ sql: 'INSERT INTO t VALUES($t)', params: { $t: 'x'.repeat(6_000_000) } }]);
+    assert.ok(large.body.length > 6_000_000);
+    assert.throws(() => db.prepareWrite([{ sql: 'INSERT INTO t VALUES($t)', params: { $t: 'x'.repeat(8_388_608) } }]), /exceeds 8 MiB/);
+    rows = 10_000;
+    assert.equal((await db.read([{ sql: 'SELECT n' }])).results[0].rows.length, 10_000);
+    rows = 10_001;
+    await assert.rejects(db.read([{ sql: 'SELECT n' }]), error => error.code === 'RDB_PROTOCOL');
+    assert.equal(sent, 3);
+  } finally { await db.close(); }
+  const partial = await connect({ url: 'http://localhost:4321', token: 'test-token', fetch: async () => json({ ...details(0), limits: { maxStatements: 64 } }) });
+  try { assert.deepEqual({ ...partial.limits }, { maxRequestBytes: 65_536, maxStatements: 64, maxRows: 1000, maxResultBytes: 262_144, maxResponseBytes: 524_288 }); }
+  finally { await partial.close(); }
+  for (const limits of [{ maxRows: 0 }, { maxRows: 1.5 }, { maxRequestBytes: 64 * 1024 * 1024 + 1 }, { maxResponseBytes: '16777216' }]) {
+    await assert.rejects(connect({ url: 'http://localhost:4321', token: 'test-token', fetch: async () => json({ ...details(0), limits }) }), error => error.code === 'RDB_PROTOCOL' && /limit/.test(error.message));
+  }
+  const deferred = await connect({ url: cloud, token: 'test-token', warm: false, fetch: async () => { throw new Error('no request expected'); } });
+  try { assert.deepEqual({ ...deferred.limits }, { maxRequestBytes: 1_048_576, maxStatements: 32, maxRows: 1000, maxResultBytes: 262_144, maxResponseBytes: 524_288 }); }
+  finally { await deferred.close(); }
+});
+
+test('a saved write larger than the connection limits is refused before it is sent', async () => {
+  let sent = 0, limits = { maxRequestBytes: 8_388_608, maxStatements: 256 };
+  const fetch = async (_url, options) => {
+    if (options.method === 'GET') return json({ ...details(0), limits });
+    sent++;
+    return json({ requestId: JSON.parse(options.body).requestId, sequence: 1, results: [result()] });
+  };
+  const writer = await connect({ url: 'http://localhost:4321', token: 'test-token', fetch });
+  const saved = writer.prepareWrite([{ sql: 'INSERT INTO t VALUES($t)', params: { $t: 'x'.repeat(100_000) } }]);
+  const statements = writer.prepareWrite(Array.from({ length: 40 }, () => ({ sql: 'SELECT 1' })));
+  await writer.close();
+  assert.deepEqual(validatePrepared(saved).requestId, JSON.parse(saved.body).requestId);
+  limits = {};
+  const reader = await connect({ url: 'http://localhost:4321', token: 'test-token', fetch });
+  try {
+    for (const request of [saved, statements]) {
+      await assert.rejects(reader.submit(request), error => error.code === 'RDB_LIMIT' && error.outcome === 'not-sent' && error.request === request);
+    }
+    assert.equal(sent, 0);
+  } finally { await reader.close(); }
 });
 
 test('base64 byte values must be canonical', () => {

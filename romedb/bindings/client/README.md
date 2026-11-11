@@ -124,8 +124,8 @@ database stays as it was. Local URLs refuse `buildIndex()`.
 An organization URL on a loopback host, such as a database of `romedb serve
 --directory` (`http://127.0.0.1:4321/v1/organizations/{org}/databases/{db}`), always
 fetches the details at connect. A reply with `serviceVersion: 1` is a local service.
-The client then negotiates its capabilities and uses the 64 KiB service request
-format, with no warm request. Any other reply is Cloud running locally, which keeps
+The client then negotiates its capabilities and the service's request limits, and uses
+the local service request format, with no warm request. Any other reply is Cloud running locally, which keeps
 the Cloud request format. So an application can use the same organization URLs for a
 local directory and for Cloud.
 
@@ -141,7 +141,15 @@ refused, so no data disappears without an error.
 
 ## Errors and timeouts
 
-Requests and responses have finite byte and row limits. Each call times out after 20
+Requests and responses have finite byte and row limits. `rql.limits` gives the ones in
+force: `maxRequestBytes`, `maxStatements`, `maxRows`, `maxResultBytes` and
+`maxResponseBytes`. A local service reports them in its details (8 MiB requests, 256
+statements, 10,000 rows per result, 8 MiB of results and 16 MiB responses since the
+source after 0.2.22), and the client checks every request and reply against them, so a
+request over a limit throws before it is sent. A server that reports none keeps the
+earlier values: 64 KiB requests (1 MiB on Cloud), 32 statements, 1,000 rows, 256 KiB of
+results and 512 KiB responses. Cloud reports none yet, so a Cloud connection uses those.
+Size batches from `rql.limits` instead of copying the numbers. Each call times out after 20
 seconds by default and accepts `signal` and `timeoutMs`. An HTTP error reply with a
 `Retry-After` header sets `ClientError.retryAfterMs`. A transport or response failure
 without a database reply keeps the underlying error as `ClientError.cause`, for

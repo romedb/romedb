@@ -2,6 +2,8 @@ import { openEmbedded, EmbeddedDatabase, Float64, Record, Vector, type Client } 
 async function fixture(): Promise<void> {
   const database: EmbeddedDatabase = await openEmbedded({ path: '/tmp/app.romedb', create: true, maxOpen: 32 });
   const client: Client = database;
+  const statements: number = database.limits.maxStatements;
+  void statements;
   const info = await client.info();
   const request = client.prepareWrite([{ sql: 'INSERT INTO docs DOCUMENT $doc', params: { $doc: { id: new Record('docs', 'a'), vector: Vector.float32([1, 2]), float: new Float64(-0), n: 9223372036854775807n } } }], { ifSequence: info.sequence });
   const result = await client.submit(request);
