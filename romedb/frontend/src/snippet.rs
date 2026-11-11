@@ -108,8 +108,14 @@ fn snippet(options: &FullTextOptions, text: &str, query: &str, size: usize) -> R
 
 struct Phrase {
     source: String,
-    words: Vec<(usize, String)>,
-    prefix: bool,
+    words: Vec<(usize, Word)>,
+}
+
+#[derive(PartialEq)]
+enum Word {
+    Exact(String),
+    Prefix(String),
+    StemmedPrefix { typed: String, stem: String },
 }
 
 struct Match {
@@ -131,23 +137,52 @@ fn query_phrases(options: &FullTextOptions, query: &str) -> Result<Vec<Phrase>> 
         if words.is_empty() {
             continue;
         }
+        let last = words.len() - 1;
+        if prefix && last == 0 && options.stemmer.is_some() {
+            let unstemmed = FullTextOptions {
+                stemmer: None,
+                ..options.clone()
+            };
+            if let [(_, typed)] = analyzed_words(&unstemmed, source)?.as_slice() {
+                let (_, stem) = &words[0];
+                phrases.push(Phrase {
+                    source: source.to_owned(),
+                    words: vec![(
+                        0,
+                        Word::StemmedPrefix {
+                            typed: typed.clone(),
+                            stem: stem.clone(),
+                        },
+                    )],
+                });
+                continue;
+            }
+        }
+        let word = |index: usize, text: String| {
+            if prefix && index == last {
+                Word::Prefix(text)
+            } else {
+                Word::Exact(text)
+            }
+        };
         if literal.slop == 0 || ngram {
             phrases.push(Phrase {
                 source: source.to_owned(),
-                words,
-                prefix,
+                words: words
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, (position, text))| (position, word(index, text)))
+                    .collect(),
             });
             continue;
         }
-        let last = words.len() - 1;
         phrases.extend(
             words
                 .into_iter()
                 .enumerate()
-                .map(|(index, (_, word))| Phrase {
-                    source: word.clone(),
-                    words: vec![(0, word)],
-                    prefix: prefix && index == last,
+                .map(|(index, (_, text))| Phrase {
+                    source: text.clone(),
+                    words: vec![(0, word(index, text))],
                 }),
         );
     }
@@ -204,36 +239,31 @@ fn analyze(
     text: &str,
     mut visit: impl FnMut(turso_core::index_method::fts::AnalyzedToken<'_>),
 ) -> Result<()> {
-    turso_core::index_method::fts::analyze_text::<Error>(
-        &options.tokenizer,
-        (options.min_gram.unwrap_or(2), options.max_gram.unwrap_or(3)),
-        text,
-        |token| {
-            visit(token);
-            Ok(())
-        },
-    )
+    turso_core::index_method::fts::analyze_text::<Error>(&options.core_analyzer()?, text, |token| {
+        visit(token);
+        Ok(())
+    })
 }
 
 struct FoundToken {
     from: usize,
     to: usize,
     position: usize,
+    chars: usize,
     words: u64,
+    shorter_than: u64,
 }
 
 fn token_matches(options: &FullTextOptions, text: &str, phrases: &[Phrase]) -> Result<Vec<Match>> {
-    let mut words: Vec<(&str, bool)> = Vec::new();
+    let mut words: Vec<&Word> = Vec::new();
     let mut phrase_words: Vec<Vec<(usize, usize)>> = Vec::new();
     for phrase in phrases {
-        let last = phrase.words.len() - 1;
         let mut entries = Vec::new();
-        for (index, (position, word)) in phrase.words.iter().enumerate() {
-            let key = (word.as_str(), phrase.prefix && index == last);
-            let entry = match words.iter().position(|known| *known == key) {
+        for (position, word) in &phrase.words {
+            let entry = match words.iter().position(|known| *known == word) {
                 Some(entry) => entry,
                 None if words.len() < MAX_WORDS => {
-                    words.push(key);
+                    words.push(word);
                     words.len() - 1
                 }
                 None => break,
@@ -251,26 +281,41 @@ fn token_matches(options: &FullTextOptions, text: &str, phrases: &[Phrase]) -> R
         if found.len() >= MAX_FOUND_TOKENS {
             return;
         }
-        let matched = words
-            .iter()
-            .enumerate()
-            .filter(|(_, (word, prefix))| {
-                if *prefix {
-                    token.text.starts_with(word)
-                } else {
-                    token.text == *word
+        let chars = token.text.chars().count();
+        let mut matched = 0u64;
+        let mut shorter_than = 0u64;
+        for (entry, word) in words.iter().enumerate() {
+            let bit = 1 << entry;
+            match word {
+                Word::Exact(word) if token.text == word => matched |= bit,
+                Word::Prefix(word) if token.text.starts_with(word.as_str()) => matched |= bit,
+                Word::StemmedPrefix { typed, stem }
+                    if token.text.starts_with(typed.as_str())
+                        || token.text.starts_with(stem.as_str()) =>
+                {
+                    matched |= bit
                 }
-            })
-            .fold(0u64, |bits, (entry, _)| bits | (1 << entry));
-        if matched != 0 {
+                Word::StemmedPrefix { typed, .. }
+                    if typed.starts_with(token.text)
+                        && chars >= shortest_stem(typed.chars().count()) =>
+                {
+                    shorter_than |= bit
+                }
+                _ => {}
+            }
+        }
+        if matched != 0 || shorter_than != 0 {
             found.push(FoundToken {
                 from: token.offset_from,
                 to: token.offset_to,
                 position: token.position,
+                chars,
                 words: matched,
+                shorter_than,
             });
         }
     })?;
+    use_shorter_words(&mut found, words.len());
     let mut matches = Vec::new();
     for (phrase, entries) in phrase_words.iter().enumerate() {
         let Some(&(_, first_entry)) = entries.first() else {
@@ -303,6 +348,34 @@ fn token_matches(options: &FullTextOptions, text: &str, phrases: &[Phrase]) -> R
         }
     }
     Ok(matches)
+}
+
+fn shortest_stem(typed_chars: usize) -> usize {
+    turso_core::index_method::fts::MIN_PREFIX_CHARS.max(typed_chars.div_ceil(2))
+}
+
+fn use_shorter_words(found: &mut Vec<FoundToken>, words: usize) {
+    let matched = found.iter().fold(0u64, |bits, token| bits | token.words);
+    for entry in 0..words {
+        let bit = 1u64 << entry;
+        if matched & bit != 0 {
+            continue;
+        }
+        let longest = found
+            .iter()
+            .filter(|token| token.shorter_than & bit != 0)
+            .map(|token| token.chars)
+            .max();
+        if let Some(longest) = longest {
+            for token in found
+                .iter_mut()
+                .filter(|token| token.shorter_than & bit != 0 && token.chars == longest)
+            {
+                token.words |= bit;
+            }
+        }
+    }
+    found.retain(|token| token.words != 0);
 }
 
 fn token_at(found: &[FoundToken], position: usize, entry: usize) -> Option<&FoundToken> {

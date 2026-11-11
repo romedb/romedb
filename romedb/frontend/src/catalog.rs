@@ -47,7 +47,7 @@ pub(crate) const fn legacy_version() -> u32 {
 pub(crate) fn validate_version(collection: &Collection) -> Result<()> {
     if !matches!(
         collection.version,
-        1..=crate::fulltext::WEIGHTS_CATALOG_VERSION
+        1..=crate::fulltext::FOLD_STEMMER_CATALOG_VERSION
     ) {
         return Err(Error::Storage(format!(
             "unsupported collection metadata version {}",
@@ -125,6 +125,19 @@ pub(crate) fn validate_version(collection: &Collection) -> Result<()> {
         return Err(Error::Storage(format!(
             "full-text field weights require catalog version {}",
             crate::fulltext::WEIGHTS_CATALOG_VERSION
+        )));
+    }
+    if collection.version < crate::fulltext::FOLD_STEMMER_CATALOG_VERSION
+        && collection.indexes.iter().any(|index| {
+            index
+                .fulltext
+                .as_ref()
+                .is_some_and(|config| config.folds_or_stems())
+        })
+    {
+        return Err(Error::Storage(format!(
+            "full-text fold and stemmer options require catalog version {}",
+            crate::fulltext::FOLD_STEMMER_CATALOG_VERSION
         )));
     }
     if !collection.relations.is_empty() && collection.version < 3 {
@@ -382,6 +395,11 @@ fn index_info(index: &crate::Index, table: &str) -> Value {
                 options
                     .max_gram
                     .map_or(Value::Null, |n| Value::Integer(n as i64)),
+            ));
+            fields.push(("fold", Value::Boolean(options.fold)));
+            fields.push((
+                "stemmer",
+                options.stemmer.map_or(Value::Null, Value::String),
             ));
         }
         if !config.weights.is_empty() {

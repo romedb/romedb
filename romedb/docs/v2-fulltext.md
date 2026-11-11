@@ -43,7 +43,8 @@ ORDER BY h.score DESC, h.id;
 - Catalog version 4 persists the ordered paths and `tantivy-default-0.26`
   tokenizer identity. The engine uses Tantivy 0.27.0, whose default tokenizer is
   unchanged from 0.26, so the identity stays the same. That tokenizer: split on punctuation, lowercase and omit tokens of 40 bytes
-  or longer. No stemming, accent folding or language-specific segmentation is promised.
+  or longer. Accent folding and stemming are options (`fold` and `stemmer`, below); no
+  other language-specific segmentation is promised.
 - Queries apply across all indexed text fields. Supported grammar: terms,
   quoted phrases, prefix phrases, boolean AND/OR, parentheses, required and
   prohibited terms, and `*`. Query input is limited to 4096 UTF-8 bytes and AST
@@ -72,6 +73,37 @@ ORDER BY h.score DESC, h.id;
   binaries refuse with "unsupported collection metadata version". Weights that are
   all 1 store nothing and leave the catalog version unchanged. To change weights,
   drop the index and create it again.
+- `WITH (fold=true)` and `WITH (stemmer='english')` (source after 0.2.21) change
+  which words count as the same word. They apply to indexing, queries,
+  `search::analyze` and `search::snippet` alike.
+  - `fold=true` turns accented and other non-ASCII Latin letters into their plain
+    ASCII forms, so `cafe` finds `Café` and `aeroskobing` finds `Ærøskøbing`. It
+    applies to the `default`, `simple` and `whitespace` tokenizers; `simple` and
+    `whitespace` still keep case.
+  - `stemmer` reduces each word to its stem with the Snowball stemmer of one
+    language, so `run`, `runs` and `running` find each other. It applies to the
+    `default` tokenizer only. The language is one of arabic, danish, dutch,
+    english, finnish, french, german, greek, hungarian, italian, norwegian,
+    portuguese, romanian, russian, spanish, swedish, tamil and turkish, in any
+    case; `INFO FOR TABLE` shows it in lowercase. Other values reject and list the
+    languages.
+  - Folding runs before stemming, so a query typed without accents gives the same
+    stem as the accented text. A phrase matches after stemming: `"run shoe"` finds
+    "running shoes".
+  - Both are part of the definition: `IF NOT EXISTS` with other values rejects,
+    `INFO FOR TABLE` lists `fold` and `stemmer`, and `REINDEX`, reopening and file
+    exports keep them. An index with either raises its collection to catalog
+    version 10, which earlier binaries refuse with "unsupported collection metadata
+    version". `fold=false` stores nothing. To change them, drop the index and
+    create it again.
+  - A prefix on a stemmed index matches the stored stems: the words that start
+    with the typed text after lowercasing and folding, or with that text's own
+    stem, so `running*` finds the stem `run` and `happy*` finds `happi`. When no
+    stored word matches, the prefix uses the longest stored word that the typed
+    text starts with, if that word has at least half of the typed characters, so
+    `informatio*` finds "information" (stored as `inform`) and `runni*` finds `run`
+    while someone types. Stored words are searched as stored, never stemmed again.
+    A phrase prefix (`"fast runni"*`) stems its last word and gets no such help.
 - `search::text(index, query, limit)` requires immutable literal or parameter
   arguments and a limit from 0 through 10000. It returns typed `id` and native
   numeric BM25 `score`. Higher scores rank first; equal scores use ascending
@@ -81,9 +113,11 @@ ORDER BY h.score DESC, h.id;
   part of `text` that best shows a match for `query`, as an array of
   `{ text, match }` objects, where `match` is true on the words the query
   matched. It returns plain text, never markup, so the caller decides how to
-  show a match. It analyzes `text` with the named index's tokenizer, so matching
-  follows the index: a phrase matches its words in order, a prefix matches the
-  words that start with it, words in a negative clause are not marked, and on an
+  show a match. It analyzes `text` with the named index's tokenizer, folding and
+  stemmer, so matching follows the index: a phrase matches its words in order, a
+  prefix matches the words that start with it (on a stemmed index, as described
+  for prefixes above, with the fallback decided from the words in `text`), words
+  in a negative clause are not marked, and on an
   ngram index each place the query text appears is marked, ignoring case. A
   phrase with slop (`"quick fox"~1`) marks its words one by one. The fragment has
   at most `size` characters (40 through 1000) and starts and ends at whole words

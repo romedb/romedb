@@ -43,6 +43,7 @@ UPGRADES = [
     Upgrade("v0218", "0.2.18", "check-v251-upgrade.cjs", "0.2.19"),
     Upgrade("v0219", "0.2.19", "check-v251-upgrade.cjs", "0.2.20"),
     Upgrade("v0220", "0.2.20", "check-v251-upgrade.cjs", "0.2.21"),
+    Upgrade("v0221", "0.2.21", "check-v251-upgrade.cjs", "0.2.22"),
 ]
 
 # 0.2.13 changed the stored value prefix from FDB to RDB and does not open files

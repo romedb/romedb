@@ -7,7 +7,7 @@
     "build"
   ],
   "scope": "Cargo dependency declarations; includes build tools, excludes dev dependencies; not proof of linked code or complete notices",
-  "lockfileSha256": "5a88f7f6d7b7b72909570521b961882ec2562bea189f2fad6d56b7b1e9947612",
+  "lockfileSha256": "fe7380f31bf76a5f59ac3a31a0c1ee8c6fa4cccebc6aab26dfd5407c2b9133e6",
   "packages": [
     {
       "name": "aead",
@@ -826,22 +826,22 @@
     },
     {
       "name": "romedb-c",
-      "version": "0.2.21",
+      "version": "0.2.22",
       "licenseExpression": "MIT"
     },
     {
       "name": "romedb-protocol",
-      "version": "0.2.21",
+      "version": "0.2.22",
       "licenseExpression": "MIT"
     },
     {
       "name": "romedb",
-      "version": "0.2.21",
+      "version": "0.2.22",
       "licenseExpression": "MIT"
     },
     {
       "name": "romeql-parser",
-      "version": "0.2.21",
+      "version": "0.2.22",
       "licenseExpression": "MIT"
     },
     {

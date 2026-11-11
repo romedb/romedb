@@ -77,7 +77,7 @@ impl RequestEnvelope {
         Ok(request)
     }
 
-    pub fn prepare(&self, read_only: bool) -> Result<Vec<PreparedRequestStatement>> {
+    pub fn prepare(&self, read_only: bool) -> Result<Vec<PreparedRequestStatement<'_>>> {
         Ok(prepare_statements(&self.statements, read_only)?)
     }
 

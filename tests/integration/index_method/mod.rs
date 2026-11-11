@@ -1454,6 +1454,164 @@ fn fts_single_word_prefix_on_an_ngram_index_matches_like_the_word(tmp_db: TempDa
     assert_eq!(fts_id_list(&conn, "p", "pho*"), vec![1]);
 }
 
+#[cfg(all(feature = "fts", not(target_family = "wasm")))]
+#[turso_macros::test]
+fn fts_with_clause_folds_accents_and_stems_words(tmp_db: TempDatabase) {
+    let conn = tmp_db.connect_limbo();
+    for (table, with) in [
+        ("both", "WITH (fold = 1, stemmer = 'english')"),
+        ("folded", "WITH (fold = 1)"),
+        ("stemmed", "WITH (stemmer = 'english')"),
+        ("plain", ""),
+    ] {
+        conn.execute(format!(
+            "CREATE TABLE {table}(id INTEGER PRIMARY KEY, body TEXT)"
+        ))
+        .unwrap();
+        conn.execute(format!(
+            "CREATE INDEX i_{table} ON {table} USING fts(body) {with}"
+        ))
+        .unwrap();
+        conn.execute(format!(
+            "INSERT INTO {table} VALUES (1, 'Café au lait'), (2, 'running shoes'), \
+             (3, 'he runs daily'), (4, 'the run was fun'), (5, 'Ærøskøbing harbour')"
+        ))
+        .unwrap();
+    }
+    for (table, query, expected) in [
+        ("both", "cafe", vec![1]),
+        ("both", "CAFÉ", vec![1]),
+        ("both", "run", vec![2, 3, 4]),
+        ("both", "running", vec![2, 3, 4]),
+        ("both", "\"running shoes\"", vec![2]),
+        ("both", "\"run shoe\"", vec![2]),
+        ("both", "\"shoes running\"", vec![]),
+        ("both", "aeroskobing", vec![5]),
+        ("folded", "cafe", vec![1]),
+        ("folded", "running", vec![2]),
+        ("stemmed", "cafe", vec![]),
+        ("stemmed", "café", vec![1]),
+        ("stemmed", "running", vec![2, 3, 4]),
+        ("plain", "cafe", vec![]),
+        ("plain", "running", vec![2]),
+    ] {
+        assert_eq!(
+            fts_id_list(&conn, table, query),
+            expected,
+            "{table} {query}"
+        );
+    }
+}
+
+#[cfg(all(feature = "fts", not(target_family = "wasm")))]
+#[turso_macros::test]
+fn fts_single_word_prefix_on_a_stemmed_index_matches_the_stored_stems(tmp_db: TempDatabase) {
+    let conn = tmp_db.connect_limbo();
+    conn.execute("CREATE TABLE p(id INTEGER PRIMARY KEY, body TEXT)")
+        .unwrap();
+    conn.execute("CREATE INDEX fp ON p USING fts(body) WITH (fold = 1, stemmer = 'english')")
+        .unwrap();
+    conn.execute(
+        "INSERT INTO p VALUES (1, 'running shoes'), (2, 'runner up'), (3, 'information desk'), \
+         (4, 'happy days'), (5, 'agreed plan'), (6, 'cart wheel'), (7, 'cartoon show'), \
+         (8, 'Café crème')",
+    )
+    .unwrap();
+    for (query, expected) in [
+        ("run*", vec![1, 2]),
+        ("running*", vec![1, 2]),
+        ("runni*", vec![1]),
+        ("informatio*", vec![3]),
+        ("happy*", vec![4]),
+        ("agr*", vec![5]),
+        ("agre", vec![]),
+        ("agreed*", vec![5]),
+        ("carto*", vec![7]),
+        ("cart*", vec![6, 7]),
+        ("caf*", vec![8]),
+        ("CAFÉ*", vec![8]),
+        ("+show +carto*", vec![7]),
+        ("xyzabc*", vec![]),
+        ("+wheel +xyzabc*", vec![]),
+    ] {
+        assert_eq!(fts_id_list(&conn, "p", query), expected, "{query}");
+    }
+}
+
+#[cfg(all(feature = "fts", not(target_family = "wasm")))]
+#[turso_macros::test]
+fn fts_with_clause_rejects_bad_fold_and_stemmer(tmp_db: TempDatabase) {
+    let conn = tmp_db.connect_limbo();
+    conn.execute("CREATE TABLE docs(id INTEGER PRIMARY KEY, body TEXT)")
+        .unwrap();
+    for (clause, message) in [
+        ("WITH (fold = 2)", "'fold' must be 0 or 1"),
+        ("WITH (fold = 'yes')", "'fold' must be 0 or 1"),
+        ("WITH (stemmer = 1)", "'stemmer' must be a language name"),
+        (
+            "WITH (stemmer = 'klingon')",
+            "unsupported FTS stemmer 'klingon'",
+        ),
+        (
+            "WITH (stemmer = 'English')",
+            "unsupported FTS stemmer 'English'",
+        ),
+        (
+            "WITH (tokenizer = 'raw', fold = 1)",
+            "'fold' requires tokenizer",
+        ),
+        (
+            "WITH (tokenizer = 'ngram', fold = 1)",
+            "'fold' requires tokenizer",
+        ),
+        (
+            "WITH (tokenizer = 'simple', stemmer = 'english')",
+            "'stemmer' requires tokenizer",
+        ),
+    ] {
+        let error = conn
+            .execute(format!(
+                "CREATE INDEX fts_docs ON docs USING fts (body) {clause}"
+            ))
+            .unwrap_err();
+        assert!(error.to_string().contains(message), "{clause}: {error}");
+    }
+    for (table, clause, query, expected) in [
+        (
+            "simple_folded",
+            "WITH (tokenizer = 'simple', fold = 1)",
+            "CAFE",
+            vec![1],
+        ),
+        (
+            "simple_case",
+            "WITH (tokenizer = 'simple', fold = 1)",
+            "cafe",
+            vec![],
+        ),
+        (
+            "whitespace_folded",
+            "WITH (tokenizer = 'whitespace', fold = 1)",
+            "CAFE",
+            vec![1],
+        ),
+        ("not_folded", "WITH (fold = 0)", "cafe", vec![]),
+        ("french", "WITH (stemmer = 'french')", "crèmes", vec![1]),
+    ] {
+        conn.execute(format!(
+            "CREATE TABLE {table}(id INTEGER PRIMARY KEY, body TEXT)"
+        ))
+        .unwrap();
+        conn.execute(format!(
+            "CREATE INDEX i_{table} ON {table} USING fts (body) {clause}"
+        ))
+        .unwrap();
+        conn.execute(format!("INSERT INTO {table} VALUES (1, 'CAFÉ crème')"))
+            .unwrap();
+        assert_eq!(fts_id_list(&conn, table, query), expected, "{table}");
+    }
+}
+
 /// A one-character typo in a WITH clause key must be an error, not a
 /// silently different index (issue #8169).
 #[cfg(all(feature = "fts", not(target_family = "wasm")))]

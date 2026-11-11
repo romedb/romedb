@@ -10,6 +10,10 @@ pub struct FullTextOptions {
     pub min_gram: Option<usize>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_gram: Option<usize>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub fold: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stemmer: Option<String>,
 }
 
 impl Default for FullTextOptions {
@@ -18,6 +22,8 @@ impl Default for FullTextOptions {
             tokenizer: "default".into(),
             min_gram: None,
             max_gram: None,
+            fold: false,
+            stemmer: None,
         }
     }
 }
@@ -46,7 +52,37 @@ impl FullTextOptions {
                 "ngram sizes require the ngram tokenizer".into(),
             ));
         }
+        if options.fold
+            && !turso_core::index_method::fts::FOLDING_TOKENIZERS
+                .contains(&options.tokenizer.as_str())
+        {
+            return Err(Error::Validation(
+                "fold requires the default, simple or whitespace tokenizer".into(),
+            ));
+        }
+        if let Some(stemmer) = options.stemmer.as_mut() {
+            stemmer.make_ascii_lowercase();
+            if options.tokenizer != "default" {
+                return Err(Error::Validation(
+                    "stemmer requires the default tokenizer".into(),
+                ));
+            }
+            if !turso_core::index_method::fts::STEMMER_LANGUAGES.contains(&stemmer.as_str()) {
+                return Err(Error::Validation(format!(
+                    "unsupported stemmer; use one of {}",
+                    turso_core::index_method::fts::STEMMER_LANGUAGES.join(", ")
+                )));
+            }
+        }
         Ok(options)
+    }
+    pub(crate) fn core_analyzer(&self) -> Result<turso_core::index_method::fts::Analyzer> {
+        Ok(turso_core::index_method::fts::Analyzer::new(
+            &self.tokenizer,
+            (self.min_gram.unwrap_or(2), self.max_gram.unwrap_or(3)),
+            self.fold,
+            self.stemmer.as_deref(),
+        )?)
     }
     pub(crate) fn identity(&self) -> String {
         format!("tantivy-{}-0.26", self.tokenizer)
@@ -64,8 +100,7 @@ pub(crate) fn analyze(options: &FullTextOptions, input: &str) -> Result<Value> {
         limit: 8 * 1024 * 1024,
     };
     turso_core::index_method::fts::analyze_text::<Error>(
-        &options.tokenizer,
-        (options.min_gram.unwrap_or(2), options.max_gram.unwrap_or(3)),
+        &options.core_analyzer()?,
         input,
         |token| {
             if output.len() >= 16_384 {

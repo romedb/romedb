@@ -269,7 +269,9 @@ fn fulltext_index_declarations_preserve_ordered_paths() {
             tokenizer: None,
             min_gram: None,
             max_gram: None,
-            weights: None
+            weights: None,
+            fold: None,
+            stemmer: None
         }
     );
     assert_eq!(
@@ -283,9 +285,34 @@ fn fulltext_index_declarations_preserve_ordered_paths() {
             tokenizer: Some("simple".into()),
             min_gram: None,
             max_gram: None,
-            weights: Some("title=3,profile.body=1".into())
+            weights: Some("title=3,profile.body=1".into()),
+            fold: None,
+            stemmer: None
         }
     );
+    assert_eq!(
+        parse("CREATE SEARCH INDEX t ON posts(title) USING FULLTEXT WITH (fold=TRUE, stemmer='English')")
+            .unwrap(),
+        Statement::CreateFullTextIndex {
+            if_not_exists: false,
+            table: "posts".into(),
+            name: "t".into(),
+            paths: vec![vec!["title".into()]],
+            tokenizer: None,
+            min_gram: None,
+            max_gram: None,
+            weights: None,
+            fold: Some(true),
+            stemmer: Some("English".into())
+        }
+    );
+    assert!(matches!(
+        parse("CREATE SEARCH INDEX t ON posts(title) USING FULLTEXT WITH (fold=false)").unwrap(),
+        Statement::CreateFullTextIndex {
+            fold: Some(false),
+            ..
+        }
+    ));
     for sql in [
         "CREATE SEARCH INDEX i ON posts() USING FULLTEXT",
         "CREATE SEARCH INDEX i ON posts(title,) USING FULLTEXT",
@@ -293,6 +320,12 @@ fn fulltext_index_declarations_preserve_ordered_paths() {
         "CREATE SEARCH INDEX i ON posts(title + body) USING FULLTEXT",
         "CREATE SEARCH INDEX i ON posts(title) USING FULLTEXT WITH (weights=3)",
         "CREATE SEARCH INDEX i ON posts(title) USING FULLTEXT WITH (weights='title=3',weights='title=2')",
+        "CREATE SEARCH INDEX i ON posts(title) USING FULLTEXT WITH (fold=1)",
+        "CREATE SEARCH INDEX i ON posts(title) USING FULLTEXT WITH (fold='true')",
+        "CREATE SEARCH INDEX i ON posts(title) USING FULLTEXT WITH (fold=yes)",
+        "CREATE SEARCH INDEX i ON posts(title) USING FULLTEXT WITH (fold=true,fold=false)",
+        "CREATE SEARCH INDEX i ON posts(title) USING FULLTEXT WITH (stemmer=english)",
+        "CREATE SEARCH INDEX i ON posts(title) USING FULLTEXT WITH (stemmer='english',stemmer='french')",
     ] {
         assert!(parse(sql).is_err(), "{sql}");
     }
