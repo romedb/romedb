@@ -1612,6 +1612,196 @@ fn fts_with_clause_rejects_bad_fold_and_stemmer(tmp_db: TempDatabase) {
     }
 }
 
+#[cfg(all(feature = "fts", not(target_family = "wasm")))]
+#[turso_macros::test]
+fn fts_typo_words_match_nearby_words_and_score_below_the_word(tmp_db: TempDatabase) {
+    let conn = tmp_db.connect_limbo();
+    conn.execute("CREATE TABLE p(id INTEGER PRIMARY KEY, body TEXT)")
+        .unwrap();
+    conn.execute("CREATE INDEX fp ON p USING fts(body)")
+        .unwrap();
+    conn.execute(
+        "INSERT INTO p VALUES (1, 'database systems'), (2, 'databse notes'), (3, 'datbase'), \
+         (4, 'data base'), (5, 'rust lang'), (6, 'bust tales'), (7, 'just'), (8, 'crust'), \
+         (9, 'performance tuning'), (10, 'perfromance'), (11, 'preformance'), (12, 'perform'), \
+         (13, 'rust rust rust')",
+    )
+    .unwrap();
+    for (query, expected) in [
+        ("databse~1", vec![1, 2, 3]),
+        ("rust~1", vec![5, 6, 7, 8, 13]),
+        ("RUST~1", vec![5, 6, 7, 8, 13]),
+        ("rus~1", vec![]),
+        ("rus~2", vec![]),
+        ("rust~2", vec![5, 6, 7, 8, 13]),
+        ("performance~1", vec![9, 10, 11]),
+        ("performance~2", vec![9, 10, 11]),
+        ("perfromance~2", vec![9, 10, 11]),
+        ("+database~1 +systems", vec![1]),
+        ("database~1 -notes", vec![1, 3]),
+        ("xyzzyq~2", vec![]),
+        ("+lang +xyzzyq~2", vec![]),
+    ] {
+        assert_eq!(fts_id_list(&conn, "p", query), expected, "{query}");
+    }
+    let scores = |query: &str| -> Vec<(i64, f64)> {
+        limbo_exec_rows(
+            &conn,
+            &format!(
+                "SELECT id, fts_score(body, '{query}') AS s FROM p \
+                 WHERE fts_match(body, '{query}') ORDER BY s DESC LIMIT 20"
+            ),
+        )
+        .iter()
+        .map(|row| match (&row[0], &row[1]) {
+            (rusqlite::types::Value::Integer(id), rusqlite::types::Value::Real(score)) => {
+                (*id, *score)
+            }
+            other => panic!("unexpected row {other:?}"),
+        })
+        .collect()
+    };
+    let typo = scores("rust~1");
+    let exact = scores("rust");
+    for (id, score) in &exact {
+        assert!(typo.contains(&(*id, *score)), "{id} {score} in {typo:?}");
+    }
+    let score_of = |id: i64| typo.iter().find(|(hit, _)| *hit == id).unwrap().1;
+    assert!(score_of(5) > score_of(6), "{typo:?}");
+    assert!(score_of(5) > score_of(8), "{typo:?}");
+}
+
+#[cfg(all(feature = "fts", not(target_family = "wasm")))]
+fn fts_filtered_ids(conn: &Arc<turso_core::Connection>, query: &str) -> Vec<i64> {
+    let rows = limbo_exec_rows(
+        conn,
+        &format!("SELECT id FROM p WHERE fts_match(body, lang, kind, '{query}') ORDER BY id"),
+    );
+    rows.iter()
+        .map(|row| match row[0] {
+            rusqlite::types::Value::Integer(id) => id,
+            ref other => panic!("unexpected id {other:?}"),
+        })
+        .collect()
+}
+
+#[cfg(all(feature = "fts", not(target_family = "wasm")))]
+#[turso_macros::test]
+fn fts_filter_columns_match_whole_values_and_keep_scores(tmp_db: TempDatabase) {
+    let conn = tmp_db.connect_limbo();
+    conn.execute("CREATE TABLE p(id INTEGER PRIMARY KEY, body TEXT, lang TEXT, kind TEXT)")
+        .unwrap();
+    conn.execute("CREATE INDEX fp ON p USING fts(body, lang, kind) WITH (filters = 'lang,kind')")
+        .unwrap();
+    conn.execute(
+        "INSERT INTO p VALUES (1, 'hello world', 'en', 'post'), (2, 'hello there', 'vi', 'post'), \
+         (3, 'hello again', 'en', 'page'), (4, 'en route', 'fr', 'post'), \
+         (5, 'hello', NULL, 'post'), (6, 'hello en-US', 'en-US', 'blog post')",
+    )
+    .unwrap();
+
+    for (query, expected) in [
+        ("+hello +lang:en", vec![1, 3]),
+        ("+hello +lang:EN", vec![]),
+        ("+hello +lang:\"en-US\"", vec![6]),
+        ("+hello +lang: IN [en vi]", vec![1, 2, 3]),
+        ("+hello +lang: IN []", vec![]),
+        ("+hello +lang:en +kind:page", vec![3]),
+        ("+hello +kind:\"blog post\"", vec![6]),
+        ("+hello -lang:en", vec![2, 5, 6]),
+        ("+hel* +lang:en", vec![1, 3]),
+        ("+(world OR there) +lang: IN [en vi]", vec![1, 2]),
+        ("+lang:en", vec![1, 3]),
+        ("+hello +lang:en~1", vec![]),
+        ("+hello +lang:\"en*\"", vec![]),
+        ("en", vec![4, 6]),
+        ("post", vec![]),
+    ] {
+        assert_eq!(fts_filtered_ids(&conn, query), expected, "{query}");
+    }
+
+    let scores = |query: &str| -> Vec<(i64, f64)> {
+        limbo_exec_rows(
+            &conn,
+            &format!(
+                "SELECT id, fts_score(body, lang, kind, '{query}') AS s FROM p \
+                 WHERE fts_match(body, lang, kind, '{query}') ORDER BY s DESC LIMIT 10"
+            ),
+        )
+        .iter()
+        .map(|row| match (&row[0], &row[1]) {
+            (rusqlite::types::Value::Integer(id), rusqlite::types::Value::Real(score)) => {
+                (*id, *score)
+            }
+            other => panic!("unexpected row {other:?}"),
+        })
+        .collect()
+    };
+    let all = scores("hello");
+    let filtered = scores("+(hello) +lang:en");
+    assert_eq!(filtered.len(), 2);
+    for (id, score) in &filtered {
+        assert!(all.contains(&(*id, *score)), "{id} {score} in {all:?}");
+    }
+
+    conn.execute("UPDATE p SET lang = 'vi' WHERE id = 3")
+        .unwrap();
+    assert_eq!(fts_filtered_ids(&conn, "+hello +lang:en"), vec![1]);
+    assert_eq!(fts_filtered_ids(&conn, "+hello +lang:vi"), vec![2, 3]);
+
+    for (query, message) in [
+        ("+hello +lang:en*", "takes a whole value"),
+        ("+hello +lang:\"en\"~1", "takes a whole value"),
+        ("-lang:en", "AllButQueryForbidden"),
+    ] {
+        let error = limbo_exec_rows_fallible(
+            &tmp_db,
+            &conn,
+            &format!("SELECT id FROM p WHERE fts_match(body, lang, kind, '{query}')"),
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains(message), "{query}: {error}");
+    }
+}
+
+#[cfg(all(feature = "fts", not(target_family = "wasm")))]
+#[turso_macros::test]
+fn fts_with_clause_rejects_bad_filters(tmp_db: TempDatabase) {
+    let conn = tmp_db.connect_limbo();
+    conn.execute("CREATE TABLE docs(id INTEGER PRIMARY KEY, body TEXT, lang TEXT)")
+        .unwrap();
+    for (clause, message) in [
+        (
+            "WITH (filters = 1)",
+            "'filters' must be a list of column names",
+        ),
+        (
+            "WITH (filters = 'locale')",
+            "unknown column 'locale' in filters",
+        ),
+        ("WITH (filters = '')", "unknown column '' in filters"),
+        (
+            "WITH (filters = 'lang,lang')",
+            "filters name column 'lang' twice",
+        ),
+        (
+            "WITH (filters = 'body,lang')",
+            "filters must leave at least one text column",
+        ),
+        (
+            "WITH (filters = 'lang', weights = 'lang=2')",
+            "filter column 'lang' cannot have a weight",
+        ),
+    ] {
+        let error = conn
+            .execute(format!(
+                "CREATE INDEX fts_docs ON docs USING fts (body, lang) {clause}"
+            ))
+            .unwrap_err();
+        assert!(error.to_string().contains(message), "{clause}: {error}");
+    }
+}
+
 /// A one-character typo in a WITH clause key must be an error, not a
 /// silently different index (issue #8169).
 #[cfg(all(feature = "fts", not(target_family = "wasm")))]

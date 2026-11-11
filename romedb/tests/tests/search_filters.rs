@@ -153,6 +153,9 @@ fn filter_validation_limits_and_failed_writes_preserve_prior_work() {
                 "RDB_LIMIT",
             ),
         ] {
+            if kind == "text" && value == Value::Null {
+                continue;
+            }
             let p = Parameters::from([("$ids".into(), value)]);
             assert_eq!(c.execute(&sql, &p).unwrap_err().code(), code, "{kind}");
             assert_eq!(

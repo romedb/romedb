@@ -64,6 +64,21 @@ ORDER BY h.score DESC, h.id;
   the pinned parser's `NOT` subclauses: use `+fast -guide` to exclude a term,
   rather than `fast AND NOT guide`, which the native parser mishandles. Matching
   and syntax errors otherwise follow the pinned Tantivy query parser.
+- Since the source after 0.2.22, `word~1` and `word~2` also find indexed words
+  within one or two edits of the word, where an edit adds, removes or changes one
+  character or swaps two neighboring characters: `databse~1` finds "database" and
+  `perfromance~2` finds "performance". The word is analyzed like any query word
+  first, so case, folding and stemming apply. Distance 1 needs a word of at least
+  4 characters and distance 2 one of at least 8; a shorter word asks for less, so
+  `rust~2` is `rust~1` and `rus~1` matches only `rus`. Besides the word itself, it
+  matches at most the 64 indexed words within the distance that are in the most
+  documents. The word itself scores as it would without `~`. Each other word
+  scores at half weight, and all of them count as rare as the most common of them,
+  so a document ranks above another that has a nearby word the same number of
+  times instead. `~0`, `~3` and above, and `~` after a prefix reject; a quoted
+  phrase keeps `~` as slop (`"quick fox"~1`). On an ngram index `word~1` is the
+  same as `word`. `search::snippet` marks every word within the distance, not
+  only the 64 the search uses.
 - `WITH (weights='title=3,meta.summary=2')` multiplies each named field's score
   (source after 0.2.20). Each key is one of the index's paths, written with dots;
   each value is a finite, positive number; paths left out weigh 1. Weights are part
@@ -104,6 +119,36 @@ ORDER BY h.score DESC, h.id;
     `informatio*` finds "information" (stored as `inform`) and `runni*` finds `run`
     while someone types. Stored words are searched as stored, never stemmed again.
     A phrase prefix (`"fast runni"*`) stems its last word and gets no such help.
+- `WITH (filters='locale,collection')` (source after 0.2.22) declares up to 4
+  filter paths, written with dots, that `search::text` can filter on before it
+  ranks. Their values follow the same rule as text paths: strings, missing or NULL,
+  and a write with another type rejects. They are stored whole and case-sensitive,
+  and are not searched as text: the query `en` does not find a document because
+  its `locale` is `en`. A filter path cannot also be a text path or have a weight.
+  Filters are part of the definition: `IF NOT EXISTS` with other filters rejects,
+  `INFO FOR TABLE` lists `filters` (and `paths` lists the text paths only), and
+  `REINDEX`, reopening and file exports keep them. An index with filters raises its
+  collection to catalog version 11, which earlier binaries refuse.
+- `search::text(index, query, limit, allowed_ids, filter)` takes the filter as an
+  optional fifth argument (source after 0.2.22), bound as an object parameter:
+  each key is a filter path written with dots, and each value is a string or an
+  array of strings, for example `{ locale: 'en', collection: ['posts', 'pages'] }`.
+  Paths combine with AND and the values of one path with OR; an empty array
+  matches nothing. Pass `NULL` as `allowed_ids` to use only a filter, and `NULL`
+  as the filter to use none. The filter applies inside the native search, so
+  `limit` hits come back whenever that many match, and scores are the same as
+  without the filter: BM25 still counts the whole index. A filter holds at most
+  32 values of at most 256 bytes each (`RDB_LIMIT`); a path the index does not
+  declare, or a value that is not a string, rejects with `RDB_VALIDATION`. With
+  allowed IDs too, the filter applies first and the IDs after, as below.
+- `search::count(index, query, max, filter)` (source after 0.2.22) counts the
+  documents that match `query`, and the optional filter as in `search::text`, up to
+  `max` (an integer from 1 through 100000). It is a source with one row and one
+  column, `count`: `SELECT count FROM search::count('cms_text', $q, 10000, $filter)`.
+  A count below `max` is exact; a count equal to `max` means `max` or more. It
+  counts the native index's matches up to `max` without reading any document, so
+  its cost grows with the matches it counts, and it sees the writes of its own
+  transaction. The query, the filter and their errors follow `search::text`.
 - `search::text(index, query, limit)` requires immutable literal or parameter
   arguments and a limit from 0 through 10000. It returns typed `id` and native
   numeric BM25 `score`. Higher scores rank first; equal scores use ascending
@@ -133,7 +178,7 @@ ORDER BY h.score DESC, h.id;
   `Connection::snippet_text`.
 - The limit selects ranked hits before an outer `WHERE` or join filter. Such
   filters may produce fewer than the requested count. This is not pre-filtered
-  top-k search. The materialized hit set prevents predicate/limit pushdown from
+  top-k search; the fifth `search::text` argument is. The materialized hit set prevents predicate/limit pushdown from
   changing this contract.
 - The native plan must select the FTS index or preparation fails. There is no
   text-scan fallback. Since 0.2.18 a search without allowed IDs asks the native

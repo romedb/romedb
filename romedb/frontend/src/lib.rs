@@ -867,6 +867,14 @@ impl Connection {
                 .version
                 .max(fulltext::FOLD_STEMMER_CATALOG_VERSION);
         }
+        if collection.indexes.iter().any(|index| {
+            index
+                .fulltext
+                .as_ref()
+                .is_some_and(|config| !config.filters.is_empty())
+        }) {
+            collection.version = collection.version.max(fulltext::FILTERS_CATALOG_VERSION);
+        }
         self.run(
             "UPDATE __romedb_catalog SET metadata = ?1 WHERE name = ?2",
             &[
@@ -1795,10 +1803,11 @@ impl Connection {
                 min_gram,
                 max_gram,
                 weights,
+                filters,
                 fold,
                 stemmer,
             } => {
-                self.create_fulltext_index_with_weights(
+                self.create_fulltext_index_with_filters(
                     &table,
                     &name,
                     paths,
@@ -1810,6 +1819,9 @@ impl Connection {
                         stemmer,
                     },
                     weights.as_deref(),
+                    filters
+                        .map(|text| fulltext::filter_paths(&text))
+                        .unwrap_or_default(),
                     if_not_exists,
                 )?;
                 Ok(QueryResult::command(0))

@@ -270,12 +270,13 @@ fn fulltext_index_declarations_preserve_ordered_paths() {
             min_gram: None,
             max_gram: None,
             weights: None,
+            filters: None,
             fold: None,
             stemmer: None
         }
     );
     assert_eq!(
-        parse("CREATE SEARCH INDEX t ON posts(title,profile.body) USING FULLTEXT WITH (weights='title=3,profile.body=1', tokenizer='simple')")
+        parse("CREATE SEARCH INDEX t ON posts(title,profile.body) USING FULLTEXT WITH (weights='title=3,profile.body=1', tokenizer='simple', filters='locale,meta.kind')")
             .unwrap(),
         Statement::CreateFullTextIndex {
             if_not_exists: false,
@@ -286,6 +287,7 @@ fn fulltext_index_declarations_preserve_ordered_paths() {
             min_gram: None,
             max_gram: None,
             weights: Some("title=3,profile.body=1".into()),
+            filters: Some("locale,meta.kind".into()),
             fold: None,
             stemmer: None
         }
@@ -302,6 +304,7 @@ fn fulltext_index_declarations_preserve_ordered_paths() {
             min_gram: None,
             max_gram: None,
             weights: None,
+            filters: None,
             fold: Some(true),
             stemmer: Some("English".into())
         }
@@ -320,6 +323,8 @@ fn fulltext_index_declarations_preserve_ordered_paths() {
         "CREATE SEARCH INDEX i ON posts(title + body) USING FULLTEXT",
         "CREATE SEARCH INDEX i ON posts(title) USING FULLTEXT WITH (weights=3)",
         "CREATE SEARCH INDEX i ON posts(title) USING FULLTEXT WITH (weights='title=3',weights='title=2')",
+        "CREATE SEARCH INDEX i ON posts(title) USING FULLTEXT WITH (filters=locale)",
+        "CREATE SEARCH INDEX i ON posts(title) USING FULLTEXT WITH (filters='a',filters='b')",
         "CREATE SEARCH INDEX i ON posts(title) USING FULLTEXT WITH (fold=1)",
         "CREATE SEARCH INDEX i ON posts(title) USING FULLTEXT WITH (fold='true')",
         "CREATE SEARCH INDEX i ON posts(title) USING FULLTEXT WITH (fold=yes)",

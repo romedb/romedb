@@ -116,6 +116,7 @@ enum Word {
     Exact(String),
     Prefix(String),
     StemmedPrefix { typed: String, stem: String },
+    Typo { word: String, distance: u8 },
 }
 
 struct Match {
@@ -135,6 +136,13 @@ fn query_phrases(options: &FullTextOptions, query: &str) -> Result<Vec<Phrase>> 
         let (source, prefix) = literal_source(literal, ngram);
         let words = analyzed_words(options, source)?;
         if words.is_empty() {
+            continue;
+        }
+        if let Some(word) = typo_word(options, literal, &words)? {
+            phrases.push(Phrase {
+                source: source.to_owned(),
+                words: vec![(0, word)],
+            });
             continue;
         }
         let last = words.len() - 1;
@@ -190,6 +198,36 @@ fn query_phrases(options: &FullTextOptions, query: &str) -> Result<Vec<Phrase>> 
     Ok(phrases)
 }
 
+fn typo_word(
+    options: &FullTextOptions,
+    literal: &UserInputLiteral,
+    words: &[(usize, String)],
+) -> Result<Option<Word>> {
+    if options.tokenizer == "ngram"
+        || literal.delimiter != Delimiter::None
+        || literal.prefix
+        || literal.slop != 0
+    {
+        return Ok(None);
+    }
+    let Some((text, asked)) = turso_core::index_method::fts::typo_word(&literal.phrase) else {
+        return Ok(None);
+    };
+    let unstemmed = FullTextOptions {
+        stemmer: None,
+        ..options.clone()
+    };
+    let typed = analyzed_words(&unstemmed, text)?;
+    let ([(_, typed)], [(_, word)]) = (typed.as_slice(), words) else {
+        return Ok(None);
+    };
+    let distance = turso_core::index_method::fts::allowed_typos(asked, typed.chars().count());
+    Ok((distance > 0).then(|| Word::Typo {
+        word: word.clone(),
+        distance,
+    }))
+}
+
 fn positive_literals<'a>(ast: &'a UserInputAst, literals: &mut Vec<&'a UserInputLiteral>) {
     match ast {
         UserInputAst::Clause(children) => {
@@ -209,6 +247,11 @@ fn positive_literals<'a>(ast: &'a UserInputAst, literals: &mut Vec<&'a UserInput
 }
 
 fn literal_source(literal: &UserInputLiteral, ngram: bool) -> (&str, bool) {
+    if literal.delimiter == Delimiter::None && !literal.prefix && literal.slop == 0 {
+        if let Some((text, _)) = turso_core::index_method::fts::typo_word(&literal.phrase) {
+            return (text, false);
+        }
+    }
     let stem = match literal.delimiter {
         Delimiter::None => literal
             .phrase
@@ -301,6 +344,9 @@ fn token_matches(options: &FullTextOptions, text: &str, phrases: &[Phrase]) -> R
                 {
                     shorter_than |= bit
                 }
+                Word::Typo { word, distance } if within_typos(token.text, word, *distance) => {
+                    matched |= bit
+                }
                 _ => {}
             }
         }
@@ -348,6 +394,31 @@ fn token_matches(options: &FullTextOptions, text: &str, phrases: &[Phrase]) -> R
         }
     }
     Ok(matches)
+}
+
+fn within_typos(text: &str, word: &str, distance: u8) -> bool {
+    let a: Vec<char> = text.chars().collect();
+    let b: Vec<char> = word.chars().collect();
+    let distance = usize::from(distance);
+    if a.len().abs_diff(b.len()) > distance {
+        return false;
+    }
+    let mut before: Vec<usize> = Vec::new();
+    let mut previous: Vec<usize> = (0..=b.len()).collect();
+    for i in 1..=a.len() {
+        let mut current = vec![i; b.len() + 1];
+        for j in 1..=b.len() {
+            let cost = usize::from(a[i - 1] != b[j - 1]);
+            current[j] = (previous[j] + 1)
+                .min(current[j - 1] + 1)
+                .min(previous[j - 1] + cost);
+            if i > 1 && j > 1 && a[i - 1] == b[j - 2] && a[i - 2] == b[j - 1] {
+                current[j] = current[j].min(before[j - 2] + 1);
+            }
+        }
+        before = std::mem::replace(&mut previous, current);
+    }
+    previous[b.len()] <= distance
 }
 
 fn shortest_stem(typed_chars: usize) -> usize {

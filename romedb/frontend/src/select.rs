@@ -3442,23 +3442,35 @@ fn source(
         if name.db_name.is_none() && name.name.as_str() == "__romedb_text" {
             let [index, query, limit, ..] = args.as_slice() else {
                 return Err(Error::Validation(
-                    "search::text expects index name, query, limit and optional allowed IDs".into(),
+                    "search::text expects index name, query, limit, optional allowed IDs and an optional filter".into(),
                 ));
             };
-            if args.len() > 4 {
+            if args.len() > 5 {
                 return Err(Error::Validation(
-                    "search accepts at most four arguments".into(),
+                    "search::text accepts at most five arguments".into(),
                 ));
             }
             let mut consumed = std::collections::BTreeSet::new();
             let index = crate::spatial::search_argument(index, params, &mut consumed)?;
             let query = crate::spatial::search_argument(query, params, &mut consumed)?;
             let limit = crate::spatial::search_argument(limit, params, &mut consumed)?;
-            let filter = args
-                .get(3)
-                .map(|arg| crate::search_filter::argument(arg, params, &mut consumed))
-                .transpose()?;
-            let sql = connection.text_search_sql(&index, &query, &limit, filter.as_ref())?;
+            let allowed = match args.get(3).map(|arg| arg.as_ref()) {
+                None | Some(Expr::Literal(Literal::Null)) => None,
+                Some(arg) => Some(crate::search_filter::argument(arg, params, &mut consumed)?)
+                    .filter(|value| *value != Value::Null),
+            };
+            let filter = match args.get(4).map(|arg| arg.as_ref()) {
+                None | Some(Expr::Literal(Literal::Null)) => None,
+                Some(arg) => Some(crate::spatial::search_argument(arg, params, &mut consumed)?)
+                    .filter(|value| *value != Value::Null),
+            };
+            let sql = connection.text_search_sql(
+                &index,
+                &query,
+                &limit,
+                allowed.as_ref(),
+                filter.as_ref(),
+            )?;
             let Cmd::Stmt(Stmt::Select(select)) = parsed(&sql)? else {
                 unreachable!()
             };
@@ -3470,6 +3482,45 @@ fn source(
                 alias: alias.name().as_str().into(),
                 collection: None,
                 derived: Some(vec![("id".into(), true), ("score".into(), false)]),
+                derived_logical: true,
+                derived_physical: None,
+                native_collations: Default::default(),
+                native_expression_collations: Default::default(),
+                consumed,
+            });
+        }
+        if name.db_name.is_none() && name.name.as_str() == "__romedb_text_count" {
+            let [index, query, max, ..] = args.as_slice() else {
+                return Err(Error::Validation(
+                    "search::count expects index name, query, max and an optional filter".into(),
+                ));
+            };
+            if args.len() > 4 {
+                return Err(Error::Validation(
+                    "search::count accepts at most four arguments".into(),
+                ));
+            }
+            let mut consumed = std::collections::BTreeSet::new();
+            let index = crate::spatial::search_argument(index, params, &mut consumed)?;
+            let query = crate::spatial::search_argument(query, params, &mut consumed)?;
+            let max = crate::spatial::search_argument(max, params, &mut consumed)?;
+            let filter = match args.get(3).map(|arg| arg.as_ref()) {
+                None | Some(Expr::Literal(Literal::Null)) => None,
+                Some(arg) => Some(crate::spatial::search_argument(arg, params, &mut consumed)?)
+                    .filter(|value| *value != Value::Null),
+            };
+            let sql = connection.text_count_sql(&index, &query, &max, filter.as_ref())?;
+            let Cmd::Stmt(Stmt::Select(select)) = parsed(&sql)? else {
+                unreachable!()
+            };
+            let alias = alias
+                .clone()
+                .unwrap_or_else(|| As::As(Name::exact("count".into())));
+            return Ok(Source {
+                table: SelectTable::Select(select, Some(alias.clone())),
+                alias: alias.name().as_str().into(),
+                collection: None,
+                derived: Some(vec![("count".into(), false)]),
                 derived_logical: true,
                 derived_physical: None,
                 native_collations: Default::default(),
@@ -4711,6 +4762,7 @@ pub(crate) fn expand_records(connection: Option<&Connection>, sql: &str) -> Resu
                 "search::nearest" => "__romedb_nearest",
                 "search::containing" => "__romedb_containing",
                 "search::text" => "__romedb_text",
+                "search::count" => "__romedb_text_count",
                 "search::vector" => "__romedb_vector",
                 "type::record" => "__romedb_record_value",
                 "string::slugify" => "__romedb_h_string_slugify",
@@ -4937,6 +4989,7 @@ impl Connection {
                             | "__romedb_nearest"
                             | "__romedb_containing"
                             | "__romedb_text"
+                            | "__romedb_text_count"
                             | "__romedb_vector"
                             | "__romedb_graph"
                     )
@@ -5224,6 +5277,7 @@ impl Connection {
                                 | "__romedb_nearest"
                                 | "__romedb_containing"
                                 | "__romedb_text"
+                                | "__romedb_text_count"
                                 | "__romedb_vector"
                                 | "__romedb_graph"
                         )
@@ -5524,7 +5578,7 @@ impl Connection {
                 if matches!(
                     table.as_ref(),
                     SelectTable::Table(..) | SelectTable::Select(..)
-                ) || matches!(table.as_ref(), SelectTable::TableCall(name, _, _) if matches!(name.name.as_str().to_ascii_lowercase().as_str(), "json_each" | "json_tree" | "__romedb_near" | "__romedb_bbox" | "__romedb_polygon" | "__romedb_nearest" | "__romedb_containing" | "__romedb_text" | "__romedb_vector" | "__romedb_unnest" | "__romedb_record_value" | "__romedb_graph"))
+                ) || matches!(table.as_ref(), SelectTable::TableCall(name, _, _) if matches!(name.name.as_str().to_ascii_lowercase().as_str(), "json_each" | "json_tree" | "__romedb_near" | "__romedb_bbox" | "__romedb_polygon" | "__romedb_nearest" | "__romedb_containing" | "__romedb_text" | "__romedb_text_count" | "__romedb_vector" | "__romedb_unnest" | "__romedb_record_value" | "__romedb_graph"))
                 {
                     local.push(source(
                         self,
@@ -6165,7 +6219,7 @@ impl Connection {
                                         table.as_ref(),
                                         SelectTable::Table(..) | SelectTable::Select(..)
                                     ) || matches!(table.as_ref(), SelectTable::TableCall(name, _, _)
-                                        if matches!(name.name.as_str().to_ascii_lowercase().as_str(), "json_each" | "json_tree" | "__romedb_near" | "__romedb_bbox" | "__romedb_polygon" | "__romedb_nearest" | "__romedb_containing" | "__romedb_text" | "__romedb_vector" | "__romedb_unnest" | "__romedb_record_value" | "__romedb_graph"))
+                                        if matches!(name.name.as_str().to_ascii_lowercase().as_str(), "json_each" | "json_tree" | "__romedb_near" | "__romedb_bbox" | "__romedb_polygon" | "__romedb_nearest" | "__romedb_containing" | "__romedb_text" | "__romedb_text_count" | "__romedb_vector" | "__romedb_unnest" | "__romedb_record_value" | "__romedb_graph"))
                                     {
                                         resolved.push(source(
                                             self,

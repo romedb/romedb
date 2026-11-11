@@ -62,7 +62,10 @@ pub use analysis::{analyze_text, AnalyzedToken, Analyzer, FOLDING_TOKENIZERS, ST
 mod directory;
 mod format;
 mod prefix;
-pub use prefix::{MAX_PREFIX_TERMS, MIN_PREFIX_CHARS};
+pub use prefix::{
+    allowed_typos, typo_word, MAX_PREFIX_TERMS, MAX_TYPO_WORDS, MIN_ONE_TYPO_CHARS,
+    MIN_PREFIX_CHARS, MIN_TWO_TYPO_CHARS,
+};
 mod rows;
 
 use directory::{BuildDirectory, SnapshotDirectory};
@@ -141,7 +144,7 @@ pub const DEFAULT_CHUNK_SIZE: usize = 512 * 1024;
 pub const BATCH_COMMIT_SIZE: usize = 1000;
 
 /// Longest accepted `fts_match` / MATCH query string, in bytes.
-const FTS_MAX_QUERY_BYTES: usize = 16 * 1024;
+pub const FTS_MAX_QUERY_BYTES: usize = 16 * 1024;
 
 /// Deepest accepted parenthesis nesting in a query string. Guards Tantivy's
 /// recursive parser against stack overflow.
@@ -589,8 +592,9 @@ pub struct FtsIndexAttachment {
     /// Tantivy fields for the document identity
     identity_hi_field: Field,
     identity_lo_field: Field,
-    /// Schema fields for each indexed text column
+    /// Schema fields for each index column, in column order
     text_fields: Vec<(IndexColumn, Field)>,
+    filter_fields: Vec<Field>,
     /// Parsed query patterns for FTS queries
     patterns: Vec<Select>,
     /// Weights for each field in FTS scoring, from the WITH clause.
@@ -618,6 +622,7 @@ pub const SUPPORTED_WITH_KEYS: &[&str] = &[
     "max_gram",
     "fold",
     "stemmer",
+    "filters",
 ];
 
 /// Ngram window used when `min_gram`/`max_gram` are not given.
@@ -752,6 +757,19 @@ impl FtsIndexAttachment {
         } else {
             HashMap::default()
         };
+        let filter_columns = match parameters.get(UncasedStr::new("filters")) {
+            None => HashSet::default(),
+            Some(Value::Text(t)) => parse_filter_columns(
+                t.as_str().trim_matches(|c| c == '\'' || c == '"'),
+                &cfg.columns,
+                &field_weights,
+            )?,
+            Some(_) => {
+                return Err(LimboError::ParseError(
+                    "FTS WITH parameter 'filters' must be a list of column names".to_string(),
+                ))
+            }
+        };
 
         // Build Tantivy schema (no Directory or Index creation yet)
         let mut schema_builder = Schema::builder();
@@ -768,13 +786,22 @@ impl FtsIndexAttachment {
             schema_builder.add_u64_field(IDENTITY_LO_FIELD, tantivy::schema::FAST);
 
         let mut text_fields = Vec::with_capacity(cfg.columns.len());
+        let mut filter_fields = Vec::with_capacity(filter_columns.len());
         for col in &cfg.columns {
-            let opts = tantivy::schema::TextOptions::default().set_indexing_options(
+            let indexing = if filter_columns.contains(col.name.as_str()) {
+                tantivy::schema::TextFieldIndexing::default()
+                    .set_tokenizer("raw")
+                    .set_index_option(tantivy::schema::IndexRecordOption::Basic)
+            } else {
                 tantivy::schema::TextFieldIndexing::default()
                     .set_tokenizer(&analyzer.name())
-                    .set_index_option(tantivy::schema::IndexRecordOption::WithFreqsAndPositions),
-            );
+                    .set_index_option(tantivy::schema::IndexRecordOption::WithFreqsAndPositions)
+            };
+            let opts = tantivy::schema::TextOptions::default().set_indexing_options(indexing);
             let field = schema_builder.add_text_field(&col.name, opts);
+            if filter_columns.contains(col.name.as_str()) {
+                filter_fields.push(field);
+            }
             text_fields.push((col.clone(), field));
         }
 
@@ -840,12 +867,49 @@ impl FtsIndexAttachment {
             identity_hi_field,
             identity_lo_field,
             text_fields,
+            filter_fields,
             patterns,
             field_weights,
             analyzer,
             shared: Arc::new(FtsShared::default()),
         })
     }
+}
+
+fn parse_filter_columns<'a>(
+    filters: &'a str,
+    columns: &[IndexColumn],
+    field_weights: &HashMap<String, f32>,
+) -> Result<HashSet<&'a str>> {
+    let mut names = HashSet::default();
+    for name in filters.split(',').map(str::trim) {
+        if !columns.iter().any(|column| column.name == name) {
+            return Err(LimboError::ParseError(format!(
+                "unknown column '{name}' in filters. Valid columns: {}",
+                columns
+                    .iter()
+                    .map(|c| c.name.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )));
+        }
+        if field_weights.contains_key(name) {
+            return Err(LimboError::ParseError(format!(
+                "filter column '{name}' cannot have a weight"
+            )));
+        }
+        if !names.insert(name) {
+            return Err(LimboError::ParseError(format!(
+                "filters name column '{name}' twice"
+            )));
+        }
+    }
+    if names.len() == columns.len() {
+        return Err(LimboError::ParseError(
+            "filters must leave at least one text column".to_string(),
+        ));
+    }
+    Ok(names)
 }
 
 impl IndexMethodAttachment for FtsIndexAttachment {
@@ -1044,6 +1108,7 @@ pub struct FtsCursor {
     identity_lo_field: Field,
     analyzer: Analyzer,
     text_fields: Vec<(IndexColumn, Field)>,
+    filter_fields: Vec<Field>,
     /// The user-visible index name, for error messages.
     index_name: String,
     store: FtsStore,
@@ -1121,7 +1186,12 @@ impl FtsCursor {
     fn new(attachment: &FtsIndexAttachment) -> Self {
         let store = FtsStore::new(&attachment.cfg.index_name);
         let text_fields = attachment.text_fields.clone();
-        let default_fields: Vec<Field> = text_fields.iter().map(|(_, f)| *f).collect();
+        let filter_fields = attachment.filter_fields.clone();
+        let default_fields: Vec<Field> = text_fields
+            .iter()
+            .map(|(_, f)| *f)
+            .filter(|f| !filter_fields.contains(f))
+            .collect();
         let field_boosts: Vec<(Field, f32)> = text_fields
             .iter()
             .filter_map(|(col, field)| {
@@ -1139,6 +1209,7 @@ impl FtsCursor {
             identity_lo_field: attachment.identity_lo_field,
             analyzer: attachment.analyzer.clone(),
             text_fields,
+            filter_fields,
             index_name: attachment.cfg.index_name.clone(),
             store,
             default_fields,
@@ -3134,6 +3205,7 @@ impl IndexMethodCursor for FtsCursor {
             searcher,
             analyzer: &self.analyzer,
             default_fields: &self.default_fields,
+            filter_fields: &self.filter_fields,
             field_boosts: &self.field_boosts,
         }
         .parse_query(&query_str)
