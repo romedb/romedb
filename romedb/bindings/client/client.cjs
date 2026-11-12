@@ -5,7 +5,7 @@ const { Float64, Record, Vector, encodeValue, decodeValue, plainObject, text, ch
 const CLOUD_QUERY_VERSION = 3;
 const MAX_RESPONSE = 524_288;
 const EARLIER_LIMITS = Object.freeze({ maxRequestBytes: 65_536, maxStatements: 32, maxRows: 1000, maxResultBytes: 262_144, maxResponseBytes: MAX_RESPONSE });
-const EARLIER_CLOUD_LIMITS = Object.freeze({ ...EARLIER_LIMITS, maxRequestBytes: 1_048_576 });
+const CLOUD_LIMITS = Object.freeze({ maxRequestBytes: 1_048_576, maxStatements: 256, maxRows: 10_000, maxResultBytes: 8_388_608, maxResponseBytes: 9_437_184 });
 const REPORTED_LIMIT_CEILINGS = Object.freeze({ maxRequestBytes: 64 * 1024 * 1024, maxStatements: 4096, maxRows: 1_000_000, maxResultBytes: 64 * 1024 * 1024, maxResponseBytes: 128 * 1024 * 1024 });
 const MAX_SEQUENCE = Number.MAX_SAFE_INTEGER - 1;
 const DATABASE_FILE_TYPE = 'application/vnd.romedb.database';
@@ -60,7 +60,7 @@ class RemoteDatabase {
     // Cloud database URLs carry the database id and have documented capabilities,
     // so the details request waits until a write needs a current sequence.
     if (this.#cloud && options.deferInfo !== false) {
-      this.#id = cloudId; this.#capabilities = capabilities(this.#url, {}, false); this.#limits = EARLIER_CLOUD_LIMITS; this.#deferred = true;
+      this.#id = cloudId; this.#capabilities = capabilities(this.#url, {}, false); this.#limits = CLOUD_LIMITS; this.#deferred = true;
     }
     this.#warm = this.#cloud && options.warm !== false;
   }
@@ -81,7 +81,7 @@ class RemoteDatabase {
     }
     if (this.#loopbackOrganization) this.#cloud = info.serviceVersion === undefined;
     const supported = capabilities(this.#url, info, !this.#cloud);
-    const limits = requestLimits(info.limits, this.#cloud ? EARLIER_CLOUD_LIMITS : EARLIER_LIMITS);
+    const limits = requestLimits(info.limits, this.#cloud ? CLOUD_LIMITS : EARLIER_LIMITS);
     this.#id = info.id;
     this.#limits = limits;
     this.#sequence = Math.max(this.#sequence, info.sequence);
@@ -325,7 +325,8 @@ class RemoteDatabase {
       const send = () => fetch(this.#url + path, {
         method: body === undefined ? 'GET' : 'POST',
         headers: { authorization: `Bearer ${credential}`, accept: 'application/json', ...(body === undefined ? {} : { 'content-type': 'application/json' }), ...(this.#id === undefined ? {} : { 'x-romedb-database-id': prepared?.databaseId ?? this.#id }),
-          ...(queryVersion === CLOUD_QUERY_VERSION && (path === '/query' || path === '/read') ? { 'x-romedb-query-version': String(queryVersion) } : {}) },
+          ...(queryVersion === CLOUD_QUERY_VERSION && (path === '/query' || path === '/read') ? { 'x-romedb-query-version': String(queryVersion) } : {}),
+          ...(path === '/query' || path === '/read' ? { 'x-romedb-result-limits': `rows=${this.#limits.maxRows}; bytes=${this.#limits.maxResultBytes}` } : {}) },
         ...(body === undefined ? {} : { body }),
         // Workers have no redirect: 'error'; a redirect is refused below, never followed with the credential.
         redirect: 'manual', signal: controller.signal,

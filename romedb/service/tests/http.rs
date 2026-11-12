@@ -133,6 +133,52 @@ async fn loopback_http_requires_token_and_rejects_browser_access() {
         reply["results"][0]["rows"][0][0],
         json!({"type":"Integer","value":"2097152"})
     );
+    let rows = |limit: u32| {
+        json!({"readVersion":2,"requestId":"rows","afterSequence":2,"statements":[{"sql":format!("WITH RECURSIVE t(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM t WHERE n<{limit}) SELECT n FROM t")}]}).to_string()
+    };
+    let declared = "X-RomeDB-Result-Limits: rows=10000; bytes=8388608\r\n";
+    let (status, earlier) = send(
+        address,
+        &token,
+        "POST",
+        "/v1/database/read",
+        "",
+        &rows(1001),
+    )
+    .await;
+    assert_eq!(
+        (status, &earlier["error"]["code"]),
+        (413, &json!("RDB_LIMIT")),
+        "{earlier}"
+    );
+    let (status, raised) = send(
+        address,
+        &token,
+        "POST",
+        "/v1/database/read",
+        declared,
+        &rows(10_000),
+    )
+    .await;
+    assert_eq!(status, 200, "{raised}");
+    assert_eq!(
+        raised["results"][0]["rows"].as_array().unwrap().len(),
+        10_000
+    );
+    let invalid = "X-RomeDB-Result-Limits: rows=10000\r\n";
+    assert_eq!(
+        send(
+            address,
+            &token,
+            "POST",
+            "/v1/database/read",
+            invalid,
+            &rows(1)
+        )
+        .await
+        .0,
+        400
+    );
     stop.send(()).unwrap();
     server.await.unwrap().unwrap();
     assert_eq!(database.info().unwrap_err().code, "RDB_CLOSED");

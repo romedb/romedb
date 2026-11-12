@@ -13,6 +13,36 @@ pub const MAX_RESULT_ROWS: usize = 10_000;
 pub const MAX_RESULT_BYTES: usize = 8 * 1024 * 1024;
 pub const MAX_RESPONSE_BYTES: usize = 16 * 1024 * 1024;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RequestResultLimits {
+    pub rows: usize,
+    pub bytes: usize,
+}
+
+impl RequestResultLimits {
+    pub const EARLIER: Self = Self {
+        rows: 1000,
+        bytes: 256 * 1024,
+    };
+    pub const LARGEST: Self = Self {
+        rows: MAX_RESULT_ROWS,
+        bytes: MAX_RESULT_BYTES,
+    };
+
+    pub fn declared(rows: usize, bytes: usize) -> Self {
+        Self {
+            rows: rows.min(MAX_RESULT_ROWS),
+            bytes: bytes.min(MAX_RESULT_BYTES),
+        }
+    }
+}
+
+impl Default for RequestResultLimits {
+    fn default() -> Self {
+        Self::EARLIER
+    }
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RequestEnvelope {
@@ -25,6 +55,8 @@ pub struct RequestEnvelope {
     pub statements: Vec<RequestStatement>,
     #[serde(default, deserialize_with = "present")]
     pub work_limits: Option<RequestWorkLimits>,
+    #[serde(skip)]
+    pub result_limits: RequestResultLimits,
 }
 
 #[derive(Deserialize)]
@@ -92,7 +124,8 @@ impl RequestEnvelope {
             limits.and_then(|v| v.rows_read).unwrap_or(1_000_000),
             limits.and_then(|v| v.row_mutations).unwrap_or(100_000),
             limits.and_then(|v| v.vm_steps).unwrap_or(10_000_000),
-        )?)
+        )?
+        .with_result_limits(self.result_limits))
     }
 }
 

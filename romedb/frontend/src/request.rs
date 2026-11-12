@@ -23,6 +23,8 @@ pub struct RequestBudget {
     max_mutations: u64,
     #[serde(skip)]
     max_steps: u64,
+    #[serde(skip)]
+    results: ResultLimits,
 }
 
 impl RequestBudget {
@@ -40,7 +42,20 @@ impl RequestBudget {
             max_reads,
             max_mutations,
             max_steps,
+            results: ResultLimits {
+                max_rows: crate::MAX_RESULT_ROWS,
+                max_payload_bytes: crate::MAX_RESULT_BYTES,
+            },
         })
+    }
+
+    pub fn with_result_limits(mut self, limits: crate::RequestResultLimits) -> Self {
+        let limits = crate::RequestResultLimits::declared(limits.rows, limits.bytes);
+        self.results = ResultLimits {
+            max_rows: limits.rows,
+            max_payload_bytes: limits.bytes,
+        };
+        self
     }
 }
 
@@ -121,8 +136,11 @@ impl Connection {
                 .collect::<Result<Vec<_>>>()?;
             let result = serde_json::json!({"columns":result.columns,"rows":rows,"affected":result.affected.to_string()});
             bytes += serde_json::to_vec(&result)?.len() + usize::from(!results.is_empty());
-            if bytes > crate::MAX_RESULT_BYTES {
-                return Err(Error::Limit("aggregate result JSON exceeds 8 MiB".into()));
+            if bytes > budget.results.max_payload_bytes {
+                return Err(Error::Limit(format!(
+                    "aggregate result JSON exceeds {} bytes",
+                    budget.results.max_payload_bytes
+                )));
             }
             results.push(result);
         }
@@ -142,10 +160,7 @@ impl Connection {
     ) -> Result<QueryResult> {
         self.with_cancellation(token, || {
             let kind = Self::request_statement_kind(sql)?;
-            let results = ResultLimits {
-                max_rows: crate::MAX_RESULT_ROWS,
-                max_payload_bytes: crate::MAX_RESULT_BYTES,
-            };
+            let results = budget.results;
             let reads = budget.max_reads.saturating_sub(budget.rows_read);
             let mutations = budget.max_mutations.saturating_sub(budget.row_mutations);
             let steps = budget.max_steps.saturating_sub(budget.vm_steps);

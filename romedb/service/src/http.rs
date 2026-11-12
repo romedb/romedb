@@ -298,6 +298,7 @@ async fn dispatch(
 async fn process(context: Context, request: Request<Incoming>) -> Result<Response<Body>> {
     let route = validate_request(&context, &request)?;
     let export = file_options(request.uri().query())?;
+    let result_limits = declared_result_limits(&request)?;
     let origin = format!("http://{}", host(&request).unwrap_or_default());
     let body = if request.method() == Method::POST {
         if request
@@ -381,12 +382,14 @@ async fn process(context: Context, request: Request<Incoming>) -> Result<Respons
             (Target::Database(database), Route::Info) => {
                 Ok((StatusCode::OK, database.info()?.to_string()))
             }
-            (Target::Database(database), Route::Read) => {
-                Ok((StatusCode::OK, database.read(&body)?))
-            }
-            (Target::Database(database), Route::Query) => {
-                Ok((StatusCode::OK, database.query(&body)?))
-            }
+            (Target::Database(database), Route::Read) => Ok((
+                StatusCode::OK,
+                database.read_with_result_limits(&body, result_limits)?,
+            )),
+            (Target::Database(database), Route::Query) => Ok((
+                StatusCode::OK,
+                database.query_with_result_limits(&body, result_limits)?,
+            )),
             (Target::Directory(directory), Route::List) => {
                 Ok((StatusCode::OK, directory.list(&origin)?.to_string()))
             }
@@ -401,12 +404,18 @@ async fn process(context: Context, request: Request<Incoming>) -> Result<Respons
                 directory.delete(&id)?;
                 Ok((StatusCode::NO_CONTENT, String::new()))
             }
-            (Target::Directory(directory), Route::DatabaseRead(id)) => {
-                Ok((StatusCode::OK, directory.database(&id)?.read(&body)?))
-            }
-            (Target::Directory(directory), Route::DatabaseQuery(id)) => {
-                Ok((StatusCode::OK, directory.database(&id)?.query(&body)?))
-            }
+            (Target::Directory(directory), Route::DatabaseRead(id)) => Ok((
+                StatusCode::OK,
+                directory
+                    .database(&id)?
+                    .read_with_result_limits(&body, result_limits)?,
+            )),
+            (Target::Directory(directory), Route::DatabaseQuery(id)) => Ok((
+                StatusCode::OK,
+                directory
+                    .database(&id)?
+                    .query_with_result_limits(&body, result_limits)?,
+            )),
             _ => Err(Error::new(
                 "RDB_NOT_FOUND",
                 "database endpoint does not exist",
@@ -421,6 +430,35 @@ async fn process(context: Context, request: Request<Incoming>) -> Result<Respons
         Reply::Json(status, body) => Ok(response(status, body)),
         Reply::File(download, permit) => Ok(file_response(download, permit)),
     }
+}
+
+fn declared_result_limits(request: &Request<Incoming>) -> Result<romedb::RequestResultLimits> {
+    let Some(value) = request.headers().get("x-romedb-result-limits") else {
+        return Ok(romedb::RequestResultLimits::EARLIER);
+    };
+    let invalid = || {
+        Error::new(
+            "RDB_VALIDATION",
+            "x-romedb-result-limits takes rows=<n>; bytes=<n>",
+        )
+    };
+    let text = value.to_str().map_err(|_| invalid())?;
+    let (rows, bytes) = text
+        .trim()
+        .strip_prefix("rows=")
+        .and_then(|rest| rest.split_once("; bytes="))
+        .ok_or_else(invalid)?;
+    let number = |digits: &str| {
+        (!digits.is_empty() && digits.len() <= 12 && digits.bytes().all(|b| b.is_ascii_digit()))
+            .then(|| digits.parse::<usize>().ok())
+            .flatten()
+            .filter(|n| *n >= 1)
+            .ok_or_else(invalid)
+    };
+    Ok(romedb::RequestResultLimits::declared(
+        number(rows)?,
+        number(bytes)?,
+    ))
 }
 
 fn validate_request(context: &Context, request: &Request<Incoming>) -> Result<Route> {

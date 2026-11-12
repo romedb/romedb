@@ -146,10 +146,14 @@ force: `maxRequestBytes`, `maxStatements`, `maxRows`, `maxResultBytes` and
 `maxResponseBytes`. A local service reports them in its details (8 MiB requests, 256
 statements, 10,000 rows per result, 8 MiB of results and 16 MiB responses since the
 source after 0.2.22), and the client checks every request and reply against them, so a
-request over a limit throws before it is sent. A server that reports none keeps the
-earlier values: 64 KiB requests (1 MiB on Cloud), 32 statements, 1,000 rows, 256 KiB of
-results and 512 KiB responses. Cloud reports none yet, so a Cloud connection uses those.
-Size batches from `rql.limits` instead of copying the numbers. Each call times out after 20
+request over a limit throws before it is sent. Every read and write sends `maxRows` and
+`maxResultBytes` in the `x-romedb-result-limits` header, and the server keeps its results
+within them. A Cloud connection that has not read its details uses Cloud's documented
+values: 1 MiB requests, 256 statements, 10,000 rows, 8 MiB of results and 9 MiB
+responses. Cloud keeps write results at 256 KiB, because it stores them for retries; a
+larger one fails with `RDB_LIMIT`. A server that reports none keeps the earlier values: 64 KiB requests, 32
+statements, 1,000 rows, 256 KiB of results and 512 KiB responses. Size batches from
+`rql.limits` instead of copying the numbers. Each call times out after 20
 seconds by default and accepts `signal` and `timeoutMs`. An HTTP error reply with a
 `Retry-After` header sets `ClientError.retryAfterMs`. A transport or response failure
 without a database reply keeps the underlying error as `ClientError.cause`, for

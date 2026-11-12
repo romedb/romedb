@@ -417,9 +417,17 @@ The service reports the first five budgets in its details, under `limits`, as
 `maxRequestBytes`, `maxStatements`, `maxRows`, `maxResultBytes` and
 `maxResponseBytes`, next to `activeRequests` and `queuedRequests`. Clients enforce the
 reported values and fall back to the earlier ones (64 KiB, 32, 1,000, 256 KiB and
-512 KiB; 1 MiB requests on Cloud) for a server that reports none. Cloud reports none
-yet. A write receipt keeps its whole response, so a write that returns many rows also
-keeps them in the database until 64 later writes replace its receipt.
+512 KiB) for a server that reports none.
+
+A client states the result limits it accepts in the `x-romedb-result-limits` header of
+each read and write, as `rows=<n>; bytes=<n>`. The service uses the smaller of those and
+its own limits for rows per statement and for the aggregate result JSON. A request
+without the header keeps 1,000 rows and 256 KiB, so an older client never gets a result
+it would refuse. A malformed header is refused with `RDB_VALIDATION`. Cloud reads the
+same header.
+
+A write receipt keeps its whole response, so a write that returns many rows also keeps
+them in the database until 64 later writes replace its receipt.
 
 Reads and writes accept optional `workLimits` with nonnegative safe-integer
 `rowsRead`, `rowMutations` and `vmSteps`. These limits may reduce the defaults,

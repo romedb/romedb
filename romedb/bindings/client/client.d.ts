@@ -33,9 +33,11 @@ export interface QueryResult { columns: string[]; rows: Value[][]; affected: big
 export interface BatchResult { requestId: string; sequence: number; results: QueryResult[]; readVersion?: 2; executionWork?: unknown; }
 export interface Capabilities { provenance: 'negotiated' | 'documented'; [key: string]: unknown; }
 /**
- * The request limits the client enforces: the ones the database reported in its details, or
- * the values from before databases reported them (64 KiB requests, 32 statements, 1,000 rows,
- * 256 KiB of results, 512 KiB responses; 1 MiB requests on Cloud) when it reported none.
+ * The request limits the client enforces: the ones the database reported in its details. A
+ * Cloud connection that has not read its details uses Cloud's documented values. A local
+ * service that reports none keeps the earlier values (64 KiB requests, 32 statements, 1,000
+ * rows, 256 KiB of results, 512 KiB responses). Every read and write sends maxRows and
+ * maxResultBytes in the x-romedb-result-limits header, so the server never returns more.
  */
 export interface RequestLimits {
   readonly maxRequestBytes: number;

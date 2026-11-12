@@ -231,9 +231,18 @@ impl DatabaseService {
     }
 
     pub fn read(&self, body: &str) -> Result<String> {
+        self.read_with_result_limits(body, romedb::RequestResultLimits::EARLIER)
+    }
+
+    pub fn read_with_result_limits(
+        &self,
+        body: &str,
+        limits: romedb::RequestResultLimits,
+    ) -> Result<String> {
         let started = deadline();
         self.check_fence()?;
-        let request = Request::parse(body, true)?;
+        let mut request = Request::parse(body, true)?;
+        request.result_limits = limits;
         let statements = request.prepare(true)?;
         let _permit = self.admission.acquire(started, request_slots(body.len()))?;
         let _schema = self.lock_before(started, || self.schema.try_read())?;
@@ -311,9 +320,18 @@ impl DatabaseService {
     }
 
     pub fn query(&self, body: &str) -> Result<String> {
+        self.query_with_result_limits(body, romedb::RequestResultLimits::EARLIER)
+    }
+
+    pub fn query_with_result_limits(
+        &self,
+        body: &str,
+        limits: romedb::RequestResultLimits,
+    ) -> Result<String> {
         let started = deadline();
         self.check_fence()?;
-        let request = Request::parse(body, false)?;
+        let mut request = Request::parse(body, false)?;
+        request.result_limits = limits;
         let hash = format!("{:x}", Sha256::digest(body.as_bytes()));
         let statements = request.prepare(false).map_err(Into::into);
         let schema_change = statements.as_ref().map_or(true, |s| {

@@ -552,9 +552,11 @@ test('local services keep version 2: byte arrays and 64 KiB', async () => {
 test('reported limits are enforced and exported, and missing ones keep the earlier values', async () => {
   const raised = { maxRequestBytes: 8_388_608, maxStatements: 256, maxRows: 10_000, maxResultBytes: 8_388_608, maxResponseBytes: 16_777_216 };
   let rows = 10_000, sent = 0;
+  const declared = new Set();
   const reply = q => ({ requestId: q.requestId, sequence: 1, readVersion: 2, results: q.statements.map(() => ({ columns: ['n'], rows: Array.from({ length: rows }, () => [encodeValue(1n)]), affected: '0' })) });
   const db = await connect({ url: 'http://localhost:4321', token: 'test-token', fetch: async (_url, options) => {
-    if (options.method === 'GET') return json({ ...details(0), limits: { ...raised, activeRequests: 4 } });
+    if (options.method === 'GET') { assert.equal(options.headers['x-romedb-result-limits'], undefined); return json({ ...details(0), limits: { ...raised, activeRequests: 4 } }); }
+    declared.add(options.headers['x-romedb-result-limits']);
     sent++;
     return json(reply(JSON.parse(options.body)));
   } });
@@ -573,6 +575,7 @@ test('reported limits are enforced and exported, and missing ones keep the earli
     rows = 10_001;
     await assert.rejects(db.read([{ sql: 'SELECT n' }]), error => error.code === 'RDB_PROTOCOL');
     assert.equal(sent, 3);
+    assert.deepEqual([...declared], ['rows=10000; bytes=8388608']);
   } finally { await db.close(); }
   const partial = await connect({ url: 'http://localhost:4321', token: 'test-token', fetch: async () => json({ ...details(0), limits: { maxStatements: 64 } }) });
   try { assert.deepEqual({ ...partial.limits }, { maxRequestBytes: 65_536, maxStatements: 64, maxRows: 1000, maxResultBytes: 262_144, maxResponseBytes: 524_288 }); }
@@ -581,7 +584,7 @@ test('reported limits are enforced and exported, and missing ones keep the earli
     await assert.rejects(connect({ url: 'http://localhost:4321', token: 'test-token', fetch: async () => json({ ...details(0), limits }) }), error => error.code === 'RDB_PROTOCOL' && /limit/.test(error.message));
   }
   const deferred = await connect({ url: cloud, token: 'test-token', warm: false, fetch: async () => { throw new Error('no request expected'); } });
-  try { assert.deepEqual({ ...deferred.limits }, { maxRequestBytes: 1_048_576, maxStatements: 32, maxRows: 1000, maxResultBytes: 262_144, maxResponseBytes: 524_288 }); }
+  try { assert.deepEqual({ ...deferred.limits }, { maxRequestBytes: 1_048_576, maxStatements: 256, maxRows: 10_000, maxResultBytes: 8_388_608, maxResponseBytes: 9_437_184 }); }
   finally { await deferred.close(); }
 });
 

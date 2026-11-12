@@ -629,35 +629,55 @@ fn requests_use_the_raised_size_statement_and_row_limits() {
     let too_many =
         json!({"requestId":"too-many","afterSequence":1,"statements":statements(257)}).to_string();
     assert_eq!(service.query(&too_many).unwrap_err().code, "RDB_VALIDATION");
+    let largest = romedb::RequestResultLimits::LARGEST;
+    let earlier =
+        json!({"requestId":"earlier","afterSequence":1,"statements":statements(256)}).to_string();
+    let refused: Value = serde_json::from_str(&service.query(&earlier).unwrap()).unwrap();
+    assert_eq!(
+        refused["error"]["code"], "RDB_LIMIT",
+        "{}",
+        refused["error"]
+    );
     let body =
-        json!({"requestId":"large","afterSequence":1,"statements":statements(256)}).to_string();
+        json!({"requestId":"large","afterSequence":2,"statements":statements(256)}).to_string();
     assert!(body.len() > 7 * 1024 * 1024 && body.len() < romedb::MAX_REQUEST_BYTES);
-    let reply = service.query(&body).unwrap();
+    let reply = service.query_with_result_limits(&body, largest).unwrap();
     assert!(reply.len() > 7 * 1024 * 1024, "{}", &reply[..200]);
     let written: Value = serde_json::from_str(&reply).unwrap();
     assert!(written["error"].is_null());
     assert_eq!(written["results"].as_array().unwrap().len(), 256);
     assert_eq!(service.query(&body).unwrap(), reply);
-    let oversized = json!({"requestId":"oversized","afterSequence":2,"statements":[{"sql":"SELECT $body","params":{"$body":{"type":"String","value":"x".repeat(romedb::MAX_REQUEST_BYTES)}}}]}).to_string();
+    let oversized = json!({"requestId":"oversized","afterSequence":3,"statements":[{"sql":"SELECT $body","params":{"$body":{"type":"String","value":"x".repeat(romedb::MAX_REQUEST_BYTES)}}}]}).to_string();
     assert_eq!(service.query(&oversized).unwrap_err().code, "RDB_LIMIT");
-    let rows = read(&service, "SELECT a.id FROM notes a, notes b LIMIT 10000");
+    let read_body = |sql: &str| {
+        let mut body: Value = serde_json::from_str(&request("rows", 0, &[sql])).unwrap();
+        body["readVersion"] = json!(2);
+        body.to_string()
+    };
+    let large_read = |sql: &str| service.read_with_result_limits(&read_body(sql), largest);
+    let rows: Value =
+        serde_json::from_str(&large_read("SELECT a.id FROM notes a, notes b LIMIT 10000").unwrap())
+            .unwrap();
     assert_eq!(rows["results"][0]["rows"].as_array().unwrap().len(), 10_000);
-    let mut body: Value = serde_json::from_str(&request(
-        "too-many-rows",
-        0,
-        &["SELECT a.id FROM notes a, notes b LIMIT 10001"],
-    ))
-    .unwrap();
-    body["readVersion"] = json!(2);
     assert_eq!(
-        service.read(&body.to_string()).unwrap_err().code,
+        large_read("SELECT a.id FROM notes a, notes b LIMIT 10001")
+            .unwrap_err()
+            .code,
         "RDB_LIMIT"
     );
-    let notes = read(&service, "SELECT body FROM notes");
+    let earlier_rows = read_body("SELECT a.id FROM notes a, notes b LIMIT 1001");
+    assert_eq!(service.read(&earlier_rows).unwrap_err().code, "RDB_LIMIT");
+    let declared = romedb::RequestResultLimits::declared(1001, 1 << 40);
+    assert!(service
+        .read_with_result_limits(&earlier_rows, declared)
+        .is_ok());
+    let notes: Value =
+        serde_json::from_str(&large_read("SELECT body FROM notes").unwrap()).unwrap();
     assert_eq!(notes["results"][0]["rows"].as_array().unwrap().len(), 256);
-    body["statements"] = json!([{"sql":"SELECT body, body AS copy FROM notes"}]);
     assert_eq!(
-        service.read(&body.to_string()).unwrap_err().code,
+        large_read("SELECT body, body AS copy FROM notes")
+            .unwrap_err()
+            .code,
         "RDB_LIMIT"
     );
 }

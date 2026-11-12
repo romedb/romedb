@@ -70,9 +70,9 @@ mod request;
 mod request_wire;
 pub use request::{RequestBudget, RequestStatementKind};
 pub use request_wire::{
-    PreparedRequestStatement, RequestEnvelope, RequestError, RequestStatement, RequestWorkLimits,
-    MAX_REQUEST_BYTES, MAX_REQUEST_STATEMENTS, MAX_RESPONSE_BYTES, MAX_RESULT_BYTES,
-    MAX_RESULT_ROWS, MAX_SEQUENCE as MAX_REQUEST_SEQUENCE,
+    PreparedRequestStatement, RequestEnvelope, RequestError, RequestResultLimits, RequestStatement,
+    RequestWorkLimits, MAX_REQUEST_BYTES, MAX_REQUEST_STATEMENTS, MAX_RESPONSE_BYTES,
+    MAX_RESULT_BYTES, MAX_RESULT_ROWS, MAX_SEQUENCE as MAX_REQUEST_SEQUENCE,
 };
 mod transaction;
 mod transfer;
