@@ -14530,6 +14530,54 @@ fn test_build_log_record_yields_for_large_write_set() {
     conn.close().unwrap();
 }
 
+/// What this test checks: a commit whose log record is built in several batches
+/// scans its write set for sqlite_schema rows once, not once per batch.
+///
+/// Why this matters: the scan reads every write-set entry. Done again for each
+/// batch of `MVCC_COMMIT_BATCH_SIZE` rows, a commit of 1,000,000 indexed rows
+/// (2,000,000 entries) spent about 100 seconds before its log record was ready.
+#[test]
+fn test_build_log_record_scans_the_write_set_for_schema_rows_once() {
+    use super::MVCC_COMMIT_BATCH_SIZE;
+
+    #[derive(Debug)]
+    struct SchemaScanCounter {
+        scans: Arc<AtomicU64>,
+    }
+    impl YieldInjector for SchemaScanCounter {
+        fn should_yield(&self, _instance_id: u64, _selection_key: u64, point: YieldPoint) -> bool {
+            if point == CommitYieldPoint::BuildLogRecordSchemaScan.point() {
+                self.scans.fetch_add(1, Ordering::SeqCst);
+            }
+            false
+        }
+    }
+
+    let db = MvccTestDbNoConn::new_with_random_db_with_opts(DatabaseOpts::new());
+    let conn = db.connect();
+    conn.execute("CREATE TABLE t (id INTEGER PRIMARY KEY, v TEXT)")
+        .unwrap();
+    conn.execute("BEGIN CONCURRENT").unwrap();
+    for i in 1..=3 * MVCC_COMMIT_BATCH_SIZE {
+        conn.execute(format!("INSERT INTO t VALUES ({i}, 'val')"))
+            .unwrap();
+    }
+    let scans = Arc::new(AtomicU64::new(0));
+    conn.set_yield_injector(Some(Arc::new(SchemaScanCounter {
+        scans: scans.clone(),
+    })));
+    conn.execute("COMMIT").unwrap();
+    conn.set_yield_injector(None);
+
+    assert_eq!(scans.load(Ordering::SeqCst), 1);
+    let rows = get_rows(&conn, "SELECT count(*) FROM t");
+    assert_eq!(
+        rows,
+        vec![vec![Value::from_i64(3 * MVCC_COMMIT_BATCH_SIZE as i64)]]
+    );
+    conn.close().unwrap();
+}
+
 /// Regression guard for the `mv_store.txs` ↔ `connection.mv_tx_id` divergence
 /// originally observed in production as `Transaction <id> not found while
 /// releasing savepoint` (panic) and `NoSuchTransactionID(<id>)` (read-path

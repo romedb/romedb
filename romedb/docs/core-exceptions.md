@@ -7,6 +7,28 @@ below tracks upstream replacement candidates; no patch is removed from the
 existing pinned engine merely because a newer upstream revision contains a fix.
 No automatic removal or periodic monitoring is configured.
 
+## MVCC commit scans its write set for schema rows once (2026-11-13)
+
+`step_build_log_record` in `core/mvcc/database/mod.rs` builds a commit's log record in
+batches of `MVCC_COMMIT_BATCH_SIZE` (1,024) write-set entries and yields between batches.
+Upstream recomputes, at the start of every batch, which B-trees the transaction created
+and dropped or removed from `sqlite_schema`: it reads every write-set entry to find
+`sqlite_schema` rows. That made the step quadratic. A RomeDB Cloud big commit of 1,000,000
+indexed rows (2,000,000 entries, two passes of about 1,950 batches) spent 103.6 s between
+COMMIT and its log record, against 4.4 s for 300,000 rows.
+
+The two sets are now computed on the first call and kept in
+`BuildLogRecordCtx::schema_btree_changes` until the record is built. The yield point
+`CommitYieldPoint::BuildLogRecordSchemaScan` marks each computation for tests. Both
+passes and their yields are unchanged.
+
+Keep this exception until upstream stops recomputing the schema sets on every batch. On a
+sync, check that `step_build_log_record` still reads `schema_btree_changes` and that a new
+upstream use of the write set at the top of the step does not scan it again. The
+regression is `test_build_log_record_scans_the_write_set_for_schema_rows_once` in
+`core/mvcc/database/tests.rs` (6 scans without the change, 1 with it), with
+`test_build_log_record_yields_for_large_write_set` unchanged.
+
 ## MVCC log-byte budget (2026-11-12)
 
 RomeDB Cloud caps the MVCC logical log of one commit at 1 MiB. Upstream has no way to
