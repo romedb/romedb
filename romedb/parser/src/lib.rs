@@ -169,6 +169,7 @@ pub enum Statement {
         min_gram: Option<usize>,
         max_gram: Option<usize>,
         weights: Option<String>,
+        filters: Option<String>,
         fold: Option<bool>,
         stemmer: Option<String>,
     },
@@ -1368,6 +1369,7 @@ pub fn parse(input: &str) -> Result<Statement> {
             let mut min_gram = None;
             let mut max_gram = None;
             let mut weights = None;
+            let mut filters = None;
             let mut fold = None;
             let mut stemmer = None;
             if p.eat("WITH") {
@@ -1389,6 +1391,9 @@ pub fn parse(input: &str) -> Result<Statement> {
                         }
                         "weights" if weights.is_none() && token.kind == Kind::String => {
                             weights = Some(token.text.clone())
+                        }
+                        "filters" if filters.is_none() && token.kind == Kind::String => {
+                            filters = Some(token.text.clone())
                         }
                         "stemmer" if stemmer.is_none() && token.kind == Kind::String => {
                             stemmer = Some(token.text.clone())
@@ -1416,7 +1421,7 @@ pub fn parse(input: &str) -> Result<Statement> {
                         }
                         _ => {
                             return Err(p.error(
-                                "expected unique tokenizer, weights, min_gram, max_gram, fold or stemmer option",
+                                "expected unique tokenizer, weights, filters, min_gram, max_gram, fold or stemmer option",
                             ))
                         }
                     }
@@ -1441,6 +1446,7 @@ pub fn parse(input: &str) -> Result<Statement> {
                 min_gram,
                 max_gram,
                 weights,
+                filters,
                 fold,
                 stemmer,
             });

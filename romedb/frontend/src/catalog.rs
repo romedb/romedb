@@ -47,7 +47,7 @@ pub(crate) const fn legacy_version() -> u32 {
 pub(crate) fn validate_version(collection: &Collection) -> Result<()> {
     if !matches!(
         collection.version,
-        1..=crate::fulltext::FOLD_STEMMER_CATALOG_VERSION
+        1..=crate::fulltext::FILTERS_CATALOG_VERSION
     ) {
         return Err(Error::Storage(format!(
             "unsupported collection metadata version {}",
@@ -138,6 +138,19 @@ pub(crate) fn validate_version(collection: &Collection) -> Result<()> {
         return Err(Error::Storage(format!(
             "full-text fold and stemmer options require catalog version {}",
             crate::fulltext::FOLD_STEMMER_CATALOG_VERSION
+        )));
+    }
+    if collection.version < crate::fulltext::FILTERS_CATALOG_VERSION
+        && collection.indexes.iter().any(|index| {
+            index
+                .fulltext
+                .as_ref()
+                .is_some_and(|config| !config.filters.is_empty())
+        })
+    {
+        return Err(Error::Storage(format!(
+            "full-text filters require catalog version {}",
+            crate::fulltext::FILTERS_CATALOG_VERSION
         )));
     }
     if !collection.relations.is_empty() && collection.version < 3 {
@@ -380,7 +393,10 @@ fn index_info(index: &crate::Index, table: &str) -> Value {
         fields.push(("paths", Value::Array(index.paths().map(strings).collect())));
     }
     if let Some(config) = &index.fulltext {
-        fields.push(("paths", Value::Array(index.paths().map(strings).collect())));
+        fields.push((
+            "paths",
+            Value::Array(index.text_paths().map(strings).collect()),
+        ));
         fields.push(("tokenizer", Value::String(config.tokenizer.clone())));
         if let Ok(options) = config.options() {
             fields.push(("analyzer", Value::String(options.tokenizer)));
@@ -410,6 +426,19 @@ fn index_info(index: &crate::Index, table: &str) -> Value {
                         .weights
                         .iter()
                         .map(|w| Value::Number(f64::from(w.0)))
+                        .collect(),
+                ),
+            ));
+        }
+        if !config.filters.is_empty() {
+            fields.push((
+                "filters",
+                Value::Array(
+                    config
+                        .filters
+                        .iter()
+                        .map(Vec::as_slice)
+                        .map(strings)
                         .collect(),
                 ),
             ));

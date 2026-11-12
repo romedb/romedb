@@ -7,6 +7,47 @@ below tracks upstream replacement candidates; no patch is removed from the
 existing pinned engine merely because a newer upstream revision contains a fix.
 No automatic removal or periodic monitoring is configured.
 
+## FTS typo words (2026-11-11)
+
+Upstream FTS reads `databse~1` as the words `databse` and `1`, because the lenient grammar
+keeps `~1` inside a word. `core/index_method/fts/prefix.rs` now treats a word that ends in
+`~1` or `~2` (`typo_word`) as a typo query, built by `Expander` like a prefix. The word is
+analyzed with the index's analyzer; its length without the stemmer sets the distance
+(`allowed_typos`: 1 from 4 characters, 2 from 8). `FuzzyTermQuery::automaton` streams each
+segment's term dictionary for the words within the distance, with a swap of two
+neighboring characters counted as one edit, and the 64 in the most documents are kept.
+The word itself is a plain `TermQuery`. Each other word is a `TermQuery` in a `BoostQuery`
+of one half times the IDF of the most common of all the words over its own IDF, so all
+of them score as equally rare and a nearby word scores half of what the word would. A
+word with no `~1` or `~2` builds as before. No new dependency: `FuzzyTermQuery` and its
+Levenshtein automaton are part of Tantivy.
+
+Keep this exception until upstream FTS scores typo matches with BM25. The regression is
+`fts_typo_words_match_nearby_words_and_score_below_the_word` in
+`tests/integration/index_method/mod.rs`, and the typo test in
+`romedb/tests/tests/fulltext.rs`.
+
+## FTS filter columns (2026-11-11)
+
+Upstream FTS indexes every column as analyzed text, so a search cannot keep only the
+documents with one `locale` before it picks its best hits. `core/index_method/fts/mod.rs`
+now accepts the WITH key `filters`, a comma-separated list of index columns. Those columns
+are indexed whole with Tantivy's `raw` tokenizer and no positions, are left out of the
+query parser's default fields, and cannot have a weight; at least one column must stay a
+text column. In `core/index_method/fts/prefix.rs` a query term on a filter column
+(`lang:en`, `lang:"en-US"` or `lang: IN [en vi]`) becomes a `TermQuery` or `TermSetQuery`
+inside a `ConstScoreQuery` with score 0, so it matches whole values and adds nothing to a
+document's score. A prefix or a phrase slop on a filter column rejects. A query with such
+a term is built by `Expander` like a prefix query; a query with neither still goes to the
+parser whole. `FTS_MAX_QUERY_BYTES` is now public, because RomeDB adds the filter terms to
+the query and checks the length. An index without the key has the same schema as before.
+
+Keep this exception until upstream FTS can filter on whole values without scoring them.
+On a sync, check that filter columns stay out of the parser's default fields. The
+regressions are `fts_filter_columns_match_whole_values_and_keep_scores` and
+`fts_with_clause_rejects_bad_filters` in `tests/integration/index_method/mod.rs`, and the
+two filter tests in `romedb/tests/tests/fulltext.rs`.
+
 ## FTS folding and stemming (2026-11-09)
 
 Upstream FTS accepts only a tokenizer name, so an index cannot fold accents or stem

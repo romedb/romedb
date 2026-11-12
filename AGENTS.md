@@ -199,7 +199,20 @@ that start with it and are in the most documents. Queries without such a word bu
 exactly as before. Keep it until upstream expands a one-word prefix with BM25 scores;
 the register has the regressions.
 
-Newest patch (2026-11-09): **FTS folding and stemming**, the `fold` and `stemmer` WITH
+Newest patch (2026-11-11): **FTS typo words**, `word~1` and `word~2` in
+`core/index_method/fts/prefix.rs`. The word matches itself and the 64 indexed words within
+that many edits that are in the most documents; the other words score at half weight
+with the IDF of the most common one. Keep it until upstream FTS scores typo matches with
+BM25; the register has the regressions.
+
+Newer patch (2026-11-11): **FTS filter columns**, the `filters` WITH key in
+`core/index_method/fts/mod.rs` and the filter terms built in `core/index_method/fts/prefix.rs`.
+Filter columns are indexed whole with the `raw` tokenizer, are not default query fields,
+and a `column:value` or `column: IN [...]` term on one matches with score 0. Keep it until
+upstream FTS can filter on whole values without scoring them; the register has the
+regressions.
+
+Newer patch (2026-11-09): **FTS folding and stemming**, the `fold` and `stemmer` WITH
 keys in `core/index_method/fts/mod.rs`, built by `Analyzer` in
 `core/index_method/fts/analysis.rs`. The filtered analyzer is registered under its own
 name (`default+fold+stem-english`). Prefix expansion now builds the expanded words as

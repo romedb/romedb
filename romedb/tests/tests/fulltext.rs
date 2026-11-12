@@ -1171,3 +1171,559 @@ fn fold_and_stemmer_options_are_checked() {
     assert_eq!(info.matches("\"fold\": Boolean(true)").count(), 2, "{info}");
     assert!(info.contains("\"stemmer\": String(\"german\")"), "{info}");
 }
+
+fn filtered(
+    c: &romedb::Connection,
+    query: &str,
+    limit: i64,
+    allowed: Value,
+    filter: Value,
+) -> romedb::Result<Vec<(String, f64)>> {
+    let rows = c
+        .execute(
+            "SELECT id,score FROM search::text('cms_text',$q,$n,$allowed,$filter) ORDER BY score DESC,id",
+            &Parameters::from([
+                ("$q".into(), Value::String(query.into())),
+                ("$n".into(), Value::Integer(limit)),
+                ("$allowed".into(), allowed),
+                ("$filter".into(), filter),
+            ]),
+        )?
+        .rows;
+    Ok(rows
+        .into_iter()
+        .map(|row| match (&row[0], &row[1]) {
+            (
+                Value::Record(romedb::Record {
+                    key: romedb::Key::String(key),
+                    ..
+                }),
+                Value::Number(score),
+            ) => (key.clone(), *score),
+            other => panic!("{other:?}"),
+        })
+        .collect())
+}
+fn filter(fields: &[(&str, Value)]) -> Value {
+    Value::Object(
+        fields
+            .iter()
+            .map(|(path, value)| (path.to_string(), value.clone()))
+            .collect(),
+    )
+}
+fn strings(values: &[&str]) -> Value {
+    Value::Array(
+        values
+            .iter()
+            .map(|v| Value::String(v.to_string()))
+            .collect(),
+    )
+}
+fn keys(hits: &[(String, f64)]) -> Vec<&str> {
+    hits.iter().map(|(key, _)| key.as_str()).collect()
+}
+
+#[test]
+fn a_filter_finds_the_best_hits_inside_it_whenever_they_exist() {
+    let c = Database::open(":memory:").unwrap().connect().unwrap();
+    q(&c, "CREATE TABLE cms");
+    q(&c, "BEGIN");
+    for n in 0..10_000 {
+        let (locale, text, collection) = if n % 250 == 0 {
+            (
+                "vi",
+                format!("common {}", "filler ".repeat(20 + n % 7)),
+                ["posts", "pages"][(n / 250) % 2],
+            )
+        } else {
+            (
+                ["en", "fr", "de"][n % 3],
+                "common common".to_owned(),
+                ["posts", "pages"][n % 2],
+            )
+        };
+        q(
+            &c,
+            &format!("INSERT INTO cms {{id:type::record('cms','d{n:05}'),title:'t',text:'{text}',locale:'{locale}',collection:'{collection}'}}"),
+        );
+    }
+    q(&c, "COMMIT");
+    q(
+        &c,
+        "CREATE SEARCH INDEX cms_text ON cms(title,text) USING FULLTEXT WITH (filters='locale,collection')",
+    );
+    let vi: Vec<String> = (0..10_000)
+        .step_by(250)
+        .map(|n| format!("d{n:05}"))
+        .collect();
+    let everything = filtered(&c, "common", 10_000, Value::Null, Value::Null).unwrap();
+    assert_eq!(everything.len(), 10_000);
+    let best_vi: Vec<(String, f64)> = everything
+        .iter()
+        .filter(|(key, _)| vi.contains(key))
+        .cloned()
+        .collect();
+    assert_eq!(best_vi.len(), 40);
+    let top = filtered(&c, "common", 20, Value::Null, Value::Null).unwrap();
+    assert!(keys(&top).iter().all(|key| !vi.iter().any(|v| v == key)));
+
+    let only_vi = filter(&[("locale", Value::String("vi".into()))]);
+    assert_eq!(
+        filtered(&c, "common", 20, Value::Null, only_vi.clone()).unwrap(),
+        best_vi[..20]
+    );
+    assert_eq!(
+        filtered(&c, "common", 50, Value::Null, only_vi.clone()).unwrap(),
+        best_vi
+    );
+    assert_eq!(
+        filtered(
+            &c,
+            "common",
+            20,
+            Value::Null,
+            filter(&[("locale", strings(&["vi", "xx"]))])
+        )
+        .unwrap(),
+        best_vi[..20]
+    );
+    let vi_pages = filtered(
+        &c,
+        "common",
+        50,
+        Value::Null,
+        filter(&[
+            ("locale", Value::String("vi".into())),
+            ("collection", Value::String("pages".into())),
+        ]),
+    )
+    .unwrap();
+    assert_eq!(vi_pages.len(), 20);
+    assert!(vi_pages.iter().all(|hit| best_vi.contains(hit)));
+    assert_eq!(
+        filtered(
+            &c,
+            "common",
+            20,
+            Value::Null,
+            filter(&[("locale", strings(&[]))])
+        )
+        .unwrap(),
+        []
+    );
+    assert_eq!(
+        filtered(
+            &c,
+            "common",
+            20,
+            Value::Null,
+            filter(&[("locale", Value::String("xx".into()))])
+        )
+        .unwrap(),
+        []
+    );
+    assert_eq!(
+        filtered(&c, "*", 50, Value::Null, only_vi.clone())
+            .unwrap()
+            .len(),
+        40
+    );
+    let allowed = Value::Array(
+        ["d00000", "d00001", "d00250"]
+            .iter()
+            .map(|key| {
+                Value::Record(romedb::Record {
+                    table: "cms".into(),
+                    key: romedb::Key::String(key.to_string()),
+                })
+            })
+            .collect(),
+    );
+    let both = filtered(&c, "common", 20, allowed.clone(), only_vi.clone()).unwrap();
+    assert_eq!(keys(&both), ["d00000", "d00250"]);
+    assert!(both.iter().all(|hit| best_vi.contains(hit)));
+    assert_eq!(
+        filtered(&c, "common", 20, allowed, Value::Null)
+            .unwrap()
+            .len(),
+        3
+    );
+    let literal = q(
+        &c,
+        "SELECT id FROM search::text('cms_text','common',5,NULL,NULL)",
+    );
+    assert_eq!(literal.rows.len(), 5);
+}
+
+#[test]
+fn filters_are_checked_and_kept_through_updates_reindex_reopen_and_export() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("filters.romedb");
+    std::fs::File::create(&path).unwrap();
+    let db = Database::create_mvcc(path.to_str().unwrap()).unwrap();
+    let c = db.connect().unwrap();
+    q(&c, "CREATE TABLE cms");
+    let tricky = "a\"b\\c (d)";
+    let doc = |key: &str, text: &str, locale: Value| {
+        let mut fields = romedb::Document::new();
+        fields.insert(
+            "id".into(),
+            Value::Record(romedb::Record {
+                table: "cms".into(),
+                key: romedb::Key::String(key.into()),
+            }),
+        );
+        fields.insert("title".into(), Value::String("news".into()));
+        fields.insert("text".into(), Value::String(text.into()));
+        fields.insert("meta".into(), {
+            let mut meta = romedb::Document::new();
+            meta.insert("locale".into(), locale);
+            Value::Object(meta)
+        });
+        Parameters::from([("$doc".into(), Value::Object(fields))])
+    };
+    for (key, text, locale) in [
+        ("a", "rust release", Value::String("en".into())),
+        ("b", "rust guide", Value::String("vi".into())),
+        ("c", "rust notes", Value::String(tricky.into())),
+        ("d", "rust en route", Value::Null),
+    ] {
+        c.execute("INSERT INTO cms DOCUMENT $doc", &doc(key, text, locale))
+            .unwrap();
+    }
+    q(
+        &c,
+        "CREATE SEARCH INDEX cms_text ON cms(title,text) USING FULLTEXT WITH (filters='meta.locale')",
+    );
+    let by_locale = |c: &romedb::Connection, locale: &str| {
+        keys(
+            &filtered(
+                c,
+                "rust",
+                10,
+                Value::Null,
+                filter(&[("meta.locale", Value::String(locale.into()))]),
+            )
+            .unwrap(),
+        )
+        .iter()
+        .map(|key| key.to_string())
+        .collect::<Vec<_>>()
+    };
+    assert_eq!(by_locale(&c, "en"), ["a"]);
+    assert_eq!(by_locale(&c, tricky), ["c"]);
+    assert_eq!(by_locale(&c, "EN"), Vec::<String>::new());
+    assert_eq!(ids(&c, "cms_text", "en"), ["d"]);
+
+    let error = c
+        .execute(
+            "INSERT INTO cms DOCUMENT $doc",
+            &doc("e", "rust", Value::Integer(5)),
+        )
+        .unwrap_err();
+    assert_eq!(error.code(), "RDB_VALIDATION", "{error}");
+    q(&c, "UPDATE cms:b SET meta.locale='en'");
+    assert_eq!(by_locale(&c, "en"), ["a", "b"]);
+
+    for (value, code) in [
+        (
+            filter(&[("locale", Value::String("en".into()))]),
+            "RDB_VALIDATION",
+        ),
+        (
+            filter(&[("title", Value::String("news".into()))]),
+            "RDB_VALIDATION",
+        ),
+        (
+            filter(&[("meta.locale", Value::Integer(5))]),
+            "RDB_VALIDATION",
+        ),
+        (filter(&[("meta.locale", Value::Null)]), "RDB_VALIDATION"),
+        (
+            filter(&[("meta.locale", Value::Array(vec![Value::Integer(5)]))]),
+            "RDB_VALIDATION",
+        ),
+        (Value::String("en".into()), "RDB_VALIDATION"),
+        (
+            filter(&[("meta.locale", strings(&["en"; 33]))]),
+            "RDB_LIMIT",
+        ),
+        (
+            filter(&[("meta.locale", Value::String("x".repeat(257)))]),
+            "RDB_LIMIT",
+        ),
+    ] {
+        let error = filtered(&c, "rust", 10, Value::Null, value.clone()).unwrap_err();
+        assert_eq!(error.code(), code, "{value:?}: {error}");
+    }
+    assert_eq!(
+        filtered(
+            &c,
+            "rust",
+            10,
+            Value::Null,
+            filter(&[("meta.locale", strings(&["en"; 32]))])
+        )
+        .unwrap()
+        .len(),
+        2
+    );
+
+    for options in [
+        "filters='title'",
+        "filters='meta.locale,meta.locale'",
+        "filters='a,b,c,d,e'",
+        "filters='meta..locale'",
+        "filters=''",
+        "filters='meta.locale',weights='meta.locale=2'",
+    ] {
+        let error = c
+            .execute(
+                &format!(
+                    "CREATE SEARCH INDEX bad ON cms(title,text) USING FULLTEXT WITH ({options})"
+                ),
+                &Parameters::new(),
+            )
+            .unwrap_err();
+        assert_eq!(error.code(), "RDB_VALIDATION", "{options}: {error}");
+    }
+    q(
+        &c,
+        "CREATE SEARCH INDEX IF NOT EXISTS cms_text ON cms(title,text) USING FULLTEXT WITH (filters='meta.locale')",
+    );
+    let error = c
+        .execute(
+            "CREATE SEARCH INDEX IF NOT EXISTS cms_text ON cms(title,text) USING FULLTEXT",
+            &Parameters::new(),
+        )
+        .unwrap_err();
+    assert_eq!(error.code(), "RDB_ALREADY_EXISTS", "{error}");
+    let info = format!("{:?}", q(&c, "INFO FOR TABLE cms"));
+    assert!(
+        info.contains("\"filters\": Array([Array([String(\"meta\"), String(\"locale\")])])"),
+        "{info}"
+    );
+    assert!(
+        info.contains("\"paths\": Array([Array([String(\"title\")]), Array([String(\"text\")])])"),
+        "{info}"
+    );
+
+    q(&c, "REINDEX cms_text");
+    assert_eq!(by_locale(&c, "en"), ["a", "b"]);
+    let copy = directory.path().join("copy.romedb");
+    db.start_file_export(
+        &copy,
+        &Default::default(),
+        &romedb::CancellationToken::new(),
+    )
+    .unwrap()
+    .finish()
+    .unwrap();
+    drop(c);
+    drop(db);
+    for file in [&path, &copy] {
+        let db = Database::open(file.to_str().unwrap()).unwrap();
+        let c = db.connect().unwrap();
+        assert_eq!(by_locale(&c, "en"), ["a", "b"], "{}", file.display());
+        assert_eq!(by_locale(&c, tricky), ["c"], "{}", file.display());
+    }
+}
+
+fn count(c: &romedb::Connection, query: &str, max: i64, filter: Value) -> romedb::Result<i64> {
+    let rows = c
+        .execute(
+            "SELECT count FROM search::count('cms_text',$q,$max,$filter)",
+            &Parameters::from([
+                ("$q".into(), Value::String(query.into())),
+                ("$max".into(), Value::Integer(max)),
+                ("$filter".into(), filter),
+            ]),
+        )?
+        .rows;
+    match rows.as_slice() {
+        [row] => match row.as_slice() {
+            [Value::Integer(n)] => Ok(*n),
+            other => panic!("{other:?}"),
+        },
+        other => panic!("{other:?}"),
+    }
+}
+
+#[test]
+fn a_count_is_exact_below_max_capped_at_max_and_sees_its_transaction() {
+    let c = Database::open(":memory:").unwrap().connect().unwrap();
+    q(&c, "CREATE TABLE cms");
+    q(&c, "BEGIN");
+    for n in 0..600 {
+        let text = if n % 2 == 0 { "common rare" } else { "common" };
+        let locale = ["en", "vi", "fr"][n % 3];
+        q(
+            &c,
+            &format!("INSERT INTO cms {{id:type::record('cms','d{n:04}'),title:'t',text:'{text}',locale:'{locale}'}}"),
+        );
+    }
+    q(&c, "COMMIT");
+    q(
+        &c,
+        "CREATE SEARCH INDEX cms_text ON cms(title,text) USING FULLTEXT WITH (filters='locale')",
+    );
+    let vi = filter(&[("locale", Value::String("vi".into()))]);
+    for (query, max, filter, expected) in [
+        ("common", 1000, Value::Null, 600),
+        ("common", 600, Value::Null, 600),
+        ("common", 599, Value::Null, 599),
+        ("common", 1, Value::Null, 1),
+        ("rare", 100_000, Value::Null, 300),
+        ("+common -rare", 1000, Value::Null, 300),
+        ("missing", 10, Value::Null, 0),
+        ("comm*", 1000, Value::Null, 600),
+        ("common", 1000, vi.clone(), 200),
+        ("rare", 1000, vi.clone(), 100),
+        ("rare", 50, vi.clone(), 50),
+        ("*", 1000, vi.clone(), 200),
+    ] {
+        assert_eq!(
+            count(&c, query, max, filter.clone()).unwrap(),
+            expected,
+            "{query} {max} {filter:?}"
+        );
+    }
+    assert_eq!(
+        q(
+            &c,
+            "SELECT count FROM search::count('cms_text','rare',1000)"
+        )
+        .rows,
+        [[Value::Integer(300)]]
+    );
+    let profile = c
+        .profile_select(
+            "SELECT count FROM search::count('cms_text','common',100000)",
+            &Parameters::new(),
+        )
+        .unwrap();
+    eprintln!("count metrics {:?}", profile.metrics);
+
+    q(&c, "BEGIN");
+    q(
+        &c,
+        "INSERT INTO cms {id:cms:new,title:'t',text:'rare',locale:'vi'}",
+    );
+    q(&c, "DELETE cms:d0000");
+    assert_eq!(count(&c, "rare", 1000, Value::Null).unwrap(), 300);
+    assert_eq!(count(&c, "rare", 1000, vi.clone()).unwrap(), 101);
+    assert_eq!(count(&c, "common", 1000, Value::Null).unwrap(), 599);
+    q(&c, "ROLLBACK");
+    assert_eq!(count(&c, "rare", 1000, vi.clone()).unwrap(), 100);
+    assert_eq!(count(&c, "common", 1000, Value::Null).unwrap(), 600);
+
+    for (max, code) in [
+        (0, "RDB_VALIDATION"),
+        (100_001, "RDB_VALIDATION"),
+        (-1, "RDB_VALIDATION"),
+    ] {
+        let error = count(&c, "common", max, Value::Null).unwrap_err();
+        assert_eq!(error.code(), code, "{max}: {error}");
+    }
+    for (sql, code) in [
+        (
+            "SELECT count FROM search::count('cms_text','common',1.5)",
+            "RDB_VALIDATION",
+        ),
+        (
+            "SELECT count FROM search::count('cms_text','title:x',10)",
+            "RDB_VALIDATION",
+        ),
+        (
+            "SELECT count FROM search::count('nothing','common',10)",
+            "RDB_NOT_FOUND",
+        ),
+        (
+            "SELECT count FROM search::count('cms_text','common')",
+            "RDB_VALIDATION",
+        ),
+        (
+            "SELECT count FROM search::count('cms_text','common',10,NULL,NULL)",
+            "RDB_VALIDATION",
+        ),
+    ] {
+        let error = c.execute(sql, &Parameters::new()).unwrap_err();
+        assert_eq!(error.code(), code, "{sql}: {error}");
+    }
+}
+
+#[test]
+fn a_typo_finds_nearby_words_ranks_below_the_word_and_marks_snippets() {
+    let c = Database::open(":memory:").unwrap().connect().unwrap();
+    for sql in [
+        "INSERT INTO articles {id:articles:a,title:'Database systems',body:'notes'}",
+        "INSERT INTO articles {id:articles:b,title:'Databse',body:'a common typo'}",
+        "INSERT INTO articles {id:articles:c,title:'Rust',body:'lang'}",
+        "INSERT INTO articles {id:articles:d,title:'Bust',body:'tales'}",
+        "INSERT INTO articles {id:articles:e,title:'Café crème',body:'running shoes'}",
+        "INSERT INTO articles {id:articles:f,title:'Performance',body:'tuning'}",
+        "CREATE SEARCH INDEX plain ON articles(title,body) USING FULLTEXT",
+        "CREATE SEARCH INDEX folded ON articles(title,body) USING FULLTEXT WITH (fold=true, stemmer='english')",
+        "CREATE SEARCH INDEX grams ON articles(title) USING FULLTEXT WITH (tokenizer='ngram')",
+    ] {
+        q(&c, sql);
+    }
+    for (index, query, expected) in [
+        ("plain", "databse~1", vec!["a", "b"]),
+        ("plain", "DATABSE~1", vec!["a", "b"]),
+        ("plain", "rust~1", vec!["c", "d"]),
+        ("plain", "rus~1", vec![]),
+        ("plain", "perfromance~2", vec!["f"]),
+        ("plain", "+databse~1 +notes", vec!["a"]),
+        ("plain", "databse~1 -typo", vec!["a"]),
+        ("plain", "\"common typo\"~1", vec!["b"]),
+        ("folded", "kafe~1", vec!["e"]),
+        ("folded", "shoez~1", vec!["e"]),
+        ("grams", "rust~1", vec!["c"]),
+    ] {
+        assert_eq!(ids(&c, index, query), expected, "{index} {query}");
+    }
+    let ranked = q(
+        &c,
+        "SELECT id FROM search::text('plain','rust~1',10) ORDER BY score DESC",
+    )
+    .rows;
+    assert!(
+        matches!(&ranked[0][0], Value::Record(r) if r.key == romedb::Key::String("c".into())),
+        "{ranked:?}"
+    );
+    for query in ["rust~3", "rust~0", "ru*~1", "~1", "rust~12"] {
+        assert_eq!(
+            search_error(&c, "plain", query).code(),
+            "RDB_VALIDATION",
+            "{query}"
+        );
+    }
+    assert_eq!(
+        marked(&snippet(
+            &c,
+            "plain",
+            "We compare the databse with a database and a datum.",
+            "databse~1"
+        )),
+        ["databse", "database"]
+    );
+    assert_eq!(
+        marked(&snippet(
+            &c,
+            "plain",
+            "rust bust just crust trust",
+            "rust~1"
+        )),
+        ["rust", "bust", "just", "crust", "trust"]
+    );
+    assert_eq!(
+        marked(&snippet(&c, "plain", "rus bus us", "rus~1")),
+        ["rus"]
+    );
+    assert_eq!(
+        marked(&snippet(&c, "folded", "Le café est bon", "kafe~1")),
+        ["café"]
+    );
+}

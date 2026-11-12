@@ -22,6 +22,8 @@ pub(crate) struct Config {
     pub storage_version: u32,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub weights: Vec<Weight>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub filters: Vec<Vec<String>>,
 }
 const fn legacy_storage_version() -> u32 {
     1
@@ -32,6 +34,11 @@ pub(crate) struct Weight(pub f32);
 impl Eq for Weight {}
 pub(crate) const WEIGHTS_CATALOG_VERSION: u32 = 9;
 pub(crate) const FOLD_STEMMER_CATALOG_VERSION: u32 = 10;
+pub(crate) const FILTERS_CATALOG_VERSION: u32 = 11;
+const MAX_FILTER_PATHS: usize = 4;
+const MAX_FILTER_VALUES: usize = 32;
+const MAX_FILTER_VALUE_BYTES: usize = 256;
+const MAX_COUNT: u64 = 100_000;
 const TOKENIZER: &str = "tantivy-default-0.26";
 // Stay below the pinned native FTS cursor's 1,000-document flush threshold,
 // and within 2,176 bound parameters: 128 rows of sixteen text fields plus the
@@ -88,17 +95,24 @@ impl Index {
     }
 
     pub(crate) fn paths(&self) -> impl Iterator<Item = &[String]> {
-        std::iter::once(self.path.as_slice())
+        self.text_paths()
             .chain(
                 self.fulltext
                     .iter()
-                    .flat_map(|c| c.additional_paths.iter().map(Vec::as_slice)),
+                    .flat_map(|c| c.filters.iter().map(Vec::as_slice)),
             )
             .chain(
                 self.scalar
                     .iter()
                     .flat_map(|c| c.additional_paths.iter().map(Vec::as_slice)),
             )
+    }
+    pub(crate) fn text_paths(&self) -> impl Iterator<Item = &[String]> {
+        std::iter::once(self.path.as_slice()).chain(
+            self.fulltext
+                .iter()
+                .flat_map(|c| c.additional_paths.iter().map(Vec::as_slice)),
+        )
     }
     pub(crate) fn validate_text_config(&self) -> Result<()> {
         match (&self.kind, &self.fulltext) {
@@ -126,11 +140,19 @@ impl Index {
                         return Err(invalid("duplicate field path"));
                     }
                 }
-                if seen.len() > 16 {
+                let text_paths = self.text_paths().count();
+                if text_paths > 16 {
                     return Err(invalid("at most 16 text fields per index"));
                 }
+                if config.filters.len() > MAX_FILTER_PATHS
+                    || (!config.filters.is_empty() && config.storage_version != 2)
+                {
+                    return Err(invalid(&format!(
+                        "at most {MAX_FILTER_PATHS} filter paths per index"
+                    )));
+                }
                 if !config.weights.is_empty()
-                    && (config.weights.len() != seen.len()
+                    && (config.weights.len() != text_paths
                         || config.storage_version != 2
                         || !config.weights.iter().all(|w| w.0.is_finite() && w.0 > 0.0))
                 {
@@ -214,6 +236,14 @@ impl Index {
                 .collect::<Vec<_>>()
                 .join(",");
             parameters.push(format!("weights='{weights}'"));
+        }
+        if !config.filters.is_empty() {
+            let filters = self
+                .text_columns()
+                .skip(self.text_paths().count())
+                .collect::<Vec<_>>()
+                .join(",");
+            parameters.push(format!("filters='{filters}'"));
         }
         let suffix = if parameters.is_empty() {
             String::new()
@@ -312,6 +342,27 @@ impl Connection {
         weights: Option<&str>,
         if_not_exists: bool,
     ) -> Result<()> {
+        self.create_fulltext_index_with_filters(
+            table,
+            name,
+            paths,
+            options,
+            weights,
+            Vec::new(),
+            if_not_exists,
+        )
+    }
+    #[allow(clippy::too_many_arguments)]
+    pub fn create_fulltext_index_with_filters(
+        &self,
+        table: &str,
+        name: &str,
+        paths: Vec<Vec<String>>,
+        options: crate::FullTextOptions,
+        weights: Option<&str>,
+        filters: Vec<Vec<String>>,
+        if_not_exists: bool,
+    ) -> Result<()> {
         let options = options.normalized()?;
         let weights = weights
             .map(|text| parse_weights(text, &paths))
@@ -345,6 +396,7 @@ impl Connection {
                 stemmer: options.stemmer.clone(),
                 storage_version: 2,
                 weights,
+                filters,
             }),
         };
         index.validate_text_config()?;
@@ -514,12 +566,14 @@ impl Connection {
         name: &Value,
         query: &Value,
         limit: &Value,
+        allowed: Option<&Value>,
         filter: Option<&Value>,
     ) -> Result<String> {
         let (Value::String(name), Value::String(query)) = (name, query) else {
             return Err(invalid("index and query must be strings"));
         };
         validate_query(query)?;
+        let (table, index) = self.text_index(name, "search::text")?;
         let limit = match limit {
             Value::Integer(n) => *n as f64,
             Value::Number(n) => *n,
@@ -528,6 +582,60 @@ impl Connection {
         if !(0.0..=10_000.0).contains(&limit) || limit.fract() != 0.0 {
             return Err(invalid("limit must be an integer from 0 through 10000"));
         }
+        let allowed = allowed
+            .map(|ids| crate::search_filter::Filter::from_value(ids, &table))
+            .transpose()?;
+        let query = match filter {
+            Some(filter) => index.filtered_text_query(query, filter)?,
+            None => query.clone(),
+        };
+        let query = format!("'{}'", query.replace('\'', "''"));
+        let columns = index.key_columns();
+        let storage = quote(&index.storage);
+        let Some(allowed) = allowed else {
+            return self.text_best_hits_sql(&storage, &columns, &query, limit as usize);
+        };
+        // Turso 0.8.1 treats a negative LIMIT as all live indexed documents.
+        // A filter can drop any of the best hits, so it needs them all.
+        let inner = format!("SELECT id,fts_score({columns},{query}) AS score FROM {storage} WHERE fts_match({columns},{query}) LIMIT -1");
+        self.require_native_text_search(&inner)?;
+        Ok(format!("WITH __romedb_text_hits AS MATERIALIZED ({inner}) SELECT id,score FROM __romedb_text_hits WHERE {} ORDER BY score DESC,id LIMIT {limit}", allowed.predicate()))
+    }
+    pub(crate) fn text_count_sql(
+        &self,
+        name: &Value,
+        query: &Value,
+        max: &Value,
+        filter: Option<&Value>,
+    ) -> Result<String> {
+        let (Value::String(name), Value::String(query)) = (name, query) else {
+            return Err(invalid("index and query must be strings"));
+        };
+        validate_query(query)?;
+        let (_, index) = self.text_index(name, "search::count")?;
+        let max = match max {
+            Value::Integer(n) => *n as f64,
+            Value::Number(n) => *n,
+            _ => return Err(max_count_error()),
+        };
+        if !(1.0..=MAX_COUNT as f64).contains(&max) || max.fract() != 0.0 {
+            return Err(max_count_error());
+        }
+        let query = match filter {
+            Some(filter) => index.filtered_text_query(query, filter)?,
+            None => query.clone(),
+        };
+        let query = format!("'{}'", query.replace('\'', "''"));
+        let columns = index.key_columns();
+        let storage = quote(&index.storage);
+        let matches = format!(
+            "SELECT 1 FROM {storage} WHERE fts_match({columns},{query}) LIMIT {}",
+            max as u64
+        );
+        self.require_native_text_search(&matches)?;
+        Ok(format!("SELECT count(*) AS count FROM ({matches})"))
+    }
+    fn text_index(&self, name: &str, function: &str) -> Result<(String, Index)> {
         let name = canonical(name)?;
         let (table, index) = self
             .collections()?
@@ -541,23 +649,10 @@ impl Connection {
             })
             .ok_or_else(|| Error::NotFound(format!("text index {name}")))?;
         if index.kind != IndexKind::FullText {
-            return Err(invalid("search::text requires a full-text index"));
+            return Err(invalid(&format!("{function} requires a full-text index")));
         }
         index.require_current_text_storage()?;
-        let filter = filter
-            .map(|ids| crate::search_filter::Filter::from_value(ids, &table))
-            .transpose()?;
-        let query = format!("'{}'", query.replace('\'', "''"));
-        let columns = index.key_columns();
-        let storage = quote(&index.storage);
-        let Some(filter) = filter else {
-            return self.text_best_hits_sql(&storage, &columns, &query, limit as usize);
-        };
-        // Turso 0.8.1 treats a negative LIMIT as all live indexed documents.
-        // A filter can drop any of the best hits, so it needs them all.
-        let inner = format!("SELECT id,fts_score({columns},{query}) AS score FROM {storage} WHERE fts_match({columns},{query}) LIMIT -1");
-        self.require_native_text_search(&inner)?;
-        Ok(format!("WITH __romedb_text_hits AS MATERIALIZED ({inner}) SELECT id,score FROM __romedb_text_hits WHERE {} ORDER BY score DESC,id LIMIT {limit}", filter.predicate()))
+        Ok((table, index))
     }
     /// The best hits, read once while the statement is planned and given to it
     /// as rows, like search::nearest. The native index finds its best hits
@@ -612,6 +707,88 @@ impl Connection {
         }
         Ok(())
     }
+}
+
+impl Index {
+    fn filtered_text_query(&self, query: &str, filter: &Value) -> Result<String> {
+        let config = self.fulltext.as_ref().expect("fulltext config");
+        let Value::Object(fields) = filter else {
+            return Err(invalid(
+                "a search::text filter is an object of path to a string or an array of strings",
+            ));
+        };
+        let columns: Vec<String> = self
+            .text_columns()
+            .skip(self.text_paths().count())
+            .collect();
+        let mut values_left = MAX_FILTER_VALUES;
+        let mut clauses = format!("+({query})");
+        for (path, value) in fields {
+            let column = config
+                .filters
+                .iter()
+                .position(|filter| filter.join(".") == *path)
+                .map(|position| &columns[position])
+                .ok_or_else(|| {
+                    invalid(&format!(
+                        "the index {} has no filter path {path}",
+                        self.name
+                    ))
+                })?;
+            let values: Vec<&str> = match value {
+                Value::String(value) => vec![value],
+                Value::Array(values) => values
+                    .iter()
+                    .map(|value| match value {
+                        Value::String(value) => Ok(value.as_str()),
+                        _ => Err(filter_value_error()),
+                    })
+                    .collect::<Result<_>>()?,
+                _ => return Err(filter_value_error()),
+            };
+            values_left = values_left.checked_sub(values.len()).ok_or_else(|| {
+                Error::Limit(format!(
+                    "a search::text filter has at most {MAX_FILTER_VALUES} values"
+                ))
+            })?;
+            let mut quoted = Vec::with_capacity(values.len());
+            for value in &values {
+                if value.len() > MAX_FILTER_VALUE_BYTES {
+                    return Err(Error::Limit(format!(
+                        "a search::text filter value has at most {MAX_FILTER_VALUE_BYTES} bytes"
+                    )));
+                }
+                quoted.push(format!(
+                    "\"{}\"",
+                    value.replace('\\', "\\\\").replace('"', "\\\"")
+                ));
+            }
+            clauses.push_str(&format!(" +{column}: IN [{}]", quoted.join(" ")));
+        }
+        if clauses.len() > turso_core::index_method::fts::FTS_MAX_QUERY_BYTES {
+            return Err(Error::Limit(format!(
+                "a search::text query with its filter exceeds {} bytes",
+                turso_core::index_method::fts::FTS_MAX_QUERY_BYTES
+            )));
+        }
+        Ok(clauses)
+    }
+}
+
+fn max_count_error() -> Error {
+    invalid(&format!(
+        "search::count max must be an integer from 1 through {MAX_COUNT}"
+    ))
+}
+
+fn filter_value_error() -> Error {
+    invalid("search::text filter values are strings or arrays of strings")
+}
+
+pub(crate) fn filter_paths(text: &str) -> Vec<Vec<String>> {
+    text.split(',')
+        .map(|path| path.trim().split('.').map(str::to_owned).collect())
+        .collect()
 }
 
 fn parse_weights(text: &str, paths: &[Vec<String>]) -> Result<Vec<Weight>> {
@@ -697,7 +874,8 @@ pub(crate) fn validate_query(query: &str) -> Result<()> {
             UserInputAst::Leaf(leaf) => match leaf.as_ref() {
                 UserInputLeaf::All => {}
                 UserInputLeaf::Literal(literal) if literal.field_name.is_none() => {
-                    validate_prefix(literal)?
+                    validate_prefix(literal)?;
+                    validate_typo(literal)?
                 }
                 _ => return Err(unsupported_query()),
             },
@@ -709,6 +887,24 @@ pub(crate) fn validate_query(query: &str) -> Result<()> {
 
 fn unsupported_query() -> Error {
     invalid("queries support unqualified terms, phrases, prefixes, boolean clauses and *")
+}
+
+fn validate_typo(literal: &tantivy_query_grammar::UserInputLiteral) -> Result<()> {
+    if literal.delimiter != tantivy_query_grammar::Delimiter::None || literal.prefix {
+        return Ok(());
+    }
+    let Some((_, distance)) = literal.phrase.rsplit_once('~') else {
+        return Ok(());
+    };
+    if distance.is_empty() || !distance.bytes().all(|b| b.is_ascii_digit()) {
+        return Ok(());
+    }
+    if turso_core::index_method::fts::typo_word(&literal.phrase).is_none() {
+        return Err(invalid(
+            "a typo distance is ~1 or ~2 after a whole word, as in databse~1",
+        ));
+    }
+    Ok(())
 }
 
 fn validate_prefix(literal: &tantivy_query_grammar::UserInputLiteral) -> Result<()> {
@@ -793,6 +989,7 @@ mod tests {
                 &Value::String("text_idx".into()),
                 &Value::String("hello".into()),
                 &Value::Integer(10),
+                None,
                 None
             )
             .is_err());
@@ -912,6 +1109,49 @@ mod tests {
             .unwrap()
             .remove("stemmer");
         assert!(crate::catalog::decode(&unfolded.to_string(), "docs").is_ok());
+    }
+    #[test]
+    fn filtered_text_indexes_need_catalog_version_11() {
+        let db = crate::Database::open(":memory:").unwrap();
+        let c = db.connect().unwrap();
+        c.execute(
+            "INSERT INTO docs {body:'news',locale:'en'}",
+            &crate::Parameters::new(),
+        )
+        .unwrap();
+        c.create_fulltext_index_with_filters(
+            "docs",
+            "filtered",
+            vec![vec!["body".into()]],
+            Default::default(),
+            None,
+            vec![vec!["locale".into()]],
+            false,
+        )
+        .unwrap();
+        let catalog = c.catalog("docs").unwrap();
+        assert_eq!(catalog.version, FILTERS_CATALOG_VERSION);
+        let index = &catalog.indexes[0];
+        assert_eq!(index.key_columns(), "\"key\",f1");
+        assert!(index.text_index_ddl().ends_with(" WITH (filters='f1')"));
+        let original = serde_json::to_value(&catalog).unwrap();
+        assert!(crate::catalog::decode(&original.to_string(), "docs").is_ok());
+        for (path, value) in [
+            ("/version", serde_json::json!(FOLD_STEMMER_CATALOG_VERSION)),
+            ("/indexes/0/fulltext/filters", serde_json::json!([["body"]])),
+            (
+                "/indexes/0/fulltext/filters",
+                serde_json::json!([["a"], ["b"], ["c"], ["d"], ["e"]]),
+            ),
+            ("/indexes/0/fulltext/filters", serde_json::json!([[]])),
+        ] {
+            let mut changed = original.clone();
+            *changed.pointer_mut(path).unwrap() = value;
+            assert!(
+                crate::catalog::decode(&changed.to_string(), "docs").is_err(),
+                "{path}"
+            );
+        }
     }
     #[test]
     fn text_audit_detects_stale_fields_counts_and_missing_entries() {
