@@ -4,7 +4,7 @@ Generated from the pinned Cargo dependency inventory and checksummed source arch
 
 This is a partial notice collection. It supplements LICENSE.md and THIRD_PARTY_NOTICES.md. Inline attributions, unconventional filenames and other bundled components require further review before a complete distribution-notice claim.
 
-Target: `x86_64-unknown-linux-gnu`. Cargo.lock SHA-256: `fe7380f31bf76a5f59ac3a31a0c1ee8c6fa4cccebc6aab26dfd5407c2b9133e6`.
+Target: `x86_64-unknown-linux-gnu`. Cargo.lock SHA-256: `4263a73d4dc6852bf402c87cee6ce192222ec29358206cb1c9ee91b6e816c1bd`.
 
 ## Packages without collected archive or supplemental texts
 
@@ -469,13 +469,13 @@ Target: `x86_64-unknown-linux-gnu`. Cargo.lock SHA-256: `fe7380f31bf76a5f59ac3a3
 - `LICENSE-APACHE`: [source text 62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a](#text-62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a)
 - `LICENSE-MIT`: [source text 23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3](#text-23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3)
 
-### linux-raw-sys 0.4.15
+### linux-raw-sys 0.12.1
 - `COPYRIGHT`: [source text 3290ae0fbc9ddb77d2239121d710f0bb9d31b3b4744e6d97fe01e652b4c1870b](#text-3290ae0fbc9ddb77d2239121d710f0bb9d31b3b4744e6d97fe01e652b4c1870b)
 - `LICENSE-APACHE`: [source text a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2](#text-a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2)
 - `LICENSE-Apache-2.0_WITH_LLVM-exception`: [source text 268872b9816f90fd8e85db5a28d33f8150ebb8dd016653fb39ef1f94f2686bc5](#text-268872b9816f90fd8e85db5a28d33f8150ebb8dd016653fb39ef1f94f2686bc5)
 - `LICENSE-MIT`: [source text 23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3](#text-23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3)
 
-### linux-raw-sys 0.9.3
+### linux-raw-sys 0.4.15
 - `COPYRIGHT`: [source text 3290ae0fbc9ddb77d2239121d710f0bb9d31b3b4744e6d97fe01e652b4c1870b](#text-3290ae0fbc9ddb77d2239121d710f0bb9d31b3b4744e6d97fe01e652b4c1870b)
 - `LICENSE-APACHE`: [source text a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2](#text-a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2)
 - `LICENSE-Apache-2.0_WITH_LLVM-exception`: [source text 268872b9816f90fd8e85db5a28d33f8150ebb8dd016653fb39ef1f94f2686bc5](#text-268872b9816f90fd8e85db5a28d33f8150ebb8dd016653fb39ef1f94f2686bc5)
@@ -699,13 +699,13 @@ Target: `x86_64-unknown-linux-gnu`. Cargo.lock SHA-256: `fe7380f31bf76a5f59ac3a3
 - `LICENSE-APACHE`: [source text a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2](#text-a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2)
 - `LICENSE-MIT`: [source text 42d3bf7e7d4d49d72c0555d14ed99c3ee7ce9ce3cbffbc38bbafe8c103f50969](#text-42d3bf7e7d4d49d72c0555d14ed99c3ee7ce9ce3cbffbc38bbafe8c103f50969)
 
-### romedb-node 0.2.22
+### romedb-node 0.2.23
 - Workspace `LICENSE.md`: [source text b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5](#text-b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5)
 
-### romedb 0.2.22
+### romedb 0.2.23
 - Workspace `LICENSE.md`: [source text b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5](#text-b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5)
 
-### romeql-parser 0.2.22
+### romeql-parser 0.2.23
 - Workspace `LICENSE.md`: [source text b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5](#text-b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5)
 
 ### rquickjs-core 0.13.0
@@ -731,7 +731,7 @@ Target: `x86_64-unknown-linux-gnu`. Cargo.lock SHA-256: `fe7380f31bf76a5f59ac3a3
 - `LICENSE-Apache-2.0_WITH_LLVM-exception`: [source text 268872b9816f90fd8e85db5a28d33f8150ebb8dd016653fb39ef1f94f2686bc5](#text-268872b9816f90fd8e85db5a28d33f8150ebb8dd016653fb39ef1f94f2686bc5)
 - `LICENSE-MIT`: [source text 23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3](#text-23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3)
 
-### rustix 1.0.7
+### rustix 1.1.6
 - `COPYRIGHT`: [source text 377c2e7c53250cc5905c0b0532d35973392af16ffb9596a41d99d202cf3617c9](#text-377c2e7c53250cc5905c0b0532d35973392af16ffb9596a41d99d202cf3617c9)
 - `LICENSE-APACHE`: [source text a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2](#text-a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2)
 - `LICENSE-Apache-2.0_WITH_LLVM-exception`: [source text 268872b9816f90fd8e85db5a28d33f8150ebb8dd016653fb39ef1f94f2686bc5](#text-268872b9816f90fd8e85db5a28d33f8150ebb8dd016653fb39ef1f94f2686bc5)
