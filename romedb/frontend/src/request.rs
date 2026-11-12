@@ -212,6 +212,7 @@ impl Connection {
                             max_rows_read: Some(reads),
                             max_row_mutations: Some(mutations),
                             max_vm_steps: Some(steps),
+                            max_log_bytes: None,
                         },
                     );
                     budget.rows_read += measured.work.rows_read;
@@ -221,7 +222,8 @@ impl Connection {
                         measured.outcome,
                         measured.work.read_budget_exhausted
                             || measured.work.mutation_budget_exhausted
-                            || measured.work.vm_budget_exhausted,
+                            || measured.work.vm_budget_exhausted
+                            || measured.work.log_bytes_budget_exhausted,
                         token,
                     )
                 }
@@ -233,6 +235,7 @@ impl Connection {
                         ),
                         max_row_mutations: Some(mutations),
                         max_vm_steps: Some(steps),
+                        max_log_bytes: None,
                     };
                     let measured = if kind == RequestStatementKind::Explain {
                         self.explain_metered(sql, params, results, limits)
@@ -253,7 +256,8 @@ impl Connection {
                         measured.work.read_budget_exhausted
                             || measured.work.schema_budget_exhausted
                             || measured.work.mutation_budget_exhausted
-                            || measured.work.vm_budget_exhausted,
+                            || measured.work.vm_budget_exhausted
+                            || measured.work.log_bytes_budget_exhausted,
                         token,
                     )
                 }

@@ -289,6 +289,7 @@ fn read_meter(limit: u64) -> Arc<ExecutionMeter> {
             max_rows_read: Some(limit),
             max_row_mutations: None,
             max_vm_steps: None,
+            max_log_bytes: None,
         },
     ))
 }

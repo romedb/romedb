@@ -1452,6 +1452,19 @@ impl ProgramState {
     }
 
     #[inline]
+    pub(crate) fn record_log_write(&mut self, key_and_record_len: u64) -> Result<()> {
+        if self
+            .execution_meter
+            .as_ref()
+            .is_some_and(|meter| !meter.record_log_write(key_and_record_len))
+        {
+            self.interrupt();
+            return Err(LimboError::Interrupt);
+        }
+        Ok(())
+    }
+
+    #[inline]
     fn take_vm_step(&mut self) -> bool {
         if self
             .execution_meter

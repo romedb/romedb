@@ -350,6 +350,7 @@ fn index_maintenance_consumes_shared_reads_and_vm_budget() {
             max_rows_read: Some(indexed.work.rows_read),
             max_row_mutations: Some(1),
             max_vm_steps: Some(indexed.work.vm_steps),
+            max_log_bytes: None,
         },
     );
     exact.outcome.unwrap();
@@ -388,5 +389,120 @@ fn search_index_maintenance_does_not_add_logical_writes() {
         assert_eq!(r.work.row_mutations, 1);
         c.check_collection_integrity("docs", Default::default())
             .unwrap();
+    }
+}
+
+#[test]
+fn log_byte_budget_rolls_back_mvcc_writes_and_keeps_caller_transaction() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("log-bytes.db");
+    std::fs::File::create(&path).unwrap();
+    let c = Database::create_mvcc(path.to_str().unwrap())
+        .unwrap()
+        .connect()
+        .unwrap();
+    let p = Parameters::new();
+    let values = (1..=100)
+        .map(|n| format!("({n},'label {n:030}')"))
+        .collect::<Vec<_>>()
+        .join(",");
+    for sql in [
+        "CREATE TABLE native(n INTEGER, label TEXT)".to_string(),
+        "CREATE TABLE docs".to_string(),
+        format!("INSERT INTO native VALUES {values}"),
+        "INSERT INTO docs(n,label) SELECT n,label FROM native".to_string(),
+        "BEGIN".to_string(),
+        "INSERT INTO native VALUES(0,'kept')".to_string(),
+    ] {
+        c.execute(&sql, &p).unwrap();
+    }
+    let small = WriteWorkLimits {
+        max_log_bytes: Some(1024),
+        ..Default::default()
+    };
+    for sql in ["UPDATE native SET n=n+1000", "UPDATE docs SET n=n+1000"] {
+        let r = c.write_metered(sql, &p, limits(), small);
+        assert!(r.outcome.is_err(), "{sql}");
+        assert!(r.work.log_bytes_budget_exhausted, "{sql}: {:?}", r.work);
+        assert!(r.work.log_bytes > 1024, "{sql}: {:?}", r.work);
+        assert!(r.work.row_mutations < 100, "{sql}: {:?}", r.work);
+        assert_eq!(c.transaction_state(), TransactionState::Active);
+    }
+    assert_eq!(
+        c.execute("SELECT n FROM native WHERE n=0", &p)
+            .unwrap()
+            .rows
+            .len(),
+        1
+    );
+    for sql in [
+        "SELECT n FROM native WHERE n>100",
+        "SELECT n FROM docs WHERE n>100",
+    ] {
+        assert!(c.execute(sql, &p).unwrap().rows.is_empty(), "{sql}");
+    }
+    c.execute("ROLLBACK", &p).unwrap();
+    let r = c.write_metered(
+        "UPDATE native SET n=n+1000",
+        &p,
+        limits(),
+        WriteWorkLimits {
+            max_log_bytes: Some(1 << 20),
+            ..Default::default()
+        },
+    );
+    r.outcome.unwrap();
+    assert!(!r.work.log_bytes_budget_exhausted);
+    assert!(r.work.log_bytes > 100 * 40, "{:?}", r.work);
+    assert_eq!(
+        c.execute("SELECT n FROM native WHERE n>1000", &p)
+            .unwrap()
+            .rows
+            .len(),
+        100
+    );
+}
+
+#[test]
+fn document_log_byte_estimate_covers_logical_log_growth() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("documents.db");
+    std::fs::File::create(&path).unwrap();
+    let c = Database::create_mvcc(path.to_str().unwrap())
+        .unwrap()
+        .connect()
+        .unwrap();
+    c.set_commit_tag(Some("log-bytes")).unwrap();
+    let p = Parameters::new();
+    let values = (1..=2000)
+        .map(|n| format!("({n},'title {n:024}','author-{n:020}@example.com')"))
+        .collect::<Vec<_>>()
+        .join(",");
+    for sql in [
+        "PRAGMA mvcc_checkpoint_threshold=-1".to_string(),
+        "CREATE TABLE source(n INTEGER, title TEXT, author TEXT)".to_string(),
+        format!("INSERT INTO source VALUES {values}"),
+        "CREATE TABLE docs".to_string(),
+        "INSERT INTO docs(n,title,author) SELECT n,title,author FROM source".to_string(),
+        "CREATE TABLE indexed".to_string(),
+        "CREATE INDEX indexed_n ON indexed(n)".to_string(),
+        "INSERT INTO indexed(n,title,author) SELECT n,title,author FROM source".to_string(),
+    ] {
+        c.execute(&sql, &p).unwrap();
+    }
+    let log = path.with_extension("db-log");
+    for sql in [
+        "UPDATE source SET n=n+1",
+        "UPDATE docs SET n=n+1",
+        "UPDATE indexed SET n=n+1",
+        "DELETE FROM docs",
+    ] {
+        let before = std::fs::metadata(&log).unwrap().len();
+        let r = c.write_metered(sql, &p, limits(), WriteWorkLimits::default());
+        r.outcome.unwrap();
+        let growth = std::fs::metadata(&log).unwrap().len() - before;
+        let case = format!("{sql}: estimate {}, log growth {growth}", r.work.log_bytes);
+        assert!(r.work.log_bytes >= growth, "{case}");
+        assert!(r.work.log_bytes * 2 <= growth * 3, "{case}");
     }
 }

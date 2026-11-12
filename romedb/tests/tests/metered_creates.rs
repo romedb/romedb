@@ -11,6 +11,7 @@ fn exact() -> CreateWorkLimits {
         max_row_mutations: Some(5),
         max_schema_rows_read: Some(1000),
         max_vm_steps: Some(100000),
+        max_log_bytes: None,
     }
 }
 #[test]

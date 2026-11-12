@@ -4,7 +4,9 @@ use crate::mvcc::persistent_storage::logical_log::{
     log_write, LogSerializer, ProtoKey, ProtoSint64, ProtoVarint, PROTO_WIRE_LENGTH_DELIMITED,
     PROTO_WIRE_VARINT,
 };
-use crate::types::{ImmutableRecordRef, ValueRef};
+use crate::schema::Schema;
+use crate::storage::sqlite3_ondisk::varint_len;
+use crate::types::{ImmutableRecord, ImmutableRecordRef, ValueRef};
 use crate::{LimboError, Numeric, Result};
 use std::collections::{HashMap, HashSet};
 
@@ -21,6 +23,43 @@ const META_FIELD_VALUE_REF: u64 = 2;
 const SQLITE_INTERNAL_PREFIX: &str = "sqlite_";
 const TURSO_INTERNAL_PREFIX: &str = "__turso_internal_";
 const TURSO_SYNC_PREFIX: &str = "turso_sync_";
+
+pub(crate) fn portable_delete_extension_len(
+    schema: &Schema,
+    table_name: &str,
+    rowid: i64,
+    record: Option<&ImmutableRecord>,
+) -> Result<u64> {
+    if !is_portable_logical_name(table_name) {
+        return Ok(0);
+    }
+    let Some(table) = schema.get_btree_table(table_name) else {
+        return Ok(0);
+    };
+    let pk_values = table
+        .primary_key_columns
+        .iter()
+        .map(|(pk_name, _)| match table.get_column(pk_name) {
+            Some((_, column)) if column.is_rowid_alias() => {
+                ValueRef::Numeric(Numeric::Integer(rowid))
+            }
+            Some((logical_column, _)) => record
+                .and_then(|record| {
+                    record.get_value_opt(table.logical_to_physical_column(logical_column))
+                })
+                .unwrap_or(ValueRef::Null),
+            None => ValueRef::Null,
+        })
+        .collect::<std::vec::Vec<_>>();
+    let pk_record = if pk_values.is_empty() {
+        crate::alloc::vec![]
+    } else {
+        ImmutableRecord::from_values(&pk_values, pk_values.len())?.into_payload()
+    };
+    let extension =
+        LogSerializer::encode_delete_portable_extension(None, Some(&pk_record), Some(rowid))?;
+    Ok((varint_len(extension.len() as u64) + extension.len()) as u64)
+}
 
 pub(crate) fn is_portable_logical_name(name: &str) -> bool {
     !name.starts_with(SQLITE_INTERNAL_PREFIX)

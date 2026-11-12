@@ -23137,3 +23137,229 @@ fn dropping_connect_async_state_mid_wait_does_not_block() {
     let conn = db.connect();
     assert!(conn.schema.read().analyze_stats.table_stats("t1").is_some());
 }
+
+/// What this test checks: An UPDATE inside an explicit transaction stops with an interrupt once
+/// its estimated logical-log bytes pass `max_log_bytes`. The transaction stays open, ROLLBACK
+/// works, the table is unchanged, and a small write on the same connection then commits and is
+/// visible to another connection.
+/// Why this matters: RomeDB Cloud caps the logical log of one commit. Stopping the statement
+/// before COMMIT lets the caller roll back and keep the connection, instead of failing the commit
+/// after it has its timestamp.
+#[test]
+fn log_byte_budget_interrupts_update_before_commit() {
+    let db = MvccTestDbNoConn::new_with_random_db();
+    let conn = db.connect();
+    conn.execute("CREATE TABLE t(id INTEGER PRIMARY KEY, v INTEGER, name TEXT)")
+        .unwrap();
+    conn.execute(
+        "INSERT INTO t SELECT value, value, printf('name-%030d', value) FROM generate_series(1, 200)",
+    )
+    .unwrap();
+    let sum_before = get_rows(&conn, "SELECT sum(v) FROM t");
+
+    conn.execute("BEGIN").unwrap();
+    let meter = log_byte_meter(4096);
+    let mut update = conn.prepare("UPDATE t SET v = v + 1").unwrap();
+    conn.set_execution_meter(Some(meter.clone())).unwrap();
+    let result = update.run_with_row_callback(|_| Ok(()));
+    assert!(matches!(result, Err(LimboError::Interrupt)), "{result:?}");
+    drop(update);
+    conn.set_execution_meter(None).unwrap();
+    let work = meter.snapshot();
+    assert!(work.log_bytes_budget_exhausted, "{work:?}");
+    assert!(
+        work.log_bytes > 4096 && work.log_bytes < 4096 + 100,
+        "{work:?}"
+    );
+    assert!(work.row_mutations < 200, "{work:?}");
+    assert!(!conn.get_auto_commit());
+    conn.execute("ROLLBACK").unwrap();
+    assert_eq!(get_rows(&conn, "SELECT sum(v) FROM t"), sum_before);
+
+    let meter = log_byte_meter(4096);
+    conn.set_execution_meter(Some(meter.clone())).unwrap();
+    conn.execute("UPDATE t SET v = -1 WHERE id = 1").unwrap();
+    conn.set_execution_meter(None).unwrap();
+    assert!(!meter.snapshot().log_bytes_budget_exhausted);
+    let other = db.connect();
+    assert_eq!(
+        get_rows(&other, "SELECT v FROM t WHERE id = 1"),
+        vec![vec![Value::from_i64(-1)]]
+    );
+}
+
+/// What this test checks: A transaction whose estimated logical-log bytes stay within
+/// `max_log_bytes` runs and commits as before, and the meter reports its bytes without
+/// marking the budget as spent.
+/// Why this matters: The budget must only stop transactions that are too big.
+#[test]
+fn log_byte_budget_not_reached_commits_normally() {
+    let db = MvccTestDbNoConn::new_with_random_db();
+    let conn = db.connect();
+    conn.execute("CREATE TABLE t(id INTEGER PRIMARY KEY, v INTEGER, name TEXT)")
+        .unwrap();
+    conn.execute(
+        "INSERT INTO t SELECT value, value, printf('name-%030d', value) FROM generate_series(1, 200)",
+    )
+    .unwrap();
+
+    conn.execute("BEGIN").unwrap();
+    let meter = log_byte_meter(1 << 20);
+    conn.set_execution_meter(Some(meter.clone())).unwrap();
+    conn.execute("UPDATE t SET v = v + 1").unwrap();
+    conn.set_execution_meter(None).unwrap();
+    conn.execute("COMMIT").unwrap();
+    let work = meter.snapshot();
+    assert!(!work.log_bytes_budget_exhausted, "{work:?}");
+    assert!(work.log_bytes > 200 * 40, "{work:?}");
+    assert_eq!(
+        get_rows(&db.connect(), "SELECT sum(v) FROM t"),
+        vec![vec![Value::from_i64(200 * 201 / 2 + 200)]]
+    );
+}
+
+/// What this test checks: For UPDATEs of a few thousand rows, the meter's estimated log bytes
+/// are at least the real growth of the logical log and at most 1.5 times it. Rows have text
+/// columns of 20 to 40 bytes or two integers, with and without an index on the updated column,
+/// and live either in the log or in the B-tree after a checkpoint.
+/// Why this matters: RomeDB Cloud sets the budget from its commit size cap. An estimate below the
+/// real size lets a too-big commit through; a much larger one stops commits that would fit.
+#[test]
+fn log_byte_estimate_is_close_to_logical_log_growth() {
+    let shapes = [
+        (
+            "CREATE TABLE t(id INTEGER PRIMARY KEY, v INTEGER, name TEXT, email TEXT)",
+            None,
+            "INSERT INTO t SELECT value, value, printf('name-%019d', value), printf('user-%016d@example.com', value) FROM generate_series(1, 3000)",
+        ),
+        (
+            "CREATE TABLE t(id INTEGER PRIMARY KEY, v INTEGER, name TEXT, email TEXT)",
+            Some("CREATE INDEX t_v ON t(v)"),
+            "INSERT INTO t SELECT value, value, printf('name-%019d', value), printf('user-%016d@example.com', value) FROM generate_series(1, 3000)",
+        ),
+        (
+            "CREATE TABLE t(a INTEGER, v INTEGER)",
+            None,
+            "INSERT INTO t SELECT value, value FROM generate_series(1, 3000)",
+        ),
+        (
+            "CREATE TABLE t(a INTEGER, v INTEGER)",
+            Some("CREATE INDEX t_v ON t(v)"),
+            "INSERT INTO t SELECT value, value FROM generate_series(1, 3000)",
+        ),
+    ];
+    for (create_table, create_index, insert) in shapes {
+        for checkpoint_first in [false, true] {
+            let db = MvccTestDbNoConn::new_with_random_db();
+            let conn = db.connect();
+            conn.execute("PRAGMA mvcc_checkpoint_threshold = -1")
+                .unwrap();
+            conn.execute(create_table).unwrap();
+            if let Some(create_index) = create_index {
+                conn.execute(create_index).unwrap();
+            }
+            conn.execute(insert).unwrap();
+            if checkpoint_first {
+                conn.execute("PRAGMA wal_checkpoint(TRUNCATE)").unwrap();
+            }
+            let (estimate, growth) = log_bytes_and_log_growth(&db, &conn, "UPDATE t SET v = v + 1");
+            let case = format!(
+                "{create_table}; {create_index:?}; checkpoint first: {checkpoint_first}; estimate {estimate}, log growth {growth}"
+            );
+            assert!(estimate >= growth, "{case}");
+            assert!(estimate * 2 <= growth * 3, "{case}");
+        }
+    }
+}
+
+/// What this test checks: Rows that an UPDATE writes to a temporary table, the rowid list it
+/// builds while scanning the index it changes and the rows it keeps for RETURNING, are not
+/// counted as log bytes. The same change through a plain table scan reports the same bytes.
+/// Why this matters: Temporary tables never reach the logical log, so counting them would stop
+/// transactions that fit.
+#[test]
+fn log_bytes_skip_temporary_tables_of_update() {
+    let db = MvccTestDbNoConn::new_with_random_db();
+    let conn = db.connect();
+    conn.execute("PRAGMA mvcc_checkpoint_threshold = -1")
+        .unwrap();
+    for table in ["by_scan", "by_index"] {
+        conn.execute(format!(
+            "CREATE TABLE {table}(id INTEGER PRIMARY KEY, v INTEGER)"
+        ))
+        .unwrap();
+        conn.execute(format!("CREATE INDEX {table}_v ON {table}(v)"))
+            .unwrap();
+        conn.execute(format!(
+            "INSERT INTO {table} SELECT value, value FROM generate_series(1, 500)"
+        ))
+        .unwrap();
+    }
+    let by_index = "UPDATE by_index SET v = v + 1 WHERE v > 0 RETURNING id";
+    let ephemeral_tables = get_rows(&conn, &format!("EXPLAIN {by_index}"))
+        .into_iter()
+        .filter(|row| row[1] == Value::build_text("OpenEphemeral"))
+        .count();
+    assert_eq!(ephemeral_tables, 2);
+
+    let (scan_estimate, scan_growth) =
+        log_bytes_and_log_growth(&db, &conn, "UPDATE by_scan SET v = v + 1");
+    let (index_estimate, index_growth) = log_bytes_and_log_growth(&db, &conn, by_index);
+    assert_eq!(index_growth, scan_growth);
+    assert_eq!(index_estimate, scan_estimate);
+}
+
+/// What this test checks: On a database without MVCC, writes add no log bytes, so even a
+/// one-byte `max_log_bytes` budget never stops them.
+/// Why this matters: Only MVCC writes reach the logical log. The same meter is used for
+/// databases in WAL mode and must not stop their writes.
+#[test]
+fn log_bytes_stay_zero_without_mvcc() {
+    let db = Database::open_file_with_flags(
+        Arc::new(MemoryIO::new()),
+        ":memory:",
+        OpenFlags::default(),
+        DatabaseOpts::new(),
+        None,
+        Arc::new(SqliteDialect),
+    )
+    .unwrap();
+    let conn = db.connect().unwrap();
+    conn.execute("CREATE TABLE t(id INTEGER PRIMARY KEY, v INTEGER)")
+        .unwrap();
+    conn.execute("CREATE INDEX t_v ON t(v)").unwrap();
+    conn.execute("INSERT INTO t SELECT value, value FROM generate_series(1, 200)")
+        .unwrap();
+    let meter = log_byte_meter(1);
+    conn.set_execution_meter(Some(meter.clone())).unwrap();
+    conn.execute("UPDATE t SET v = v + 1").unwrap();
+    conn.execute("DELETE FROM t WHERE id > 100").unwrap();
+    conn.set_execution_meter(None).unwrap();
+    let work = meter.snapshot();
+    assert_eq!(work.log_bytes, 0, "{work:?}");
+    assert!(!work.log_bytes_budget_exhausted, "{work:?}");
+    assert!(work.rows_written > 0, "{work:?}");
+}
+
+fn log_byte_meter(max_log_bytes: u64) -> Arc<crate::execution_meter::ExecutionMeter> {
+    Arc::new(crate::execution_meter::ExecutionMeter::with_limits(
+        crate::execution_meter::ExecutionLimits {
+            max_log_bytes: Some(max_log_bytes),
+            ..Default::default()
+        },
+    ))
+}
+
+fn log_bytes_and_log_growth(
+    db: &MvccTestDbNoConn,
+    conn: &Arc<Connection>,
+    sql: &str,
+) -> (u64, u64) {
+    let log_size = || db.get_mvcc_store().get_logical_log_file().size().unwrap();
+    let before = log_size();
+    let meter = Arc::new(crate::execution_meter::ExecutionMeter::default());
+    conn.set_execution_meter(Some(meter.clone())).unwrap();
+    get_rows(conn, sql);
+    conn.set_execution_meter(None).unwrap();
+    (meter.snapshot().log_bytes, log_size() - before)
+}
