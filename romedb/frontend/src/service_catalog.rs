@@ -242,7 +242,7 @@ impl Connection {
             || sequence as u64 > MAX_SEQUENCE
             || hash.as_str().len() != 64
             || !hash.as_str().bytes().all(|b| b.is_ascii_hexdigit())
-            || response.as_str().len() > 524_288
+            || response.as_str().len() > crate::MAX_RESPONSE_BYTES
         {
             return Err(Error::Storage("invalid service receipt contents".into()));
         }
@@ -311,7 +311,7 @@ impl Connection {
                 .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-'))
             || request_hash.len() != 64
             || !request_hash.bytes().all(|b| b.is_ascii_hexdigit())
-            || response.len() > 524_288
+            || response.len() > crate::MAX_RESPONSE_BYTES
         {
             return Err(Error::Validation("invalid service publication".into()));
         }

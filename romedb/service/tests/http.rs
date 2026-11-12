@@ -38,6 +38,22 @@ async fn send(
     .unwrap()
 }
 
+async fn send_declared_length(address: SocketAddr, token: &str, path: &str, length: usize) -> u16 {
+    let request = format!("POST {path} HTTP/1.1\r\nHost: {address}\r\nAuthorization: Bearer {token}\r\nContent-Type: application/json\r\nContent-Length: {length}\r\nConnection: close\r\n\r\n");
+    tokio::task::spawn_blocking(move || {
+        let mut stream = TcpStream::connect(address).unwrap();
+        stream
+            .set_read_timeout(Some(Duration::from_secs(10)))
+            .unwrap();
+        stream.write_all(request.as_bytes()).unwrap();
+        let mut response = String::new();
+        stream.read_to_string(&mut response).unwrap();
+        response.split_whitespace().nth(1).unwrap().parse().unwrap()
+    })
+    .await
+    .unwrap()
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn loopback_http_requires_token_and_rejects_browser_access() {
     let directory = tempfile::tempdir().unwrap();
@@ -91,12 +107,77 @@ async fn loopback_http_requires_token_and_rejects_browser_access() {
     let details = send(address, &token, "GET", "/v1/database", "", "").await.1;
     assert_eq!(details["sequence"], 0);
     assert_eq!(details["engineVersion"], romedb::VERSION);
-    let body = "x".repeat(65537);
     assert_eq!(
-        send(address, &token, "POST", "/v1/database/query", "", &body)
+        send_declared_length(
+            address,
+            &token,
+            "/v1/database/query",
+            romedb::MAX_REQUEST_BYTES + 1
+        )
+        .await,
+        413
+    );
+    let setup = json!({"requestId":"large-setup","afterSequence":0,"statements":[{"sql":"CREATE TABLE notes (id INTEGER PRIMARY KEY, body TEXT)"}]}).to_string();
+    assert_eq!(
+        send(address, &token, "POST", "/v1/database/query", "", &setup)
             .await
             .0,
-        413
+        200
+    );
+    let text = "x".repeat(2 * 1024 * 1024);
+    let large = json!({"requestId":"large","afterSequence":1,"statements":[{"sql":"INSERT INTO notes VALUES(1, $body) RETURNING length(body)","params":{"$body":{"type":"String","value":text}}}]}).to_string();
+    assert!(large.len() > 2 * 1024 * 1024);
+    let (status, reply) = send(address, &token, "POST", "/v1/database/query", "", &large).await;
+    assert_eq!(status, 200, "{reply}");
+    assert_eq!(
+        reply["results"][0]["rows"][0][0],
+        json!({"type":"Integer","value":"2097152"})
+    );
+    let rows = |limit: u32| {
+        json!({"readVersion":2,"requestId":"rows","afterSequence":2,"statements":[{"sql":format!("WITH RECURSIVE t(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM t WHERE n<{limit}) SELECT n FROM t")}]}).to_string()
+    };
+    let declared = "X-RomeDB-Result-Limits: rows=10000; bytes=8388608\r\n";
+    let (status, earlier) = send(
+        address,
+        &token,
+        "POST",
+        "/v1/database/read",
+        "",
+        &rows(1001),
+    )
+    .await;
+    assert_eq!(
+        (status, &earlier["error"]["code"]),
+        (413, &json!("RDB_LIMIT")),
+        "{earlier}"
+    );
+    let (status, raised) = send(
+        address,
+        &token,
+        "POST",
+        "/v1/database/read",
+        declared,
+        &rows(10_000),
+    )
+    .await;
+    assert_eq!(status, 200, "{raised}");
+    assert_eq!(
+        raised["results"][0]["rows"].as_array().unwrap().len(),
+        10_000
+    );
+    let invalid = "X-RomeDB-Result-Limits: rows=10000\r\n";
+    assert_eq!(
+        send(
+            address,
+            &token,
+            "POST",
+            "/v1/database/read",
+            invalid,
+            &rows(1)
+        )
+        .await
+        .0,
+        400
     );
     stop.send(()).unwrap();
     server.await.unwrap().unwrap();

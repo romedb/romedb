@@ -33,6 +33,7 @@ use tokio::{
 };
 
 const MAX_DATABASE_JOBS: u32 = 36;
+const MAX_BODY_BYTES_IN_MEMORY: usize = 64 * 1024 * 1024;
 const FILE_CHUNK_BYTES: usize = 256 * 1024;
 const MAX_FILE_QUERY_BYTES: usize = 4096;
 const DATABASE_FILE_TYPE: &str = "application/vnd.romedb.database";
@@ -200,6 +201,7 @@ async fn serve_target(
     let token = Arc::new(token);
     let connections = Arc::new(Semaphore::new(64));
     let jobs = Arc::new(Semaphore::new(MAX_DATABASE_JOBS as usize));
+    let body_bytes = Arc::new(Semaphore::new(MAX_BODY_BYTES_IN_MEMORY));
     let (stopping, _) = watch::channel(false);
     let mut tasks = JoinSet::new();
     tokio::pin!(shutdown);
@@ -212,7 +214,7 @@ async fn serve_target(
             accepted = listener.accept() => {
                 let (stream, _) = match accepted { Ok(accepted) => accepted, Err(error) => break Err(error.into()) };
                 let permit = match connections.clone().try_acquire_owned() { Ok(permit) => permit, Err(_) => { drop(stream); continue; } };
-                let context = Context { target: target.clone(), token: token.clone(), jobs: jobs.clone(), port: address.port() };
+                let context = Context { target: target.clone(), token: token.clone(), jobs: jobs.clone(), body_bytes: body_bytes.clone(), port: address.port() };
                 let mut stopped = stopping.subscribe();
                 tasks.spawn(async move {
                     let _permit = permit;
@@ -252,6 +254,7 @@ struct Context {
     target: Target,
     token: Arc<Token>,
     jobs: Arc<Semaphore>,
+    body_bytes: Arc<Semaphore>,
     port: u16,
 }
 
@@ -295,6 +298,7 @@ async fn dispatch(
 async fn process(context: Context, request: Request<Incoming>) -> Result<Response<Body>> {
     let route = validate_request(&context, &request)?;
     let export = file_options(request.uri().query())?;
+    let result_limits = declared_result_limits(&request)?;
     let origin = format!("http://{}", host(&request).unwrap_or_default());
     let body = if request.method() == Method::POST {
         if request
@@ -316,26 +320,37 @@ async fn process(context: Context, request: Request<Incoming>) -> Result<Respons
                 v.to_str()
                     .ok()
                     .and_then(|v| v.parse::<u64>().ok())
-                    .is_none_or(|length| length > 65536)
+                    .is_none_or(|length| length > romedb::MAX_REQUEST_BYTES as u64)
             })
         {
-            return Err(Error::new("RDB_LIMIT", "request exceeds 64 KiB"));
+            return Err(Error::new("RDB_LIMIT", "request exceeds 8 MiB"));
         }
+        let budget = context.body_bytes.clone();
         let collected = timeout(Duration::from_secs(5), async {
             let mut bytes = Vec::new();
+            let mut reserved: Option<OwnedSemaphorePermit> = None;
             let mut body = request.into_body();
             while let Some(frame) = body.frame().await {
                 let frame = frame
                     .map_err(|_| Error::new("RDB_PROTOCOL", "request body could not be read"))?;
                 if let Ok(data) = frame.into_data() {
-                    if bytes.len() + data.len() > 65536 {
-                        return Err(Error::new("RDB_LIMIT", "request exceeds 64 KiB"));
+                    if bytes.len() + data.len() > romedb::MAX_REQUEST_BYTES {
+                        return Err(Error::new("RDB_LIMIT", "request exceeds 8 MiB"));
+                    }
+                    let permit = budget
+                        .clone()
+                        .try_acquire_many_owned(data.len() as u32)
+                        .map_err(|_| Error::new("RDB_BUSY", "service request memory is full"))?;
+                    match reserved.as_mut() {
+                        Some(reserved) => reserved.merge(permit),
+                        None => reserved = Some(permit),
                     }
                     bytes.extend_from_slice(&data);
                 }
             }
-            String::from_utf8(bytes)
-                .map_err(|_| Error::new("RDB_PROTOCOL", "request JSON must be UTF-8"))
+            let text = String::from_utf8(bytes)
+                .map_err(|_| Error::new("RDB_PROTOCOL", "request JSON must be UTF-8"))?;
+            Ok((text, reserved))
         })
         .await
         .map_err(|_| Error::new("RDB_CANCELLED", "request body deadline expired"))??;
@@ -349,7 +364,7 @@ async fn process(context: Context, request: Request<Incoming>) -> Result<Respons
         .try_acquire_owned()
         .map_err(|_| Error::new("RDB_BUSY", "service request capacity is full"))?;
     let operation = tokio::task::spawn_blocking(move || {
-        let body = body.unwrap_or_default();
+        let (body, _body_bytes) = body.unwrap_or_default();
         match (&context.target, &route) {
             (Target::Database(database), Route::File) => {
                 return Ok(Reply::File(database.export_file(&export)?, permit))
@@ -367,12 +382,14 @@ async fn process(context: Context, request: Request<Incoming>) -> Result<Respons
             (Target::Database(database), Route::Info) => {
                 Ok((StatusCode::OK, database.info()?.to_string()))
             }
-            (Target::Database(database), Route::Read) => {
-                Ok((StatusCode::OK, database.read(&body)?))
-            }
-            (Target::Database(database), Route::Query) => {
-                Ok((StatusCode::OK, database.query(&body)?))
-            }
+            (Target::Database(database), Route::Read) => Ok((
+                StatusCode::OK,
+                database.read_with_result_limits(&body, result_limits)?,
+            )),
+            (Target::Database(database), Route::Query) => Ok((
+                StatusCode::OK,
+                database.query_with_result_limits(&body, result_limits)?,
+            )),
             (Target::Directory(directory), Route::List) => {
                 Ok((StatusCode::OK, directory.list(&origin)?.to_string()))
             }
@@ -387,12 +404,18 @@ async fn process(context: Context, request: Request<Incoming>) -> Result<Respons
                 directory.delete(&id)?;
                 Ok((StatusCode::NO_CONTENT, String::new()))
             }
-            (Target::Directory(directory), Route::DatabaseRead(id)) => {
-                Ok((StatusCode::OK, directory.database(&id)?.read(&body)?))
-            }
-            (Target::Directory(directory), Route::DatabaseQuery(id)) => {
-                Ok((StatusCode::OK, directory.database(&id)?.query(&body)?))
-            }
+            (Target::Directory(directory), Route::DatabaseRead(id)) => Ok((
+                StatusCode::OK,
+                directory
+                    .database(&id)?
+                    .read_with_result_limits(&body, result_limits)?,
+            )),
+            (Target::Directory(directory), Route::DatabaseQuery(id)) => Ok((
+                StatusCode::OK,
+                directory
+                    .database(&id)?
+                    .query_with_result_limits(&body, result_limits)?,
+            )),
             _ => Err(Error::new(
                 "RDB_NOT_FOUND",
                 "database endpoint does not exist",
@@ -407,6 +430,35 @@ async fn process(context: Context, request: Request<Incoming>) -> Result<Respons
         Reply::Json(status, body) => Ok(response(status, body)),
         Reply::File(download, permit) => Ok(file_response(download, permit)),
     }
+}
+
+fn declared_result_limits(request: &Request<Incoming>) -> Result<romedb::RequestResultLimits> {
+    let Some(value) = request.headers().get("x-romedb-result-limits") else {
+        return Ok(romedb::RequestResultLimits::EARLIER);
+    };
+    let invalid = || {
+        Error::new(
+            "RDB_VALIDATION",
+            "x-romedb-result-limits takes rows=<n>; bytes=<n>",
+        )
+    };
+    let text = value.to_str().map_err(|_| invalid())?;
+    let (rows, bytes) = text
+        .trim()
+        .strip_prefix("rows=")
+        .and_then(|rest| rest.split_once("; bytes="))
+        .ok_or_else(invalid)?;
+    let number = |digits: &str| {
+        (!digits.is_empty() && digits.len() <= 12 && digits.bytes().all(|b| b.is_ascii_digit()))
+            .then(|| digits.parse::<usize>().ok())
+            .flatten()
+            .filter(|n| *n >= 1)
+            .ok_or_else(invalid)
+    };
+    Ok(romedb::RequestResultLimits::declared(
+        number(rows)?,
+        number(bytes)?,
+    ))
 }
 
 fn validate_request(context: &Context, request: &Request<Incoming>) -> Result<Route> {

@@ -58,7 +58,7 @@ if (database) parentPort.on('message', ({ id, operation, body, cancellationKey }
         engineVersion: engine.execution.result.rows[0][0].value,
         journalMode: mode.execution.result.rows[0][0].value,
         capabilities: { readVersion: 2, atomicWrites: true, replayWindow: 64, exactSequenceCondition: true, sequenceScope: 'adapter', replayDurability: 'adapter-lifetime', metadata: true, checkedWork: true, foreignKeys: true },
-        limits: { maxRequestBytes: 65536, maxStatements: 32, maxRows: 1000, maxResultBytes: 262144, activeRequests: 1, queuedRequests: 32, rowsRead: 1000000, rowMutations: 100000, vmSteps: 10000000 },
+        limits: { maxRequestBytes: 8388608, maxStatements: 256, maxRows: 10000, maxResultBytes: 8388608, maxResponseBytes: 16777216, activeRequests: 1, queuedRequests: 32, rowsRead: 1000000, rowMutations: 100000, vmSteps: 10000000 },
       } });
       return;
     }

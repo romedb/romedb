@@ -32,6 +32,20 @@ export type PreparedWrite =
 export interface QueryResult { columns: string[]; rows: Value[][]; affected: bigint; }
 export interface BatchResult { requestId: string; sequence: number; results: QueryResult[]; readVersion?: 2; executionWork?: unknown; }
 export interface Capabilities { provenance: 'negotiated' | 'documented'; [key: string]: unknown; }
+/**
+ * The request limits the client enforces: the ones the database reported in its details. A
+ * Cloud connection that has not read its details uses Cloud's documented values. A local
+ * service that reports none keeps the earlier values (64 KiB requests, 32 statements, 1,000
+ * rows, 256 KiB of results, 512 KiB responses). Every read and write sends maxRows and
+ * maxResultBytes in the x-romedb-result-limits header, so the server never returns more.
+ */
+export interface RequestLimits {
+  readonly maxRequestBytes: number;
+  readonly maxStatements: number;
+  readonly maxRows: number;
+  readonly maxResultBytes: number;
+  readonly maxResponseBytes: number;
+}
 export interface DatabaseInfo {
   id: string; sequence: number; capabilities: Capabilities;
   /** RomeDB release of the engine, such as "2.7.0". RomeDB 2.7.0 and later report it. */
@@ -71,6 +85,8 @@ export class ClientError extends Error {
 export interface Client {
   readonly sequence: number;
   readonly databaseId: string;
+  /** Limits in force for this connection; they change when info() reads new ones. */
+  readonly limits: RequestLimits;
   info(options?: RequestOptions): Promise<DatabaseInfo>;
   read(statements: Statement[], options?: ReadOptions): Promise<BatchResult>;
   prepareWrite(statements: Statement[], options?: WriteOptions): PreparedWrite;
@@ -107,6 +123,7 @@ export class RemoteDatabase implements Client {
   buildIndex(sql: string, options?: IndexBuildOptions): Promise<IndexBuild>;
   readonly sequence: number;
   readonly databaseId: string;
+  readonly limits: RequestLimits;
   info(options?: RequestOptions): Promise<DatabaseInfo>;
   read(statements: Statement[], options?: ReadOptions): Promise<BatchResult>;
   prepareWrite(statements: Statement[], options?: WriteOptions): PreparedWrite;

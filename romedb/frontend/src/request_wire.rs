@@ -7,6 +7,41 @@ use serde_json::Value;
 use std::collections::BTreeMap;
 
 pub const MAX_SEQUENCE: u64 = 9_007_199_254_740_990;
+pub const MAX_REQUEST_BYTES: usize = 8 * 1024 * 1024;
+pub const MAX_REQUEST_STATEMENTS: usize = 256;
+pub const MAX_RESULT_ROWS: usize = 10_000;
+pub const MAX_RESULT_BYTES: usize = 8 * 1024 * 1024;
+pub const MAX_RESPONSE_BYTES: usize = 16 * 1024 * 1024;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RequestResultLimits {
+    pub rows: usize,
+    pub bytes: usize,
+}
+
+impl RequestResultLimits {
+    pub const EARLIER: Self = Self {
+        rows: 1000,
+        bytes: 256 * 1024,
+    };
+    pub const LARGEST: Self = Self {
+        rows: MAX_RESULT_ROWS,
+        bytes: MAX_RESULT_BYTES,
+    };
+
+    pub fn declared(rows: usize, bytes: usize) -> Self {
+        Self {
+            rows: rows.min(MAX_RESULT_ROWS),
+            bytes: bytes.min(MAX_RESULT_BYTES),
+        }
+    }
+}
+
+impl Default for RequestResultLimits {
+    fn default() -> Self {
+        Self::EARLIER
+    }
+}
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -20,6 +55,8 @@ pub struct RequestEnvelope {
     pub statements: Vec<RequestStatement>,
     #[serde(default, deserialize_with = "present")]
     pub work_limits: Option<RequestWorkLimits>,
+    #[serde(skip)]
+    pub result_limits: RequestResultLimits,
 }
 
 #[derive(Deserialize)]
@@ -43,8 +80,8 @@ pub struct RequestWorkLimits {
 
 impl RequestEnvelope {
     pub fn parse(body: &str, read_only: bool) -> Result<Self> {
-        if body.len() > 65_536 {
-            return Err(Error::new("RDB_LIMIT", "request exceeds 64 KiB"));
+        if body.len() > MAX_REQUEST_BYTES {
+            return Err(Error::new("RDB_LIMIT", "request exceeds 8 MiB"));
         }
         let request: Self = crate::decode_wire_json(body)?;
         if request.request_id.is_empty()
@@ -58,7 +95,7 @@ impl RequestEnvelope {
                 .if_sequence
                 .is_some_and(|n| n < request.after_sequence || n > MAX_SEQUENCE)
             || request.statements.is_empty()
-            || request.statements.len() > 32
+            || request.statements.len() > MAX_REQUEST_STATEMENTS
         {
             return Err(Error::new(
                 "RDB_VALIDATION",
@@ -87,7 +124,8 @@ impl RequestEnvelope {
             limits.and_then(|v| v.rows_read).unwrap_or(1_000_000),
             limits.and_then(|v| v.row_mutations).unwrap_or(100_000),
             limits.and_then(|v| v.vm_steps).unwrap_or(10_000_000),
-        )?)
+        )?
+        .with_result_limits(self.result_limits))
     }
 }
 
@@ -133,9 +171,9 @@ pub(crate) fn prepare_statements(
     statements: &[RequestStatement],
     read_only: bool,
 ) -> crate::Result<Vec<PreparedRequestStatement<'_>>> {
-    if statements.is_empty() || statements.len() > 32 {
+    if statements.is_empty() || statements.len() > MAX_REQUEST_STATEMENTS {
         return Err(crate::Error::Validation(
-            "request requires 1..32 statements".into(),
+            "request requires 1..256 statements".into(),
         ));
     }
     statements

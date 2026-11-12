@@ -118,6 +118,7 @@ class EmbeddedDatabase {
   get sequence() { return this.#client.sequence; }
   get sequenceKnown() { return this.#client.sequenceKnown; }
   get databaseId() { return this.#client.databaseId; }
+  get limits() { return this.#client.limits; }
   get path() { return this.#path; }
   info(options) { return this.#client.info(options); }
   read(statements, options) { return this.#client.read(statements, options); }
@@ -204,7 +205,7 @@ class Session {
     if (this.closing && operation !== 'close') return Promise.reject(new common.ClientError('RDB_CLOSED', 'Embedded session is closing', 'not-sent'));
     if (signal?.aborted) return Promise.reject(new common.ClientError('RDB_CANCELLED', 'Request cancelled before dispatch', 'not-sent'));
     const bytes = body === undefined ? 0 : Buffer.byteLength(body);
-    if (operation !== 'close' && (this.#pending.size >= 32 || this.#bytes + bytes > 2097152)) return Promise.reject(new common.ClientError('RDB_LIMIT', 'Embedded request queue limit reached', 'not-sent'));
+    if (operation !== 'close' && (this.#pending.size >= 32 || this.#bytes + bytes > 16_777_216)) return Promise.reject(new common.ClientError('RDB_LIMIT', 'Embedded request queue limit reached', 'not-sent'));
     const token = native.createCancellationToken(duration === undefined ? undefined : String(duration));
     return new Promise((resolve, reject) => {
       const id = ++this.#next;

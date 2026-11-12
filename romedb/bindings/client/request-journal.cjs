@@ -4,7 +4,7 @@ const { constants } = require('node:fs');
 const path = require('node:path');
 const { Buffer } = require('node:buffer');
 
-const MAX_JOURNAL = 2_359_296;
+const MAX_JOURNAL = 2 * 64 * 1024 * 1024 + 262_144;
 
 async function saveRequest(file, request, validate) {
   validate(request);
@@ -30,14 +30,14 @@ async function loadRequest(file, validate) {
   try {
     const stat = await handle.stat();
     if (!stat.isFile() || stat.nlink !== 1 || (stat.mode & 0o077) !== 0 || (typeof process.getuid === 'function' && stat.uid !== process.getuid()) || stat.size > MAX_JOURNAL) throw new Error('request journal requires a private bounded regular file');
-    const bytes = Buffer.alloc(MAX_JOURNAL + 1);
+    const bytes = Buffer.alloc(stat.size + 1);
     let length = 0;
     while (length < bytes.length) {
       const result = await handle.read(bytes, length, bytes.length - length, null);
       if (!result.bytesRead) break;
       length += result.bytesRead;
     }
-    if (length > MAX_JOURNAL) throw new RangeError('request journal exceeds byte limit');
+    if (length > stat.size) throw new RangeError('request journal changed while it was read');
     const request = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes.subarray(0, length)));
     validate(request);
     return Object.freeze(request);

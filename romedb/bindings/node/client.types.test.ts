@@ -1,7 +1,10 @@
-import { connect, Client, Float64, Record, Vector, Value, encodeValue, decodeValue, saveRequest, loadRequest, ClientError } from '@romedb/node/client';
+import { connect, Client, Float64, Record, Vector, Value, encodeValue, decodeValue, saveRequest, loadRequest, ClientError, RequestLimits } from '@romedb/node/client';
 
 async function clientTypes() {
   const db: Client = await connect({ url: 'http://127.0.0.1:4321', token: 'test' });
+  const limits: RequestLimits = db.limits;
+  const batch: number = limits.maxStatements + limits.maxRows + limits.maxRequestBytes + limits.maxResultBytes + limits.maxResponseBytes;
+  void batch;
   const result = await db.read([{ sql: 'SELECT $x', params: { $x: new Float64(1) } }], { workLimits: { rowsRead: 100, vmSteps: 1000 } });
   const count: bigint = result.results[0].affected;
   const value: Value = result.results[0].rows[0][0];

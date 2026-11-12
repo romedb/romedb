@@ -6,7 +6,7 @@ pub mod http;
 #[cfg(all(test, unix))]
 mod recovery;
 mod request;
-use admission::Admission;
+use admission::{request_slots, Admission, ACTIVE_SLOTS, QUEUED_SLOTS};
 use request::{PreparedStatement, Request};
 use romedb::{
     CancellationToken, Connection, Database, Parameters, RequestBudget, TransactionState,
@@ -221,21 +221,30 @@ impl DatabaseService {
     pub fn info(&self) -> Result<Value> {
         let deadline = deadline();
         self.check_fence()?;
-        let _permit = self.admission.acquire(deadline)?;
+        let _permit = self.admission.acquire(deadline, 1)?;
         let publication = self.lock_before(deadline, || self.publication.try_lock())?;
         Ok(
             json!({"id":self.database_id,"sequence":publication.sequence,"serviceVersion":1,"engineVersion":romedb::VERSION,"journalMode":"mvcc",
             "capabilities":{"readVersion":2,"atomicWrites":true,"replayWindow":64,"exactSequenceCondition":true,"metadata":true,"checkedWork":true,"foreignKeys":true},
-            "limits":{"maxRequestBytes":65536,"maxStatements":32,"maxRows":1000,"maxResultBytes":262144,"maxResponseBytes":524288,"activeRequests":4,"queuedRequests":32,"connections":5,"executionTimeoutMs":15000,"rowsRead":1000000,"rowMutations":100000,"vmSteps":10000000}}),
+            "limits":{"maxRequestBytes":romedb::MAX_REQUEST_BYTES,"maxStatements":romedb::MAX_REQUEST_STATEMENTS,"maxRows":romedb::MAX_RESULT_ROWS,"maxResultBytes":romedb::MAX_RESULT_BYTES,"maxResponseBytes":romedb::MAX_RESPONSE_BYTES,"activeRequests":ACTIVE_SLOTS,"queuedRequests":QUEUED_SLOTS,"connections":5,"executionTimeoutMs":15000,"rowsRead":1000000,"rowMutations":100000,"vmSteps":10000000}}),
         )
     }
 
     pub fn read(&self, body: &str) -> Result<String> {
+        self.read_with_result_limits(body, romedb::RequestResultLimits::EARLIER)
+    }
+
+    pub fn read_with_result_limits(
+        &self,
+        body: &str,
+        limits: romedb::RequestResultLimits,
+    ) -> Result<String> {
         let started = deadline();
         self.check_fence()?;
-        let request = Request::parse(body, true)?;
+        let mut request = Request::parse(body, true)?;
+        request.result_limits = limits;
         let statements = request.prepare(true)?;
-        let _permit = self.admission.acquire(started)?;
+        let _permit = self.admission.acquire(started, request_slots(body.len()))?;
         let _schema = self.lock_before(started, || self.schema.try_read())?;
         self.check_fence()?;
         let scope = self.connection()?;
@@ -311,16 +320,25 @@ impl DatabaseService {
     }
 
     pub fn query(&self, body: &str) -> Result<String> {
+        self.query_with_result_limits(body, romedb::RequestResultLimits::EARLIER)
+    }
+
+    pub fn query_with_result_limits(
+        &self,
+        body: &str,
+        limits: romedb::RequestResultLimits,
+    ) -> Result<String> {
         let started = deadline();
         self.check_fence()?;
-        let request = Request::parse(body, false)?;
+        let mut request = Request::parse(body, false)?;
+        request.result_limits = limits;
         let hash = format!("{:x}", Sha256::digest(body.as_bytes()));
         let statements = request.prepare(false).map_err(Into::into);
         let schema_change = statements.as_ref().map_or(true, |s| {
             s.iter()
                 .any(|s| s.kind == romedb::RequestStatementKind::Schema)
         });
-        let _permit = self.admission.acquire(started)?;
+        let _permit = self.admission.acquire(started, request_slots(body.len()))?;
         if !schema_change {
             let _schema = self.lock_before(started, || self.schema.try_read())?;
             if let Some(reply) = self.query_locked(&request, &hash, &statements, started, false)? {

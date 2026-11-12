@@ -39,6 +39,24 @@ test('malformed Unicode is rejected before dispatch and leaves the shared adapte
   assert.deepEqual((await db.read([{ sql: 'SELECT text FROM notes' }])).results[0].rows, [['emoji \ud83d\ude00']]);
 });
 
+test('embedded databases report the service request limits and take requests up to them', async t => {
+  const { file } = await fixture(t);
+  const db = await openEmbedded({ path: file, create: true });
+  t.after(() => db.close());
+  const limits = { maxRequestBytes: 8_388_608, maxStatements: 256, maxRows: 10_000, maxResultBytes: 8_388_608, maxResponseBytes: 16_777_216 };
+  assert.deepEqual({ ...db.limits }, limits);
+  const reported = (await db.info()).limits;
+  assert.deepEqual(Object.fromEntries(Object.keys(limits).map(name => [name, reported[name]])), limits);
+  await db.writeAtomic([{ sql: 'CREATE TABLE notes(id INTEGER PRIMARY KEY, body)' }]);
+  const body = 'x'.repeat(4_000_000);
+  const written = await db.writeAtomic([{ sql: 'INSERT INTO notes VALUES(1, $body) RETURNING length(body)', params: { $body: body } }]);
+  assert.equal(written.results[0].rows[0][0], 4_000_000n);
+  const many = await db.writeAtomic(Array.from({ length: 256 }, (_, n) => ({ sql: `INSERT INTO notes VALUES(${n + 2}, 'n')` })));
+  assert.equal(many.results.length, 256);
+  assert.equal((await db.read([{ sql: 'SELECT body FROM notes WHERE id = 1' }])).results[0].rows[0][0].length, 4_000_000);
+  assert.throws(() => db.prepareWrite(Array.from({ length: 257 }, () => ({ sql: 'SELECT 1' }))), /1\.\.256 statements/);
+});
+
 test('embedded client explicitly creates files and round-trips portable values without a service', async t => {
   const { file } = await fixture(t);
   await assert.rejects(openEmbedded({ path: file }), error => error.code === 'RDB_NOT_FOUND');
@@ -115,7 +133,7 @@ test('embedded constraints, work limits and result limits restore the whole batc
   for (const [statements, options, code] of [
     [[{ sql: 'INSERT INTO data VALUES(2,2)' }, { sql: 'INSERT INTO data VALUES(1,3)' }], {}, 'RDB_CONSTRAINT'],
     [[{ sql: 'INSERT INTO data VALUES(2,2)' }, { sql: 'INSERT INTO data VALUES(3,3)' }], { workLimits: { rowMutations: 1 } }, 'RDB_LIMIT'],
-    [[{ sql: 'INSERT INTO data VALUES(2,2)' }, { sql: 'SELECT hex(zeroblob(80000))' }, { sql: 'SELECT hex(zeroblob(80000))' }], {}, 'RDB_LIMIT'],
+    [[{ sql: 'INSERT INTO data VALUES(2,2)' }, { sql: 'SELECT hex(zeroblob(2200000))' }, { sql: 'SELECT hex(zeroblob(2200000))' }], {}, 'RDB_LIMIT'],
     [[{ sql: 'INSERT INTO data VALUES(2,2)' }, { sql: 'COMMIT' }], {}, 'RDB_UNSUPPORTED'],
   ]) {
     await assert.rejects(db.writeAtomic(statements, options), error => error.code === code && error.outcome === 'rolled-back');

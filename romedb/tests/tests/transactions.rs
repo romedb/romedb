@@ -155,8 +155,8 @@ fn managed_atomic_request_result_and_work_limits_roll_back_writes() {
     q(&connection, "CREATE TABLE data (n INTEGER)");
     for body in [
         r#"{"readOnly":false,"workLimits":{"rowMutations":1},"statements":[{"sql":"INSERT INTO data VALUES(1)"},{"sql":"INSERT INTO data VALUES(2)"}]}"#,
-        r#"{"readOnly":false,"statements":[{"sql":"INSERT INTO data VALUES(1)"},{"sql":"SELECT hex(zeroblob(80000))"},{"sql":"SELECT hex(zeroblob(80000))"}]}"#,
-        r#"{"readOnly":false,"statements":[{"sql":"INSERT INTO data VALUES(1)"},{"sql":"WITH RECURSIVE t(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM t WHERE n<1001) SELECT n FROM t"}]}"#,
+        r#"{"readOnly":false,"statements":[{"sql":"INSERT INTO data VALUES(1)"},{"sql":"SELECT hex(zeroblob(2200000))"},{"sql":"SELECT hex(zeroblob(2200000))"}]}"#,
+        r#"{"readOnly":false,"statements":[{"sql":"INSERT INTO data VALUES(1)"},{"sql":"WITH RECURSIVE t(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM t WHERE n<10001) SELECT n FROM t"}]}"#,
     ] {
         let error = connection
             .execute_atomic_request(body, &romedb::CancellationToken::new())
@@ -237,8 +237,30 @@ fn managed_atomic_fresh_reads_reject_mutations_and_invalid_envelopes() {
             .execute_atomic_request(&body, &romedb::CancellationToken::new())
             .unwrap_err()
             .code(),
+        "RDB_VALIDATION"
+    );
+    let body = format!(
+        r#"{{"readOnly":true,"statements":[{{"sql":"SELECT $v","params":{{"$v":{{"type":"String","value":"{}"}}}}}}]}}"#,
+        "x".repeat(romedb::MAX_REQUEST_BYTES)
+    );
+    assert_eq!(
+        connection
+            .execute_atomic_request(&body, &romedb::CancellationToken::new())
+            .unwrap_err()
+            .code(),
         "RDB_LIMIT"
     );
+    let body = format!(
+        r#"{{"readOnly":true,"statements":[{{"sql":"SELECT length($v) AS n","params":{{"$v":{{"type":"String","value":"{}"}}}}}}]}}"#,
+        "x".repeat(romedb::MAX_REQUEST_BYTES - 200)
+    );
+    let reply = connection
+        .execute_atomic_request(&body, &romedb::CancellationToken::new())
+        .unwrap();
+    assert!(reply.contains(&format!(
+        r#""rows":[[{{"type":"Integer","value":"{}"}}]]"#,
+        romedb::MAX_REQUEST_BYTES - 200
+    )));
 }
 #[test]
 fn validation_errors_preserve_outer_work_and_report_active_state() {

@@ -1,5 +1,5 @@
 export * from './client';
-import type { Client, DatabaseInfo, Statement, RequestOptions, ReadOptions, WriteOptions, BatchResult, PreparedWrite, DatabaseFile, FileExportOptions } from './client';
+import type { Client, RequestLimits, DatabaseInfo, Statement, RequestOptions, ReadOptions, WriteOptions, BatchResult, PreparedWrite, DatabaseFile, FileExportOptions } from './client';
 /** timeoutMs has no default for exports: without it, an export runs until it finishes or signal aborts it. */
 export interface ExportOptions extends FileExportOptions {}
 export interface ExportedFile { sequence: number; bytes: number; }
@@ -11,6 +11,7 @@ export class EmbeddedDatabase implements Client {
   readonly sequence: number;
   readonly sequenceKnown: boolean;
   readonly databaseId: string;
+  readonly limits: RequestLimits;
   info(options?: RequestOptions): Promise<DatabaseInfo>;
   read(statements: Statement[], options?: ReadOptions): Promise<BatchResult>;
   prepareWrite(statements: Statement[], options?: WriteOptions): PreparedWrite;
