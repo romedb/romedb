@@ -13,6 +13,10 @@ were never written when given a zero-length buffer. The advisory is informationa
 (unsound) and was added to the database after the 0.2.22 review, so 0.2.22 has the
 same package version. RomeDB code does not call these functions.
 
+At release time, the same scan of build commit `0e33d4a2` against the advisory
+database at `fd6f39814c4d3c359fdbe223d0280dec4933f78f` (1,458 advisories) also found
+zero findings.
+
 ## Dependency security review for 0.2.22
 Reviewed 2026-11-10 for the Linux x64 0.2.22 candidate. The exact lockfile scan
 covers 361 package/version identities against the RustSec advisory database at
