@@ -1,0 +1,49 @@
+{
+  "version": "0.2.23",
+  "verifiedAtUtc": "2026-11-12T04:59:53.935895+00:00",
+  "releaseUrl": "https://github.com/romedb/romedb/releases/tag/romedb-v0.2.23",
+  "archiveUrl": "https://github.com/romedb/romedb/releases/download/romedb-v0.2.23/romedb-0.2.23-linux-x64.tar.gz",
+  "archiveSha256": "8bf06fce558d2799a087f7c8b2d5cff1de699146b5bb5d5310f301564b3e564e",
+  "archiveBytes": 103925832,
+  "archiveReproduced": "the downloaded tar.gz is byte-identical to the archive built from the assembled bundle (fixed owner and commit-time mtimes)",
+  "sourceCommit": "0e33d4a2d75f47803ff37fa684a7a0fea7f6e5ec",
+  "sourceArchiveSha256": "03592576350d5362c9520f989050070e317b6494e84bd8ed8b17e12d18fd3f75",
+  "anonymousDownload": true,
+  "outerChecksumMatches": true,
+  "internalChecksumsPass": true,
+  "internalFiles": 216,
+  "sourceArchiveMatchesTag": true,
+  "cAbiSmoke": "passed",
+  "cliVersion": "bin/romedb --version prints 'romedb 0.2.23'",
+  "nodePackageAsset": {
+    "url": "https://github.com/romedb/romedb/releases/download/romedb-v0.2.23/romedb-node-0.2.23.tgz",
+    "sha256": "ad360d0d10d75901c3587062d2b440867075e3fefb23f874a8ab60a505bd0695",
+    "bytes": 15617706,
+    "matchesBundle": "byte-identical to packages/romedb-node-0.2.23.tgz in the archive"
+  },
+  "npmPackage": {
+    "url": "https://www.npmjs.com/package/@romedb/node/v/0.2.23",
+    "tarball": "https://registry.npmjs.org/@romedb/node/-/node-0.2.23.tgz",
+    "matchesAsset": "the registry tarball is byte-identical to romedb-node-0.2.23.tgz",
+    "dependsOn": "@romedb/client 0.2.23",
+    "publishedBy": "GitHub Actions run https://github.com/romedb/romedb/actions/runs/43157623515 of npm-publish.yml through npm trusted publishing, without an npm token",
+    "provenance": "npm audit signatures reports a verified attestation; transparency log https://search.sigstore.dev/?logIndex=3825105357"
+  },
+  "consumerChecks": "from clean npm and pnpm installs of @romedb/client and @romedb/node 0.2.23, on Node 22.0.0 and 24.19.0: one installed copy of @romedb/client; Record is the same class through @romedb/client and @romedb/node/client; an embedded database reports the raised limits (8 MiB requests, 256 statements, 10,000 rows, 8 MiB results, 16 MiB responses), runs 256 statements in one write, finds a filtered typo match (databse~1 with a locale filter) and counts matches with search::count. pnpm add of the romedb-node-0.2.23.tgz asset URL alone installs one copy of @romedb/client 0.2.23 from the registry and opens an embedded database",
+  "workersCheck": "Workers bundled by esbuild (platform neutral) from @romedb/client and from @romedb/node/client are the same size (55,638 bytes), have no node: import and ran in Miniflare against serve --directory, including exportFile",
+  "cloudCheck": "on Cloud running 0.2.23 (image romedb-engine-0223-r1, built from the release commit): a hosted memory test of 49 fresh reads of up to 7.7 MB, including rounds of four 7.7 MB reads at once, all succeeded with no memory refusal and no failed invocation in the Worker logs, and a read without the result limits header still got RDB_LIMIT at 256 KiB; filter paths worked on a query-built and a buildIndex-built index, search::count gave 3 and 1 with a filter, databse~1 found all three database documents, a locale value did not match as text, and an unknown filter path was refused with RDB_VALIDATION",
+  "manifestSha256": "53590b0720e3157e20cc63fed2f3ab8ed7e647d5bbe263e97586b7557af43a52",
+  "clientPackageAsset": {
+    "url": "https://github.com/romedb/romedb/releases/download/romedb-v0.2.23/romedb-client-0.2.23.tgz",
+    "sha256": "8368fe230534320b5bff288f277c11e325a68d3a433f0af1fd315cf021399971",
+    "bytes": 33636,
+    "matchesBundle": "byte-identical to packages/romedb-client-0.2.23.tgz in the archive"
+  },
+  "npmClientPackage": {
+    "url": "https://www.npmjs.com/package/@romedb/client/v/0.2.23",
+    "tarball": "https://registry.npmjs.org/@romedb/client/-/client-0.2.23.tgz",
+    "matchesAsset": "the registry tarball is byte-identical to romedb-client-0.2.23.tgz",
+    "publishedBy": "the same run, before @romedb/node",
+    "provenance": "npm audit signatures reports a verified attestation; transparency log https://search.sigstore.dev/?logIndex=3825102851"
+  }
+}
