@@ -9817,6 +9817,54 @@ fn test_exact_rowid_seek_over_shadowed_btree_rows() {
     }
 }
 
+/// What this test checks: A UNIQUE check over checkpointed index entries that newer versions
+/// shadow finds a duplicate in the B-tree or in MVCC, allows a value whose only entry is
+/// shadowed, and reads only the entries with the checked value however many shadowed entries
+/// follow it.
+/// Why this matters: A check that steps through the shadowed entries after its value makes
+/// inserts after a bulk update quadratic.
+#[test]
+fn test_unique_check_over_shadowed_btree_index_entries() {
+    let db = MvccTestDbNoConn::new_with_random_db();
+    let conn = db.connect();
+    conn.execute("CREATE TABLE t(id INTEGER PRIMARY KEY, code INTEGER UNIQUE)")
+        .unwrap();
+    for i in 1..=200 {
+        conn.execute(format!("INSERT INTO t VALUES ({i}, {i})"))
+            .unwrap();
+    }
+    conn.execute("PRAGMA wal_checkpoint(TRUNCATE)").unwrap();
+    conn.execute("UPDATE t SET code = code + 1000 WHERE id <= 150")
+        .unwrap();
+
+    let steps = Arc::new(SeekBtreeSteps::default());
+    conn.set_yield_injector(Some(steps.clone()));
+    let mut steps_per_insert = Vec::new();
+    for i in 1..=150 {
+        steps.0.store(0, Ordering::Relaxed);
+        conn.execute(format!("INSERT INTO t VALUES ({}, {i})", 2000 + i))
+            .unwrap();
+        steps_per_insert.push(steps.0.load(Ordering::Relaxed));
+    }
+    conn.set_yield_injector(None);
+    let most = steps_per_insert.iter().max().unwrap();
+    assert!(
+        *most <= 8,
+        "an insert took {most} B-tree steps: {steps_per_insert:?}"
+    );
+
+    for duplicate in [1, 151, 200, 1001, 1150] {
+        assert!(
+            conn.execute(format!("INSERT INTO t VALUES (5000, {duplicate})"))
+                .is_err(),
+            "code {duplicate} was inserted twice"
+        );
+    }
+    let rows = get_rows(&conn, "SELECT count(*), count(DISTINCT code) FROM t");
+    assert_eq!(rows[0][0].as_int().unwrap(), 350);
+    assert_eq!(rows[0][1].as_int().unwrap(), 350);
+}
+
 /// What this test checks: Checkpoint transitions preserve DB/WAL/log ordering and watermark updates for the tested edge case.
 /// Why this matters: Incorrect ordering breaks crash safety, replay boundaries, or durability guarantees.
 #[test]

@@ -1199,11 +1199,15 @@ impl<Clock: LogicalClock + 'static, A: ConcurrentAllocator> MvccLazyCursor<Clock
                     }
                 }
                 SeekBtreeState::AdvanceBTree => {
-                    return_if_io!(match direction {
-                        IterationDirection::Forwards => {
+                    let one_entry_at_a_time =
+                        op.eq_only() && matches!(seek_key, SeekKey::IndexKey(_));
+                    return_if_io!(match (direction, one_entry_at_a_time) {
+                        (IterationDirection::Forwards, true) => self.btree_cursor.next(),
+                        (IterationDirection::Backwards, true) => self.btree_cursor.prev(),
+                        (IterationDirection::Forwards, false) => {
                             self.advance_btree_forward_from_current()
                         }
-                        IterationDirection::Backwards => {
+                        (IterationDirection::Backwards, false) => {
                             self.advance_btree_backward_from_current()
                         }
                     });
@@ -1222,9 +1226,23 @@ impl<Clock: LogicalClock + 'static, A: ConcurrentAllocator> MvccLazyCursor<Clock
                         (true, SeekKey::TableRowId(target)) => Some(RowKey::Int(*target)),
                         _ => None,
                     };
+                    let past_equal_index_keys = match (&key, &seek_key, &self.mv_cursor_type) {
+                        (
+                            Some(RowKey::Record(found)),
+                            SeekKey::IndexKey(target),
+                            MvccCursorType::Index(index_info),
+                        ) if op.eq_only() => compare_immutable(
+                            target.get_values()?,
+                            found.key.get_values()?,
+                            &index_info.key_info[..target.column_count()],
+                        )
+                        .is_ne(),
+                        _ => false,
+                    };
                     match key {
                         Some(k)
-                            if exact_target.as_ref().is_none_or(|target| *target == k)
+                            if !past_equal_index_keys
+                                && exact_target.as_ref().is_none_or(|target| *target == k)
                                 && self.query_btree_version_is_valid(&k) =>
                         {
                             self.dual_peek.btree_peek = CursorPeek::Row {
@@ -1233,7 +1251,7 @@ impl<Clock: LogicalClock + 'static, A: ConcurrentAllocator> MvccLazyCursor<Clock
                             };
                             return Ok(IOResult::Done(()));
                         }
-                        Some(_) if exact_target.is_none() => {
+                        Some(_) if exact_target.is_none() && !past_equal_index_keys => {
                             // shadowed by MVCC, continue to next
                             self.state.replace(MvccLazyCursorState::Seek(
                                 SeekState::SeekBtree(SeekBtreeState::AdvanceBTree),
