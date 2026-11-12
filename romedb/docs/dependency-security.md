@@ -1,4 +1,19 @@
-# Dependency security review for 0.2.22
+# Dependency security review for 0.2.23
+Reviewed 2026-11-12 for the Linux x64 0.2.23 candidate. The exact lockfile scan
+covers 361 package/version identities against the RustSec advisory database at
+`fd6f39814c4d3c359fdbe223d0280dec4933f78f` (1,458 advisories) using the pinned
+`cargo-audit 0.22.2` binary. It found zero findings in the shipping closure, with
+no accepted exceptions.
+
+The lockfile differs from 0.2.22 in the nine RomeDB workspace package versions and
+in two packages updated for RUSTSEC-2026-0486: `rustix` 1.0.7 to 1.1.6 and its
+`linux-raw-sys` 0.9.3 to 0.12.1. Before 1.1.6, rustix's extended-attribute
+functions (`getxattr`, `listxattr` and their variants) marked bytes as written that
+were never written when given a zero-length buffer. The advisory is informational
+(unsound) and was added to the database after the 0.2.22 review, so 0.2.22 has the
+same package version. RomeDB code does not call these functions.
+
+## Dependency security review for 0.2.22
 Reviewed 2026-11-10 for the Linux x64 0.2.22 candidate. The exact lockfile scan
 covers 361 package/version identities against the RustSec advisory database at
 `d9cb059f3217db87aeccd190b81eaffe8cc29cb9` (1,430 advisories) using the pinned

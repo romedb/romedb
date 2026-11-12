@@ -1,12 +1,12 @@
 {
-  "reviewed_at": "2026-11-09T18:45:13.513138+00:00",
-  "source_commit": "4b3906798a6e5bea4ad671fa153e76b648a3237a",
-  "cargo_lock_sha256": "fe7380f31bf76a5f59ac3a31a0c1ee8c6fa4cccebc6aab26dfd5407c2b9133e6",
+  "reviewed_at": "2026-11-12T02:45:15.661391+00:00",
+  "source_commit": "bca2392da091a905fa3b4a5adeb020bd9c230e76",
+  "cargo_lock_sha256": "4263a73d4dc6852bf402c87cee6ce192222ec29358206cb1c9ee91b6e816c1bd",
   "advisory_database": {
     "repository": "https://github.com/RustSec/advisory-db.git",
-    "commit": "d9cb059f3217db87aeccd190b81eaffe8cc29cb9",
-    "committed_at": "2026-11-09T17:13:08+01:00",
-    "advisory_count": 1430
+    "commit": "fd6f39814c4d3c359fdbe223d0280dec4933f78f",
+    "committed_at": "2026-11-11T13:22:32+01:00",
+    "advisory_count": 1458
   },
   "scanner": "cargo-audit 0.22.2",
   "target": "x86_64-unknown-linux-gnu",
@@ -647,11 +647,11 @@
     },
     {
       "name": "linux-raw-sys",
-      "version": "0.4.15"
+      "version": "0.12.1"
     },
     {
       "name": "linux-raw-sys",
-      "version": "0.9.3"
+      "version": "0.4.15"
     },
     {
       "name": "litemap",
@@ -927,35 +927,35 @@
     },
     {
       "name": "romedb",
-      "version": "0.2.22"
+      "version": "0.2.23"
     },
     {
       "name": "romedb-c",
-      "version": "0.2.22"
+      "version": "0.2.23"
     },
     {
       "name": "romedb-cli",
-      "version": "0.2.22"
+      "version": "0.2.23"
     },
     {
       "name": "romedb-node",
-      "version": "0.2.22"
+      "version": "0.2.23"
     },
     {
       "name": "romedb-protocol",
-      "version": "0.2.22"
+      "version": "0.2.23"
     },
     {
       "name": "romedb-python",
-      "version": "0.2.22"
+      "version": "0.2.23"
     },
     {
       "name": "romedb-service",
-      "version": "0.2.22"
+      "version": "0.2.23"
     },
     {
       "name": "romeql-parser",
-      "version": "0.2.22"
+      "version": "0.2.23"
     },
     {
       "name": "rquickjs",
@@ -987,7 +987,7 @@
     },
     {
       "name": "rustix",
-      "version": "1.0.7"
+      "version": "1.1.6"
     },
     {
       "name": "rustls",

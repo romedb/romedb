@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "target": "x86_64-unknown-linux-gnu",
-  "inventorySha256": "a3f77733fc8439e2591d7603f50cf18506ac70b5cd71dc243beee693518d7ece",
+  "inventorySha256": "ed924998491766704129cd1c715f0d0f5923ab86d3f27a24a449a1bc8b14eead",
   "scope": "Checksummed crate archive notice candidates; not complete notices or linked-binary evidence",
   "packages": [
     {
@@ -2570,9 +2570,9 @@
     },
     {
       "name": "linux-raw-sys",
-      "version": "0.4.15",
+      "version": "0.12.1",
       "status": "archive_verified",
-      "archiveSha256": "d26c52dbd32dccf2d10cac7725f8eae5296885fb5703b261f7d0a0739ec807ab",
+      "archiveSha256": "32a66949e030da00e8c7d4434b251670a91556f4144941d37452769c25d58a53",
       "declaredLicenseFile": null,
       "noticeCandidates": [
         {
@@ -2599,9 +2599,9 @@
     },
     {
       "name": "linux-raw-sys",
-      "version": "0.9.3",
+      "version": "0.4.15",
       "status": "archive_verified",
-      "archiveSha256": "fe7db12097d22ec582439daf8618b8fdd1a7bef6270e9af3b1ebcd30893cf413",
+      "archiveSha256": "d26c52dbd32dccf2d10cac7725f8eae5296885fb5703b261f7d0a0739ec807ab",
       "declaredLicenseFile": null,
       "noticeCandidates": [
         {
@@ -3654,22 +3654,22 @@
     },
     {
       "name": "romedb-cli",
-      "version": "0.2.22",
+      "version": "0.2.23",
       "status": "workspace_source_requires_separate_review"
     },
     {
       "name": "romedb-service",
-      "version": "0.2.22",
+      "version": "0.2.23",
       "status": "workspace_source_requires_separate_review"
     },
     {
       "name": "romedb",
-      "version": "0.2.22",
+      "version": "0.2.23",
       "status": "workspace_source_requires_separate_review"
     },
     {
       "name": "romeql-parser",
-      "version": "0.2.22",
+      "version": "0.2.23",
       "status": "workspace_source_requires_separate_review"
     },
     {
@@ -3814,9 +3814,9 @@
     },
     {
       "name": "rustix",
-      "version": "1.0.7",
+      "version": "1.1.6",
       "status": "archive_verified",
-      "archiveSha256": "c71e83d6afe7ff64890ec6b71d6a69bb8a610ab78ce364b3352876bb4c801266",
+      "archiveSha256": "e5e76742e5294153d4dde1207dbec5bdd81eef6fabdc0d2118babadabfd858aa",
       "declaredLicenseFile": null,
       "noticeCandidates": [
         {

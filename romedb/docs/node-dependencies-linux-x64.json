@@ -7,7 +7,7 @@
     "build"
   ],
   "scope": "Cargo dependency declarations; includes build tools, excludes dev dependencies; not proof of linked code or complete notices",
-  "lockfileSha256": "fe7380f31bf76a5f59ac3a31a0c1ee8c6fa4cccebc6aab26dfd5407c2b9133e6",
+  "lockfileSha256": "4263a73d4dc6852bf402c87cee6ce192222ec29358206cb1c9ee91b6e816c1bd",
   "packages": [
     {
       "name": "aead",
@@ -616,12 +616,12 @@
     },
     {
       "name": "linux-raw-sys",
-      "version": "0.4.15",
+      "version": "0.12.1",
       "licenseExpression": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT"
     },
     {
       "name": "linux-raw-sys",
-      "version": "0.9.3",
+      "version": "0.4.15",
       "licenseExpression": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT"
     },
     {
@@ -911,17 +911,17 @@
     },
     {
       "name": "romedb-node",
-      "version": "0.2.22",
+      "version": "0.2.23",
       "licenseExpression": "MIT"
     },
     {
       "name": "romedb",
-      "version": "0.2.22",
+      "version": "0.2.23",
       "licenseExpression": "MIT"
     },
     {
       "name": "romeql-parser",
-      "version": "0.2.22",
+      "version": "0.2.23",
       "licenseExpression": "MIT"
     },
     {
@@ -956,7 +956,7 @@
     },
     {
       "name": "rustix",
-      "version": "1.0.7",
+      "version": "1.1.6",
       "licenseExpression": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT"
     },
     {
