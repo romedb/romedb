@@ -143,7 +143,10 @@ refused, so no data disappears without an error.
 
 Requests and responses have finite byte and row limits. `rql.limits` gives the ones in
 force: `maxRequestBytes`, `maxStatements`, `maxRows`, `maxResultBytes` and
-`maxResponseBytes`. A local service reports them in its details (8 MiB requests, 256
+`maxResponseBytes`, and on RomeDB Cloud also `maxCommitBytes` and `maxCommitRows`: the log
+one write may add and the rows it may change (1 MiB and 100,000, or 256 MiB and
+5,000,000 where Cloud runs big commits). The client cannot check those two before it
+sends a write; a write past them fails with `RDB_LIMIT` and changes nothing. A local service reports them in its details (8 MiB requests, 256
 statements, 10,000 rows per result, 8 MiB of results and 16 MiB responses since the
 source after 0.2.22), and the client checks every request and reply against them, so a
 request over a limit throws before it is sent. Every read and write sends `maxRows` and
@@ -154,7 +157,12 @@ responses. Cloud keeps write results at 256 KiB, because it stores them for retr
 larger one fails with `RDB_LIMIT`. A server that reports none keeps the earlier values: 64 KiB requests, 32
 statements, 1,000 rows, 256 KiB of results and 512 KiB responses. Size batches from
 `rql.limits` instead of copying the numbers. Each call times out after 20
-seconds by default and accepts `signal` and `timeoutMs`. An HTTP error reply with a
+seconds by default and accepts `signal` and `timeoutMs` (up to 600,000, 10 minutes). A
+big commit on Cloud waits for the database's other writes and can run for minutes, so
+pass a longer `timeoutMs` for a write that changes more than about 1 MiB. A write that
+times out on the client may still commit: make it with `prepareWrite` and send it with
+`submit`, and after a timeout pass the same `PreparedWrite` to `recover`, so it commits
+once. An HTTP error reply with a
 `Retry-After` header sets `ClientError.retryAfterMs`. A transport or response failure
 without a database reply keeps the underlying error as `ClientError.cause`, for
 example a `fetch failed` TypeError with `ECONNREFUSED`.

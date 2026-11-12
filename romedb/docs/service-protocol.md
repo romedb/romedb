@@ -406,7 +406,7 @@ write unresolved; a client cannot manufacture receipt identity or rollback.
 | HTTP connections | 64, with at most 36 database jobs | Hosted admission/quotas also apply |
 | Header/body read deadline | 5 seconds per phase | Hosted transport limits also apply |
 | Execution deadline | 15 seconds, cooperative engine cancellation | 15-second native process limit |
-| Client request timeout | 20 seconds, maximum configurable 120 seconds | Same client default |
+| Client request timeout | 20 seconds, maximum configurable 600 seconds | Same client default |
 | Receipt retention | 64 positions | 64 positions |
 | Checked row reads per request | 1,000,000 | 1,000,000 |
 | Checked row mutations per request | 100,000 | 100,000 |
@@ -417,7 +417,10 @@ The service reports the first five budgets in its details, under `limits`, as
 `maxRequestBytes`, `maxStatements`, `maxRows`, `maxResultBytes` and
 `maxResponseBytes`, next to `activeRequests` and `queuedRequests`. Clients enforce the
 reported values and fall back to the earlier ones (64 KiB, 32, 1,000, 256 KiB and
-512 KiB) for a server that reports none.
+512 KiB) for a server that reports none. RomeDB Cloud also reports `maxCommitBytes` and
+`maxCommitRows`, the log one write may add and the rows it may change (1 MiB and
+100,000, or 256 MiB and 5,000,000 with big commits); a local service reports neither,
+and clients expose them without checking them before sending.
 
 A client states the result limits it accepts in the `x-romedb-result-limits` header of
 each read and write, as `rows=<n>; bytes=<n>`. The service uses the smaller of those and

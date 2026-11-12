@@ -584,8 +584,37 @@ test('reported limits are enforced and exported, and missing ones keep the earli
     await assert.rejects(connect({ url: 'http://localhost:4321', token: 'test-token', fetch: async () => json({ ...details(0), limits }) }), error => error.code === 'RDB_PROTOCOL' && /limit/.test(error.message));
   }
   const deferred = await connect({ url: cloud, token: 'test-token', warm: false, fetch: async () => { throw new Error('no request expected'); } });
-  try { assert.deepEqual({ ...deferred.limits }, { maxRequestBytes: 1_048_576, maxStatements: 256, maxRows: 10_000, maxResultBytes: 8_388_608, maxResponseBytes: 9_437_184 }); }
+  try { assert.deepEqual({ ...deferred.limits }, { maxRequestBytes: 1_048_576, maxStatements: 256, maxRows: 10_000, maxResultBytes: 8_388_608, maxResponseBytes: 9_437_184, maxCommitBytes: 1_048_576, maxCommitRows: 100_000 }); }
   finally { await deferred.close(); }
+});
+
+/**
+ * What this test checks: the client exposes the commit limits a database reports,
+ * uses Cloud's documented 1 MiB and 100,000 rows before it reads the details, leaves
+ * them out for a local service that reports none, refuses invalid values, and lets a
+ * request wait up to 10 minutes.
+ * Why this matters: a big commit on Cloud can change 256 MiB and run for minutes,
+ * and applications size their writes from rql.limits.
+ */
+test('commit limits come from the database details and a request may wait up to 10 minutes', async () => {
+  const big = { maxCommitBytes: 268_435_456, maxCommitRows: 5_000_000 };
+  const remote = await connect({ url: cloud, token: 'test-token', warm: false, deferInfo: false, fetch: async () => json({ ...details(0), id: '22222222-2222-4222-8222-222222222222', limits: big }) });
+  try {
+    assert.equal(remote.limits.maxCommitBytes, 268_435_456);
+    assert.equal(remote.limits.maxCommitRows, 5_000_000);
+  } finally { await remote.close(); }
+  const local = await connect({ url: 'http://localhost:4321', token: 'test-token', fetch: async () => json({ ...details(0), limits: { maxStatements: 64 } }) });
+  try { assert.equal('maxCommitBytes' in local.limits, false); assert.equal('maxCommitRows' in local.limits, false); }
+  finally { await local.close(); }
+  const reported = await connect({ url: 'http://localhost:4321', token: 'test-token', fetch: async () => json({ ...details(0), limits: { maxCommitRows: 7 } }) });
+  try { assert.equal(reported.limits.maxCommitRows, 7); assert.equal('maxCommitBytes' in reported.limits, false); }
+  finally { await reported.close(); }
+  for (const limits of [{ maxCommitBytes: 0 }, { maxCommitBytes: 4 * 1024 * 1024 * 1024 + 1 }, { maxCommitRows: 1.5 }, { maxCommitRows: '5000000' }]) {
+    await assert.rejects(connect({ url: 'http://localhost:4321', token: 'test-token', fetch: async () => json({ ...details(0), limits }) }), error => error.code === 'RDB_PROTOCOL' && /limit maxCommit/.test(error.message));
+  }
+  const patient = await connect({ url: 'http://localhost:4321', token: 'test-token', timeoutMs: 600_000, fetch: async () => json(details(0)) });
+  await patient.close();
+  await assert.rejects(connect({ url: 'http://localhost:4321', token: 'test-token', timeoutMs: 600_001, fetch: async () => json(details(0)) }), /timeoutMs must be 1\.\.600000/);
 });
 
 test('a saved write larger than the connection limits is refused before it is sent', async () => {
