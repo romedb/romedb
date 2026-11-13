@@ -1,6 +1,7 @@
 import type { Value } from './values';
 export { Float64, Record, Vector, Value, PortableValue, encodeValue, decodeValue } from './values';
 export interface Statement { sql: string; params?: { [key: string]: Value }; }
+/** timeoutMs: 1 to 600,000 (10 minutes); the default is 20,000. A big commit on Cloud can take minutes. */
 export interface RequestOptions { signal?: AbortSignal; timeoutMs?: number; }
 /** What a copy of the database leaves out. */
 export interface CopyOptions {
@@ -45,6 +46,14 @@ export interface RequestLimits {
   readonly maxRows: number;
   readonly maxResultBytes: number;
   readonly maxResponseBytes: number;
+  /**
+   * The log one commit may add, in bytes, when the database reports it. RomeDB Cloud reports
+   * 1 MiB, or 256 MiB where big commits are on; a connection that has not read its details
+   * uses 1 MiB. The client cannot check it before sending: a write past it fails with RDB_LIMIT.
+   */
+  readonly maxCommitBytes?: number;
+  /** The rows one write may change, when the database reports it: 100,000 on Cloud, or 5,000,000 with big commits. */
+  readonly maxCommitRows?: number;
 }
 export interface DatabaseInfo {
   id: string; sequence: number; capabilities: Capabilities;

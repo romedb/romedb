@@ -10,8 +10,10 @@ const { Float64, Record, Vector, encodeValue, decodeValue, plainObject, text, ch
 const CLOUD_QUERY_VERSION = 3;
 const MAX_RESPONSE = 524_288;
 const EARLIER_LIMITS = Object.freeze({ maxRequestBytes: 65_536, maxStatements: 32, maxRows: 1000, maxResultBytes: 262_144, maxResponseBytes: MAX_RESPONSE });
-const CLOUD_LIMITS = Object.freeze({ maxRequestBytes: 1_048_576, maxStatements: 256, maxRows: 10_000, maxResultBytes: 8_388_608, maxResponseBytes: 9_437_184 });
-const REPORTED_LIMIT_CEILINGS = Object.freeze({ maxRequestBytes: 64 * 1024 * 1024, maxStatements: 4096, maxRows: 1_000_000, maxResultBytes: 64 * 1024 * 1024, maxResponseBytes: 128 * 1024 * 1024 });
+const CLOUD_LIMITS = Object.freeze({ maxRequestBytes: 1_048_576, maxStatements: 256, maxRows: 10_000, maxResultBytes: 8_388_608, maxResponseBytes: 9_437_184, maxCommitBytes: 1_048_576, maxCommitRows: 100_000 });
+const REPORTED_LIMIT_CEILINGS = Object.freeze({ maxRequestBytes: 64 * 1024 * 1024, maxStatements: 4096, maxRows: 1_000_000, maxResultBytes: 64 * 1024 * 1024, maxResponseBytes: 128 * 1024 * 1024, maxCommitBytes: 4 * 1024 * 1024 * 1024, maxCommitRows: 1_000_000_000 });
+const COMMIT_LIMITS = Object.freeze(['maxCommitBytes', 'maxCommitRows']);
+const MAX_TIMEOUT_MS = 600_000;
 const MAX_SEQUENCE = Number.MAX_SAFE_INTEGER - 1;
 const DATABASE_FILE_TYPE = 'application/vnd.romedb.database';
 const construction = Symbol('RemoteDatabase');
@@ -519,11 +521,13 @@ function capabilities(url, info, local) {
 function requestLimits(reported, fallback) {
   if (reported === undefined || reported === null) return fallback;
   if (!plainObject(reported)) throw new ClientError('RDB_PROTOCOL', 'Invalid database limits', 'read-failed');
-  return Object.freeze(Object.fromEntries(Object.entries(fallback).map(([name, value]) => {
-    const limit = reported[name] ?? value;
+  const checked = (name, limit) => {
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > REPORTED_LIMIT_CEILINGS[name]) throw new ClientError('RDB_PROTOCOL', `Invalid database limit ${name}`, 'read-failed');
-    return [name, limit];
-  })));
+    return limit;
+  };
+  const limits = Object.fromEntries(Object.entries(fallback).map(([name, value]) => [name, checked(name, reported[name] ?? value)]));
+  for (const name of COMMIT_LIMITS) if (!Object.hasOwn(limits, name) && reported[name] !== undefined) limits[name] = checked(name, reported[name]);
+  return Object.freeze(limits);
 }
 
 function sequence(value, reply = false) { return Number.isSafeInteger(value) && value >= 0 && value <= (reply ? MAX_SEQUENCE + 1 : MAX_SEQUENCE); }
@@ -538,7 +542,7 @@ function encodeWorkLimits(value) {
 }
 function checkSequence(value) { if (!sequence(value)) throw new RangeError('sequence requires a nonnegative safe integer below Number.MAX_SAFE_INTEGER'); }
 const MAX_EXPORT_WAIT = 3 * 3600_000, EXPORT_POLL_MS = 2000, EXPORT_POLL_FAILURES = 10, CANCEL_MS = 10_000;
-function timeout(value) { if (!Number.isInteger(value) || value < 1 || value > 120_000) throw new RangeError('timeoutMs must be 1..120000'); return value; }
+function timeout(value) { if (!Number.isInteger(value) || value < 1 || value > MAX_TIMEOUT_MS) throw new RangeError(`timeoutMs must be 1..${MAX_TIMEOUT_MS}`); return value; }
 function byteLength(text) { return encoder.encode(text).byteLength; }
 function checkBodySize(body, limit) {
   if (byteLength(body) > limit) throw new RangeError(`request exceeds ${byteSize(limit)}`);
