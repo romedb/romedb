@@ -1,8 +1,8 @@
 # RomeDB embedded database
 
-RomeDB and RomeQL [0.2.23 are released for Linux x64](docs/release-0.2.23.md),
+RomeDB and RomeQL [0.2.24 are released for Linux x64](docs/release-0.2.24.md),
 with native Rust, Node.js/TypeScript, Python, PHP, Swift, C# and Go clients.
-See the [verified download](docs/release-0.2.23-download.json),
+See the [verified download](docs/release-0.2.24-download.json),
 [implementation status](docs/status.md),
 [language contracts](docs/v2.2-language.md) and [engine provenance](UPSTREAM.md).
 
