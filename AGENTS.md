@@ -219,7 +219,24 @@ name (`default+fold+stem-english`). Prefix expansion now builds the expanded wor
 term queries, so a stored stem is never stemmed again. Keep it until upstream FTS
 offers folding and stemming options; the register has the regressions.
 
-Newest patch (2026-11-12): **MVCC exact seeks over shadowed B-tree rows**,
+Newest patch (2026-11-13): **MVCC commit scans its write set for schema rows once**,
+`step_build_log_record` in `core/mvcc/database/mod.rs`. The created, dropped and removed
+B-tree sets of a commit are computed on its first log-record batch and kept in
+`BuildLogRecordCtx::schema_btree_changes`, instead of being recomputed from the whole write
+set for each batch of 1,024 entries; a 1,000,000-row commit took 103.6 s before its log
+record was ready. Keep it until upstream stops recomputing them per batch; the register
+has the regression.
+
+Newer patch (2026-11-12): **MVCC log-byte budget**, `core/execution_meter.rs`,
+`ProgramState::record_log_write` in `core/vdbe/mod.rs`, the insert and delete opcodes in
+`core/vdbe/execute.rs`, and `portable_delete_extension_len` in `core/mvcc/portable_logical.rs`.
+The meter adds an estimate of the MVCC logical-log bytes of each row written through an
+MVCC cursor. With `ExecutionLimits::max_log_bytes` set, a statement whose
+estimate passes the limit stops with an interrupt before COMMIT, like the mutation budget.
+Keep it until upstream can limit the log size of a transaction before its commit; the
+register has the regressions.
+
+Newer patch (2026-11-12): **MVCC exact seeks over shadowed B-tree rows**,
 `seek_btree_and_set_peek` in `core/mvcc/cursor.rs`. An exact rowid seek stops at its row
 (backport of upstream `d94a7d320` and `4813f6096`; drop it at the first sync that contains
 upstream `2c837d49a`). Ours: an exact index seek steps the B-tree one entry at a time and

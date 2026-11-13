@@ -9,6 +9,8 @@ use std::sync::{
     Arc,
 };
 
+const LOG_BYTES_PER_ROW_WRITE: u64 = 10;
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct ExecutionSnapshot {
     pub rows_read: u64,
@@ -22,10 +24,12 @@ pub struct ExecutionSnapshot {
     pub row_mutations: u64,
     /// VM dispatch attempts, including attempts that yield for I/O.
     pub vm_steps: u64,
+    pub log_bytes: u64,
     pub vm_budget_exhausted: bool,
     pub read_budget_exhausted: bool,
     pub schema_budget_exhausted: bool,
     pub mutation_budget_exhausted: bool,
+    pub log_bytes_budget_exhausted: bool,
 }
 
 /// Optional execution limits. Read limits interrupt immediately after the first
@@ -41,6 +45,7 @@ pub struct ExecutionLimits {
     pub max_vm_steps: Option<u64>,
     pub max_rows_read: Option<u64>,
     pub max_row_mutations: Option<u64>,
+    pub max_log_bytes: Option<u64>,
 }
 
 /// A fresh meter can span several sequential statements. Retain its `Arc` to
@@ -61,13 +66,16 @@ struct ExecutionState {
     rows_written: AtomicU64,
     row_mutations: AtomicU64,
     vm_steps: AtomicU64,
+    log_bytes: AtomicU64,
     max_vm_steps: Option<u64>,
     max_rows_read: Option<u64>,
     max_row_mutations: Option<u64>,
+    max_log_bytes: Option<u64>,
     vm_budget_exhausted: AtomicBool,
     read_budget_exhausted: AtomicBool,
     schema_budget_exhausted: AtomicBool,
     mutation_budget_exhausted: AtomicBool,
+    log_bytes_budget_exhausted: AtomicBool,
 }
 
 impl ExecutionMeter {
@@ -78,6 +86,7 @@ impl ExecutionMeter {
             max_vm_steps,
             max_rows_read: None,
             max_row_mutations: None,
+            max_log_bytes: None,
         })
     }
 
@@ -87,6 +96,7 @@ impl ExecutionMeter {
                 max_vm_steps: limits.max_vm_steps,
                 max_rows_read: limits.max_rows_read,
                 max_row_mutations: limits.max_row_mutations,
+                max_log_bytes: limits.max_log_bytes,
                 ..ExecutionState::default()
             }),
             suppress_row_mutations: false,
@@ -108,6 +118,7 @@ impl ExecutionMeter {
                 max_vm_steps: limits.max_vm_steps,
                 max_rows_read: limits.max_rows_read,
                 max_row_mutations: limits.max_row_mutations,
+                max_log_bytes: limits.max_log_bytes,
                 separate_schema_reads: true,
                 max_schema_rows_read,
                 ..ExecutionState::default()
@@ -137,9 +148,14 @@ impl ExecutionMeter {
             rows_written: self.state.rows_written.load(Ordering::Relaxed),
             row_mutations: self.state.row_mutations.load(Ordering::Relaxed),
             vm_steps: self.state.vm_steps.load(Ordering::Relaxed),
+            log_bytes: self.state.log_bytes.load(Ordering::Relaxed),
             vm_budget_exhausted: self.state.vm_budget_exhausted.load(Ordering::Relaxed),
             read_budget_exhausted: self.state.read_budget_exhausted.load(Ordering::Relaxed),
             mutation_budget_exhausted: self.state.mutation_budget_exhausted.load(Ordering::Relaxed),
+            log_bytes_budget_exhausted: self
+                .state
+                .log_bytes_budget_exhausted
+                .load(Ordering::Relaxed),
         }
     }
 
@@ -210,11 +226,37 @@ impl ExecutionMeter {
         true
     }
 
+    pub(crate) fn record_log_write(&self, key_and_record_len: u64) -> bool {
+        let bytes = LOG_BYTES_PER_ROW_WRITE.saturating_add(key_and_record_len);
+        let previous = self
+            .state
+            .log_bytes
+            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |value| {
+                Some(value.saturating_add(bytes))
+            })
+            .expect("unconditional update");
+        if self
+            .state
+            .max_log_bytes
+            .is_some_and(|limit| previous.saturating_add(bytes) > limit)
+        {
+            self.state
+                .log_bytes_budget_exhausted
+                .store(true, Ordering::Relaxed);
+            return false;
+        }
+        true
+    }
+
     pub(crate) fn is_budget_exhausted(&self) -> bool {
         self.state.read_budget_exhausted.load(Ordering::Relaxed)
             || self.state.schema_budget_exhausted.load(Ordering::Relaxed)
             || self.state.vm_budget_exhausted.load(Ordering::Relaxed)
             || self.state.mutation_budget_exhausted.load(Ordering::Relaxed)
+            || self
+                .state
+                .log_bytes_budget_exhausted
+                .load(Ordering::Relaxed)
     }
 
     pub(crate) fn record_rows_written(&self, count: u64) {

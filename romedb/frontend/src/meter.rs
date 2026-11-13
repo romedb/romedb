@@ -53,6 +53,7 @@ pub struct WriteWorkLimits {
     pub max_rows_read: Option<u64>,
     pub max_row_mutations: Option<u64>,
     pub max_vm_steps: Option<u64>,
+    pub max_log_bytes: Option<u64>,
 }
 
 /// Attempted work survives rollback. `row_mutations` is never a committed-write
@@ -62,9 +63,11 @@ pub struct WriteWork {
     pub rows_read: u64,
     pub row_mutations: u64,
     pub vm_steps: u64,
+    pub log_bytes: u64,
     pub read_budget_exhausted: bool,
     pub mutation_budget_exhausted: bool,
     pub vm_budget_exhausted: bool,
+    pub log_bytes_budget_exhausted: bool,
 }
 
 #[derive(Debug)]
@@ -82,6 +85,7 @@ pub struct CreateWorkLimits {
     pub max_schema_rows_read: Option<u64>,
     pub max_row_mutations: Option<u64>,
     pub max_vm_steps: Option<u64>,
+    pub max_log_bytes: Option<u64>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize)]
@@ -90,10 +94,12 @@ pub struct CreateWork {
     pub schema_rows_read: u64,
     pub row_mutations: u64,
     pub vm_steps: u64,
+    pub log_bytes: u64,
     pub read_budget_exhausted: bool,
     pub schema_budget_exhausted: bool,
     pub mutation_budget_exhausted: bool,
     pub vm_budget_exhausted: bool,
+    pub log_bytes_budget_exhausted: bool,
 }
 
 #[derive(Debug)]
@@ -446,6 +452,7 @@ impl Connection {
                 max_rows_read: work_limits.max_rows_read,
                 max_row_mutations: work_limits.max_row_mutations,
                 max_vm_steps: work_limits.max_vm_steps,
+                max_log_bytes: work_limits.max_log_bytes,
             },
             work_limits.max_schema_rows_read,
         ));
@@ -492,6 +499,7 @@ impl Connection {
                             max_vm_steps: remaining(work_limits.max_vm_steps, before.vm_steps),
                             // Reserve the table's own rows before native FK actions.
                             max_row_mutations: remaining(work_limits.max_row_mutations, removing),
+                            max_log_bytes: remaining(work_limits.max_log_bytes, before.log_bytes),
                         },
                         remaining(work_limits.max_schema_rows_read, before.schema_rows_read),
                     ));
@@ -525,6 +533,7 @@ impl Connection {
                 .schema_rows_read
                 .saturating_add(before.schema_rows_read);
             work.vm_steps = work.vm_steps.saturating_add(before.vm_steps);
+            work.log_bytes = work.log_bytes.saturating_add(before.log_bytes);
             // Preflight only counts rows. It has no mutation events, and a budget
             // failure returns before the execution meter can replace it.
             debug_assert_eq!(before.row_mutations, 0);
@@ -536,10 +545,12 @@ impl Connection {
                 schema_rows_read: work.schema_rows_read,
                 row_mutations: work.row_mutations.saturating_add(dropped_rows),
                 vm_steps: work.vm_steps,
+                log_bytes: work.log_bytes,
                 read_budget_exhausted: work.read_budget_exhausted,
                 schema_budget_exhausted: work.schema_budget_exhausted,
                 mutation_budget_exhausted: work.mutation_budget_exhausted || drop_budget_exhausted,
                 vm_budget_exhausted: work.vm_budget_exhausted,
+                log_bytes_budget_exhausted: work.log_bytes_budget_exhausted,
             },
         })
     }
@@ -568,6 +579,7 @@ impl Connection {
             max_rows_read: work_limits.max_catalog_rows_read,
             max_row_mutations: Some(0),
             max_vm_steps: work_limits.max_vm_steps,
+            max_log_bytes: None,
         }));
         let outcome = self.with_statement_timeout(sql, |sql| {
             crate::parser_stack(|| {
@@ -633,6 +645,7 @@ impl Connection {
             max_rows_read: work_limits.max_rows_read,
             max_row_mutations: None,
             max_vm_steps: work_limits.max_vm_steps,
+            max_log_bytes: None,
         }));
         let outcome = self.with_statement_timeout(sql, |sql| {
             crate::parser_stack(|| {
@@ -685,6 +698,7 @@ impl Connection {
             max_rows_read: work_limits.max_rows_read,
             max_row_mutations: work_limits.max_row_mutations,
             max_vm_steps: work_limits.max_vm_steps,
+            max_log_bytes: work_limits.max_log_bytes,
         }));
         let outcome = crate::parser_stack(|| {
             {
@@ -704,9 +718,11 @@ impl Connection {
                 rows_read: snapshot.rows_read,
                 row_mutations: snapshot.row_mutations,
                 vm_steps: snapshot.vm_steps,
+                log_bytes: snapshot.log_bytes,
                 read_budget_exhausted: snapshot.read_budget_exhausted,
                 mutation_budget_exhausted: snapshot.mutation_budget_exhausted,
                 vm_budget_exhausted: snapshot.vm_budget_exhausted,
+                log_bytes_budget_exhausted: snapshot.log_bytes_budget_exhausted,
             },
         }
     }

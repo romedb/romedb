@@ -34,6 +34,7 @@ fn metered_record_updates_normalize_romeql_before_result_limit_validation() {
             max_rows_read: Some(100),
             max_row_mutations: Some(10),
             max_vm_steps: Some(100_000),
+            max_log_bytes: None,
         };
         let updated =
             connection.write_metered("UPDATE docs:a SET title='changed'", &params, limits, work);

@@ -163,6 +163,7 @@ fn independent_schema_and_data_budgets_retain_crossing_visits_and_rollback_ddl()
                     max_rows_read: read_limit,
                     max_row_mutations: mutation_limit,
                     max_vm_steps: None,
+                    max_log_bytes: None,
                 },
                 schema_limit,
             ));
@@ -355,6 +356,7 @@ fn failed_unique_build_retains_reads_and_empty_build_needs_no_data_allowance() {
                 max_rows_read: Some(0),
                 max_row_mutations: Some(0),
                 max_vm_steps: None,
+                max_log_bytes: None,
             },
             Some(100),
         ));

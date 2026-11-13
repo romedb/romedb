@@ -1543,6 +1543,13 @@ pub struct BuildLogRecordCtx {
     /// op after both row-version passes complete (preserves on-disk
     /// order: ops first, header last).
     pub pending_header: Option<DatabaseHeader>,
+    pub schema_btree_changes: Option<Arc<SchemaBtreeChanges>>,
+}
+
+#[derive(Debug)]
+pub struct SchemaBtreeChanges {
+    created_and_dropped: HashSet<MVTableId>,
+    removed_from_schema: HashSet<MVTableId>,
 }
 
 /// Iteration state for the chunked `RewriteLiveVersions` step.
@@ -1598,6 +1605,7 @@ pub(crate) enum CommitYieldPoint {
     /// before the offset is advanced. Dropping the waiter here must not
     /// roll back a write the leader still owns.
     LogicalLogWriteIssued,
+    BuildLogRecordSchemaScan,
 }
 
 #[cfg(any(test, injected_yields))]
@@ -2019,6 +2027,7 @@ impl<Clock: LogicalClock, A: ConcurrentAllocator> CommitStateMachine<Clock, A> {
             cursor: 0,
             schema_process: true,
             pending_header,
+            schema_btree_changes: None,
         });
         Ok(())
     }
@@ -2366,6 +2375,16 @@ impl<Clock: LogicalClock, A: ConcurrentAllocator> CommitStateMachine<Clock, A> {
         if is_first_entry {
             inject_transition_yield!(self, CommitYieldPoint::BuildLogRecordStart);
         }
+        let scans_write_set_for_schema_rows = matches!(
+            self.state,
+            CommitState::BuildLogRecord(BuildLogRecordCtx {
+                schema_btree_changes: None,
+                ..
+            })
+        );
+        if scans_write_set_for_schema_rows {
+            inject_transition_yield!(self, CommitYieldPoint::BuildLogRecordSchemaScan);
+        }
 
         let tx_id = self.tx_id;
         let tx = self.committing_tx(mvcc_store).ok_or_else(|| {
@@ -2401,71 +2420,85 @@ impl<Clock: LogicalClock, A: ConcurrentAllocator> CommitStateMachine<Clock, A> {
             )
         };
 
-        let mut btree_ids_created_and_dropped_in_tx: HashSet<MVTableId> = HashSet::default();
-        let mut btree_ids_removed_from_schema_by_tx: HashSet<MVTableId> = HashSet::default();
-        {
-            let write_set = tx.write_set.lock();
-            let frame_writes_schema = write_set
-                .entries
-                .iter()
-                .any(|(id, _)| id.table_id == SQLITE_SCHEMA_MVCC_TABLE_ID);
+        if ctx.schema_btree_changes.is_none() {
+            let mut btree_ids_created_and_dropped_in_tx: HashSet<MVTableId> = HashSet::default();
+            let mut btree_ids_removed_from_schema_by_tx: HashSet<MVTableId> = HashSet::default();
+            {
+                let write_set = tx.write_set.lock();
+                let frame_writes_schema = write_set
+                    .entries
+                    .iter()
+                    .any(|(id, _)| id.table_id == SQLITE_SCHEMA_MVCC_TABLE_ID);
 
-            // Decoding sqlite_schema records is only needed for DDL frames.
-            // Normal DML frames do not touch sqlite_schema, so avoid parsing
-            // schema records while committing the common path.
-            if frame_writes_schema {
-                let mut schema_roots_created_and_deleted_in_tx: HashSet<i64> = HashSet::default();
-                let mut schema_roots_deleted_by_tx: HashSet<i64> = HashSet::default();
-                let mut schema_roots_present_before_tx: HashSet<i64> = HashSet::default();
-                let mut schema_roots_present_after_tx: HashSet<i64> = HashSet::default();
+                // Decoding sqlite_schema records is only needed for DDL frames.
+                // Normal DML frames do not touch sqlite_schema, so avoid parsing
+                // schema records while committing the common path.
+                if frame_writes_schema {
+                    let mut schema_roots_created_and_deleted_in_tx: HashSet<i64> =
+                        HashSet::default();
+                    let mut schema_roots_deleted_by_tx: HashSet<i64> = HashSet::default();
+                    let mut schema_roots_present_before_tx: HashSet<i64> = HashSet::default();
+                    let mut schema_roots_present_after_tx: HashSet<i64> = HashSet::default();
 
-                for (id, row_versions) in &write_set.entries {
-                    // Only sqlite_schema entries can yield a btree identity. The
-                    // common path (CREATE INDEX on a populated table, bulk DML)
-                    // has tens of thousands of write_set entries that are NOT
-                    // sqlite_schema; locking each and parsing every version was
-                    // the dominant cost of MVCC commit on this branch.
-                    if id.table_id != SQLITE_SCHEMA_MVCC_TABLE_ID {
-                        continue;
-                    }
-                    for row_version in row_versions.read().iter() {
-                        let Some(identity) = sqlite_schema_btree_identity(row_version) else {
+                    for (id, row_versions) in &write_set.entries {
+                        // Only sqlite_schema entries can yield a btree identity. The
+                        // common path (CREATE INDEX on a populated table, bulk DML)
+                        // has tens of thousands of write_set entries that are NOT
+                        // sqlite_schema; locking each and parsing every version was
+                        // the dominant cost of MVCC commit on this branch.
+                        if id.table_id != SQLITE_SCHEMA_MVCC_TABLE_ID {
                             continue;
-                        };
-                        let our_begin = is_our_begin(row_version);
-                        let our_end = is_our_end(row_version);
-                        if !our_begin {
-                            schema_roots_present_before_tx.insert(identity.root_page);
                         }
-                        if our_end {
-                            schema_roots_deleted_by_tx.insert(identity.root_page);
-                        }
-                        if !our_end {
-                            schema_roots_present_after_tx.insert(identity.root_page);
-                        }
-                        if our_begin && our_end && !row_version.btree_resident {
-                            schema_roots_created_and_deleted_in_tx.insert(identity.root_page);
+                        for row_version in row_versions.read().iter() {
+                            let Some(identity) = sqlite_schema_btree_identity(row_version) else {
+                                continue;
+                            };
+                            let our_begin = is_our_begin(row_version);
+                            let our_end = is_our_end(row_version);
+                            if !our_begin {
+                                schema_roots_present_before_tx.insert(identity.root_page);
+                            }
+                            if our_end {
+                                schema_roots_deleted_by_tx.insert(identity.root_page);
+                            }
+                            if !our_end {
+                                schema_roots_present_after_tx.insert(identity.root_page);
+                            }
+                            if our_begin && our_end && !row_version.btree_resident {
+                                schema_roots_created_and_deleted_in_tx.insert(identity.root_page);
+                            }
                         }
                     }
-                }
 
-                for root_page in schema_roots_deleted_by_tx {
-                    if !schema_roots_present_after_tx.contains(&root_page) {
-                        btree_ids_removed_from_schema_by_tx
-                            .insert(mvcc_store.get_table_id_from_root_page(root_page));
+                    for root_page in schema_roots_deleted_by_tx {
+                        if !schema_roots_present_after_tx.contains(&root_page) {
+                            btree_ids_removed_from_schema_by_tx
+                                .insert(mvcc_store.get_table_id_from_root_page(root_page));
+                        }
                     }
-                }
 
-                for root_page in schema_roots_created_and_deleted_in_tx {
-                    if !schema_roots_present_before_tx.contains(&root_page)
-                        && !schema_roots_present_after_tx.contains(&root_page)
-                    {
-                        btree_ids_created_and_dropped_in_tx
-                            .insert(mvcc_store.get_table_id_from_root_page(root_page));
+                    for root_page in schema_roots_created_and_deleted_in_tx {
+                        if !schema_roots_present_before_tx.contains(&root_page)
+                            && !schema_roots_present_after_tx.contains(&root_page)
+                        {
+                            btree_ids_created_and_dropped_in_tx
+                                .insert(mvcc_store.get_table_id_from_root_page(root_page));
+                        }
                     }
                 }
             }
+            ctx.schema_btree_changes = Some(Arc::new(SchemaBtreeChanges {
+                created_and_dropped: btree_ids_created_and_dropped_in_tx,
+                removed_from_schema: btree_ids_removed_from_schema_by_tx,
+            }));
         }
+        let schema_btree_changes = Arc::clone(
+            ctx.schema_btree_changes
+                .as_ref()
+                .expect("schema B-tree changes are computed on the first BuildLogRecord step"),
+        );
+        let btree_ids_created_and_dropped_in_tx = &schema_btree_changes.created_and_dropped;
+        let btree_ids_removed_from_schema_by_tx = &schema_btree_changes.removed_from_schema;
 
         // Remap a table_id to its canonical form for the log. After checkpoint,
         // a table's in-memory table_id (e.g. -53) may differ from -(root_page)
@@ -3377,6 +3410,7 @@ impl<Clock: LogicalClock, A: ConcurrentAllocator> StateTransition for CommitStat
                     cursor: 0,
                     schema_process: true,
                     pending_header,
+                    schema_btree_changes: None,
                 });
                 return Ok(TransitionResult::Continue);
             }

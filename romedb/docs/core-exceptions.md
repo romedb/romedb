@@ -7,6 +7,80 @@ below tracks upstream replacement candidates; no patch is removed from the
 existing pinned engine merely because a newer upstream revision contains a fix.
 No automatic removal or periodic monitoring is configured.
 
+## MVCC commit scans its write set for schema rows once (2026-11-13)
+
+`step_build_log_record` in `core/mvcc/database/mod.rs` builds a commit's log record in
+batches of `MVCC_COMMIT_BATCH_SIZE` (1,024) write-set entries and yields between batches.
+Upstream recomputes, at the start of every batch, which B-trees the transaction created
+and dropped or removed from `sqlite_schema`: it reads every write-set entry to find
+`sqlite_schema` rows. That made the step quadratic. A RomeDB Cloud big commit of 1,000,000
+indexed rows (2,000,000 entries, two passes of about 1,950 batches) spent 103.6 s between
+COMMIT and its log record, against 4.4 s for 300,000 rows.
+
+The two sets are now computed on the first call and kept in
+`BuildLogRecordCtx::schema_btree_changes` until the record is built. The yield point
+`CommitYieldPoint::BuildLogRecordSchemaScan` marks each computation for tests. Both
+passes and their yields are unchanged.
+
+Keep this exception until upstream stops recomputing the schema sets on every batch. On a
+sync, check that `step_build_log_record` still reads `schema_btree_changes` and that a new
+upstream use of the write set at the top of the step does not scan it again. The
+regression is `test_build_log_record_scans_the_write_set_for_schema_rows_once` in
+`core/mvcc/database/tests.rs` (6 scans without the change, 1 with it), with
+`test_build_log_record_yields_for_large_write_set` unchanged.
+
+## MVCC log-byte budget (2026-11-12)
+
+RomeDB Cloud caps the MVCC logical log of one commit at 1 MiB. Upstream has no way to
+see that a transaction is too big before it commits: Cloud only finds out in `log_tx`,
+after the commit has its timestamp, and must then fence and restart the session. The
+execution meter now counts an estimate of the logical-log bytes of the rows a statement
+writes and can stop the statement before COMMIT.
+
+`core/execution_meter.rs` adds `ExecutionLimits::max_log_bytes` and the snapshot fields
+`log_bytes` and `log_bytes_budget_exhausted`. `op_insert`, `op_delete`, `op_idx_insert`
+and `op_idx_delete` in `core/vdbe/execute.rs` call `ProgramState::record_log_write` in
+`core/vdbe/mod.rs` after each row they write through an MVCC cursor (`is_mvcc()`). The
+estimate for one row is 10 bytes plus the key and the record: the rowid varint and the
+record for a table insert, the rowid varint for a table delete, and the index key record
+for an index insert or delete. When the connection writes portable logical changes (RomeDB
+Cloud sets a commit tag, which turns them on), a table delete also adds the length of the
+extension that the commit writes with it: the primary key record and the rowid, built by
+`portable_delete_extension_len` in `core/mvcc/portable_logical.rs` with the same encoder as
+`portable_delete_op_extension_for_row_version`. For a document, whose primary key is the
+record id, this is about 100 bytes. Writes to temporary tables (for example the rowid list
+of an UPDATE that changes the index it scans, or RETURNING rows) and to databases
+without MVCC are not counted. When the estimate passes the limit, the meter marks the
+budget as spent and the statement stops with `LimboError::Interrupt`, like the mutation
+budget. It is an ordinary statement error, before COMMIT: an autocommit statement rolls
+back, an explicit transaction stays open for the caller to roll back, and the connection
+stays usable. Without a meter, or with `max_log_bytes` set to `None`, nothing
+changes. The counter keeps the bytes of rolled-back work and of rows written more than
+once in one transaction, so it can be larger than the commit. It does not count the
+frame header, trailer and transaction metadata of the commit (a few hundred bytes), nor
+the identity record that a portable `sqlite_schema` delete carries.
+
+In an explicit MVCC transaction, a statement that writes without a statement savepoint
+(for example `UPDATE t SET v = v + 1` with no constraint to check) keeps the rows it wrote
+before the interrupt until ROLLBACK, and a COMMIT fails with `cannot commit - an unfinished
+write statement was abandoned` and rolls the transaction back. This is the existing
+behavior for any interrupted writer, the mutation budget too. Callers roll back; RomeDB's
+`write_metered` already undoes the statement through its savepoint.
+
+Keep this exception until upstream can limit the logical-log size of a transaction
+before its commit. On a sync, check that the four opcodes still call
+`record_log_write` after the cursor write, and that the estimate still covers the op
+format written by `serialize_op_entry` in
+`core/mvcc/persistent_storage/logical_log/serializer.rs`. The regressions are
+`log_byte_budget_interrupts_update_before_commit`,
+`log_byte_budget_not_reached_commits_normally`,
+`log_byte_estimate_is_close_to_logical_log_growth`,
+`log_bytes_skip_temporary_tables_of_update` and `log_bytes_stay_zero_without_mvcc` in
+`core/mvcc/database/tests.rs`, and
+`log_byte_budget_rolls_back_mvcc_writes_and_keeps_caller_transaction` and
+`document_log_byte_estimate_covers_logical_log_growth` in
+`romedb/tests/tests/metered_writes.rs`.
+
 ## MVCC exact seeks over shadowed B-tree rows (2026-11-12)
 
 On an MVCC file, a B-tree row or index entry is shadowed when a newer version of it is in

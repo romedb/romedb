@@ -10,6 +10,8 @@ use crate::mvcc::cursor::{MvccCursorType, NextRowidResult};
 use crate::mvcc::database::{
     BootstrapState, CheckpointReadLockState, CheckpointStateMachine, TxID,
 };
+#[cfg(feature = "conn_raw_api")]
+use crate::mvcc::portable_logical::portable_delete_extension_len;
 use crate::mvcc::MvccClock;
 use crate::numeric::Numeric;
 use crate::schema::{
@@ -25,12 +27,13 @@ use crate::storage::database::DatabaseFile;
 use crate::storage::journal_mode;
 use crate::storage::page_cache::PageCache;
 use crate::storage::pager::{default_page1, CreateBTreeFlags, PageRef, SavepointResult};
-use crate::storage::sqlite3_ondisk::{DatabaseHeader, PageSize, RawVersion};
+use crate::storage::sqlite3_ondisk::{varint_len, DatabaseHeader, PageSize, RawVersion};
 use crate::translate::collate::CollationSeq;
 use crate::types::IOResultOr;
 use crate::types::{
     compare_immutable, compare_immutable_single, compare_record, AsValueRef, Extendable,
-    IOCompletions, IOResult, ImmutableRecord, IndexInfo, SeekResult, Text, ValueIterator,
+    IOCompletions, IOResult, ImmutableRecord, IndexInfo, Record, SeekResult, SerialType, Text,
+    ValueIterator,
 };
 use crate::util::{
     escape_sql_string_literal, normalize_ident, rename_identifiers,
@@ -12722,7 +12725,7 @@ pub fn op_insert(
                     };
                     let cursor = get_cursor!(state, *cursor_id);
                     let cursor = cursor.as_btree_mut();
-                    if cursor.has_rowid() {
+                    let key_len = if cursor.has_rowid() {
                         let key = match &state.registers[*key_reg].get_value() {
                             Value::Numeric(Numeric::Integer(i)) => *i,
                             _ => unreachable!("expected integer key"),
@@ -12731,13 +12734,21 @@ pub fn op_insert(
                             state,
                             cursor.insert(&BTreeKey::new_table_rowid(key, Some(&record)))
                         );
+                        varint_len(key as u64)
                     } else {
                         return_if_io!(
                             state,
                             cursor.insert(&BTreeKey::new_index_key(record.as_record_ref()))
                         );
-                    }
+                        0
+                    };
+                    let logged_len = cursor
+                        .is_mvcc()
+                        .then(|| (key_len + record.get_payload().len()) as u64);
                     state.record_rows_written(1);
+                    if let Some(logged_len) = logged_len {
+                        state.record_log_write(logged_len)?;
+                    }
                 }
                 // Only update last_insert_rowid for regular table inserts, not schema modifications
                 let root_page = {
@@ -12968,11 +12979,37 @@ pub fn op_delete(
                 continue;
             }
             OpDeleteSubState::Delete => {
-                {
+                let metered = state.execution_meter.is_some();
+                #[cfg(feature = "conn_raw_api")]
+                let portable = metered
+                    && program.connection.portable_logical_changes_enabled()
+                    && !ProgramState::is_schema_cursor(program, *cursor_id);
+                let logged_len = {
                     let cursor = state.get_cursor(*cursor_id);
                     let cursor = cursor.as_btree_mut();
+                    let logged_len = if metered && cursor.is_mvcc() {
+                        let rowid = return_if_io!(state, cursor.rowid()).unwrap_or_default();
+                        #[cfg(feature = "conn_raw_api")]
+                        let extension_len = if portable {
+                            let record = return_if_io!(state, cursor.record());
+                            portable_delete_extension_len(
+                                &program.connection.schema.read(),
+                                table_name,
+                                rowid,
+                                record,
+                            )?
+                        } else {
+                            0
+                        };
+                        #[cfg(not(feature = "conn_raw_api"))]
+                        let extension_len = 0;
+                        Some(varint_len(rowid as u64) as u64 + extension_len)
+                    } else {
+                        None
+                    };
                     return_if_io!(state, cursor.delete());
-                }
+                    logged_len
+                };
                 // Increment metrics for row write (DELETE is a write operation)
                 state.record_rows_written(1);
                 let root_page = state.get_cursor(*cursor_id).as_btree_mut().root_page();
@@ -12982,6 +13019,9 @@ pub fn op_delete(
                     && table_name != SQLITE_SEQUENCE_TABLE_NAME
                 {
                     state.record_cursor_row_mutation(program, *cursor_id)?;
+                }
+                if let Some(logged_len) = logged_len {
+                    state.record_log_write(logged_len)?;
                 }
                 let schema = program.connection.schema.read();
                 let dependent_views = schema.get_dependent_materialized_views(table_name);
@@ -13123,19 +13163,38 @@ pub fn op_idx_delete(
                 *state.active_op_state.idx_delete() = OpIdxDeleteState::Deleting;
             }
             OpIdxDeleteState::Deleting => {
-                {
+                let is_mvcc = {
                     let cursor = state.get_cursor(*cursor_id);
                     let cursor = cursor.as_btree_mut();
                     return_if_io!(state, cursor.delete());
-                }
+                    cursor.is_mvcc()
+                };
                 // Increment metrics for index write (delete is a write operation)
                 state.record_rows_written(1);
+                if is_mvcc && state.execution_meter.is_some() {
+                    let key_len = record_len(&state.registers[*start_reg..*start_reg + *num_regs]);
+                    state.record_log_write(key_len)?;
+                }
                 state.pc += 1;
                 state.active_op_state.clear();
                 return Ok(InsnFunctionStepResult::Step);
             }
         }
     }
+}
+
+fn record_len(registers: &[Register]) -> u64 {
+    let (header_len, body_len) =
+        registers
+            .iter()
+            .fold((0, 0), |(header_len, body_len), register| {
+                let serial_type = SerialType::from(register.get_value());
+                (
+                    header_len + varint_len(serial_type.into()),
+                    body_len + serial_type.size(),
+                )
+            });
+    (Record::calc_header_size(header_len) + body_len) as u64
 }
 
 #[derive(Debug, PartialEq, Copy, Clone)]
@@ -13288,16 +13347,22 @@ pub fn op_idx_insert(
             }
         }
         OpIdxInsertState::Insert => {
-            {
+            let logged_len = {
                 let cursor = get_cursor!(state, cursor_id);
                 let cursor = cursor.as_btree_mut();
                 return_if_io!(
                     state,
                     cursor.insert(&BTreeKey::new_index_key(record_to_insert.as_record_ref()))
                 );
-            }
+                cursor
+                    .is_mvcc()
+                    .then(|| record_to_insert.get_payload().len() as u64)
+            };
             if flags.has(IdxInsertFlags::NCHANGE) {
                 state.record_rows_written(1);
+            }
+            if let Some(logged_len) = logged_len {
+                state.record_log_write(logged_len)?;
             }
             state.active_op_state.clear();
             state.pc += 1;
