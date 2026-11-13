@@ -7,6 +7,47 @@ below tracks upstream replacement candidates; no patch is removed from the
 existing pinned engine merely because a newer upstream revision contains a fix.
 No automatic removal or periodic monitoring is configured.
 
+## MVCC exact seeks over shadowed B-tree rows (2026-11-12)
+
+On an MVCC file, a B-tree row or index entry is shadowed when a newer version of it is in
+memory, after an update or a delete that is not checkpointed yet. A seek that reached a
+shadowed B-tree row moved on, and kept moving while rows were shadowed. After an update of
+every row, each lookup read the rest of the table, so a statement with one lookup per row
+became quadratic. With the debug CLI, `UPDATE items SET price = price + 1` over 5,000 rows
+with an index on `price` took 89.6 s after an earlier update of those rows and 3.9 s
+without one, and inserting 1,500 rows that reuse `UNIQUE` values the rows had just changed
+took 33.9 s. Cloud folds only at about 4 MiB of log, so such rows are common there.
+
+Two changes in `SeekBtreeState` of `MvccLazyCursor::seek_btree_and_set_peek` in
+`core/mvcc/cursor.rs`:
+
+- An exact rowid seek stops at its row. This is upstream `d94a7d320` and its follow-up
+  `4813f6096`, merged upstream on 2026-11-04 after our 0.8.3 base, in one commit. Our
+  `query_btree_version_is_valid` returns `bool`, not `Result`, so the backport has no `?`
+  there.
+- Ours: an exact index seek (`eq_only` with `SeekKey::IndexKey`) moves the B-tree one entry
+  at a time in `AdvanceBTree`, and `CheckRow` ends it at the first entry whose key differs
+  from the seek key (`past_equal_index_keys`). It still steps over shadowed entries that
+  have the seek key, because a key prefix can match several entries. UNIQUE checks
+  (`NoConflict`), `IdxDelete` and foreign key checks use these seeks.
+
+After both: the update above took 4.0 s, and the 1,500 inserts 1.26 s (3,000 inserts went
+from over 150 s to 2.68 s).
+
+Not changed: a range seek still walks every shadowed entry, in `_advance_btree_forward`,
+which has upstream's FIXME about it. An equality lookup on an index that is not UNIQUE is a
+`SeekGE` without `eq_only` and an `IdxGT`, so after every indexed value changed,
+`SELECT count(*) FROM items a JOIN items b ON b.price = a.price` over 1,500 rows took 41 s.
+A checkpoint ends it (0.24 s after `PRAGMA wal_checkpoint(TRUNCATE)`). Upstream main
+`f0f47f6f7` (2026-11-12) has the same walk.
+
+Drop the backport at the first upstream sync that contains `2c837d49a`. Keep our index seek
+change until upstream stops exact index seeks at the end of their key; it is a candidate
+for an upstream PR. The regressions are `test_exact_rowid_seek_over_shadowed_btree_rows`
+(upstream's) and `test_unique_check_over_shadowed_btree_index_entries` in
+`core/mvcc/database/tests.rs`. Without our change the first insert of the second test took
+158 B-tree steps; with it, every insert takes at most 8.
+
 ## FTS typo words (2026-11-11)
 
 Upstream FTS reads `databse~1` as the words `databse` and `1`, because the lenient grammar

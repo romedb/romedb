@@ -199,7 +199,7 @@ that start with it and are in the most documents. Queries without such a word bu
 exactly as before. Keep it until upstream expands a one-word prefix with BM25 scores;
 the register has the regressions.
 
-Newest patch (2026-11-11): **FTS typo words**, `word~1` and `word~2` in
+Newer patch (2026-11-11): **FTS typo words**, `word~1` and `word~2` in
 `core/index_method/fts/prefix.rs`. The word matches itself and the 64 indexed words within
 that many edits that are in the most documents; the other words score at half weight
 with the IDF of the most common one. Keep it until upstream FTS scores typo matches with
@@ -218,6 +218,14 @@ keys in `core/index_method/fts/mod.rs`, built by `Analyzer` in
 name (`default+fold+stem-english`). Prefix expansion now builds the expanded words as
 term queries, so a stored stem is never stemmed again. Keep it until upstream FTS
 offers folding and stemming options; the register has the regressions.
+
+Newest patch (2026-11-12): **MVCC exact seeks over shadowed B-tree rows**,
+`seek_btree_and_set_peek` in `core/mvcc/cursor.rs`. An exact rowid seek stops at its row
+(backport of upstream `d94a7d320` and `4813f6096`; drop it at the first sync that contains
+upstream `2c837d49a`). Ours: an exact index seek steps the B-tree one entry at a time and
+stops at the first entry past its key, so UNIQUE checks after a bulk update are no longer
+quadratic. Keep it until upstream stops exact index seeks at the end of their key; the
+register has the regressions.
 
 The workspace builds with Rust 1.89 (`rust-toolchain.toml`), not upstream's 1.88, because
 `rusqlite` 0.41 needs it (RUSTSEC-2026-0459). Keep 1.89 or later on a sync.
