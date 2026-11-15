@@ -852,3 +852,61 @@ test('exportFile on Cloud reports a busy job and leaves no timer behind', async 
   } finally { await remote.close(); }
 });
 
+
+test('a Binary value is as large as its request or response; only a Vector has a size of its own', () => {
+  const bytes = Buffer.alloc(600_000, 7);
+  assert.ok(Buffer.from(decodeValue({ type: 'Binary', value: [...bytes] })).equals(bytes));
+  assert.ok(Buffer.from(decodeValue({ type: 'Binary', value: bytes.toString('base64') })).equals(bytes));
+  const largest = Buffer.alloc(7_000_000, 201);
+  assert.ok(Buffer.from(decodeValue({ type: 'Binary', value: largest.toString('base64') })).equals(largest));
+  assert.ok(Buffer.from(decodeValue(encodeValue(largest))).equals(largest));
+  assert.throws(() => decodeValue({ type: 'Binary', value: largest.toString('base64').slice(0, -1) }), /base64/);
+  assert.equal(decodeValue({ type: 'Vector', value: [...Buffer.alloc(524_289, 1)] }).bytes.byteLength, 524_289);
+  assert.throws(() => decodeValue({ type: 'Vector', value: [...Buffer.alloc(524_290, 1)] }), /invalid byte array/);
+  assert.throws(() => decodeValue({ type: 'Vector', value: Buffer.alloc(524_290, 1).toString('base64') }), /bounded encoded bytes/);
+  assert.throws(() => decodeValue({ type: 'Vector', value: Buffer.alloc(800_000, 1).toString('base64') }), /invalid base64 bytes/);
+});
+
+test('a read, a write, its recovery and a saved request work with a Binary of more than 524,289 bytes', async () => {
+  const limits = { maxRequestBytes: 8_388_608, maxStatements: 256, maxRows: 10_000, maxResultBytes: 8_388_608, maxResponseBytes: 16_777_216 };
+  const payload = Buffer.alloc(600_000, 5), row = { columns: ['payload'], rows: [[encodeValue(payload)]], affected: '1' };
+  const attempts = [];
+  let lost = false;
+  const db = await connect({ url: 'http://localhost:4321', token: 'test-token', fetch: async (_url, options) => {
+    if (options.method === 'GET') return json({ ...details(0), limits });
+    const q = JSON.parse(options.body);
+    if (q.readVersion) return json({ requestId: q.requestId, sequence: 0, readVersion: 2, results: [row] });
+    attempts.push(options.body);
+    if (!lost) { lost = true; throw Error('response lost after publication'); }
+    return json({ requestId: q.requestId, sequence: 1, results: [row] });
+  } });
+  try {
+    const read = await db.read([{ sql: 'SELECT zeroblob(600000)' }]);
+    assert.ok(Buffer.from(read.results[0].rows[0][0]).equals(payload));
+    const prepared = db.prepareWrite([{ sql: 'INSERT INTO blobs VALUES ($b) RETURNING payload', params: { $b: payload } }]);
+    assert.ok(prepared.body.length > 1_200_000);
+    assert.equal(validatePrepared(prepared).requestId, JSON.parse(prepared.body).requestId);
+    const failure = await db.submit(prepared).then(() => undefined, error => error);
+    assert.equal(failure.outcome, 'unknown');
+    assert.equal(failure.request, prepared);
+    const recovered = await db.recover(prepared);
+    assert.equal(recovered.sequence, 1);
+    assert.ok(Buffer.from(recovered.results[0].rows[0][0]).equals(payload));
+    assert.deepEqual(attempts, [prepared.body, prepared.body]);
+  } finally { await db.close(); }
+});
+
+test('a Cloud result can hold a Binary of more than 786,432 bytes as base64', async () => {
+  const payload = Buffer.alloc(3_000_000, 9);
+  const db = await connect({ url: cloud, token: 'test-token', deferInfo: false, warm: false, fetch: async (_url, options) => {
+    if (options.method === 'GET') return json({ id: 'cloud-test', sequence: 0 });
+    const q = JSON.parse(options.body);
+    return Response.json({ requestId: q.requestId, sequence: 1, readVersion: 2,
+      results: [{ columns: ['payload'], rows: [[{ type: 'Binary', value: payload.toString('base64') }]], affected: '0' }] },
+      { headers: { 'x-romedb-query-version': options.headers['x-romedb-query-version'] } });
+  } });
+  try {
+    const read = await db.read([{ sql: 'SELECT payload FROM blobs' }]);
+    assert.ok(Buffer.from(read.results[0].rows[0][0]).equals(payload));
+  } finally { await db.close(); }
+});

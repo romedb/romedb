@@ -112,13 +112,13 @@ function encodeValue(value, depth = 0, base64 = false) {
   throw new TypeError('unsupported parameter value');
 }
 
-function byteArray(payload) {
-  if (!Array.isArray(payload) || payload.length > 524_289 || payload.some(n => !Number.isInteger(n) || n < 0 || n > 255)) throw new TypeError('invalid byte array');
+function byteArray(payload, vector) {
+  if (!Array.isArray(payload) || (vector && payload.length > 524_289) || payload.some(n => !Number.isInteger(n) || n < 0 || n > 255)) throw new TypeError('invalid byte array');
   return Uint8Array.from(payload);
 }
 
-function base64Bytes(payload) {
-  if (payload.length > 1_048_576 || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(payload)) throw new TypeError('invalid base64 bytes');
+function base64Bytes(payload, vector) {
+  if ((vector && payload.length > 1_048_576) || payload.length % 4 !== 0 || !/^[A-Za-z0-9+/]*={0,2}$/.test(payload)) throw new TypeError('invalid base64 bytes');
   const binary = atob(payload);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
@@ -170,8 +170,9 @@ function decodeValue(value, depth = 0) {
       return new Float64(view.getFloat64(0));
     }
     case 'Binary': case 'Vector': {
-      const bytes = typeof payload === 'string' ? base64Bytes(payload) : byteArray(payload);
-      return value.type === 'Vector' ? new Vector(bytes) : bytes;
+      const vector = value.type === 'Vector';
+      const bytes = typeof payload === 'string' ? base64Bytes(payload, vector) : byteArray(payload, vector);
+      return vector ? new Vector(bytes) : bytes;
     }
     case 'Record': {
       if (!plainObject(payload) || Object.keys(payload).length !== 2 || !Object.hasOwn(payload, 'table') || !Object.hasOwn(payload, 'key')) throw new TypeError('invalid Record value');
