@@ -50,6 +50,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             assert value['readVersion'] == 2
             if mode == 'read-failed':
                 status, result = 503, {'error': 'read unavailable'}
+            elif mode == 'failed':
+                result = {'readVersion': 2, 'requestId': value['requestId'], 'sequence': sequence, 'error': {'code': 'RDB_QUERY', 'message': 'no such table: missing'}}
             else:
                 result = {'readVersion': 2, 'requestId': value['requestId'], 'sequence': sequence, 'results': []}
         elif self.path.endswith('/query'):
@@ -58,6 +60,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 status, result = 503, {'error': 'not acknowledged'}
             elif mode == 'unresolved':
                 status, result = (503 if len(query_attempts) == 1 else 409), {'error': 'unknown outcome'}
+            elif mode == 'failed' or mode == 'failed-once' and len(query_attempts) == 1:
+                result = {'requestId': value['requestId'], 'sequence': value['afterSequence']+1, 'error': {'code': 'RDB_CONSTRAINT', 'message': 'Duplicate key'}}
+            elif mode == 'failed-unnamed':
+                result = {'requestId': value['requestId'], 'sequence': value['afterSequence']+1, 'error': {'code': 'CONSTRAINT', 'message': 'Duplicate key'}}
+            elif mode == 'failed-text':
+                result = {'requestId': value['requestId'], 'sequence': value['afterSequence']+1, 'error': 'Duplicate key'}
+            elif mode == 'failed-with-results':
+                result = {'requestId': value['requestId'], 'sequence': value['afterSequence']+1, 'results': [], 'error': {'code': 'RDB_CONSTRAINT', 'message': 'Duplicate key'}}
             else:
                 result = {'requestId': value['requestId'], 'sequence': value['afterSequence']+(3 if mode == 'intervening' else 1), 'results': []}
         if self.path.endswith(('/read', '/query')) and mode in ['lost', 'replay', 'wrong-reply']:
@@ -192,6 +202,28 @@ try:
     query_attempts.clear();mode='wrong-reply'
     run(['db','access',database],'SELECT 1;\n.retry\nSELECT 2;\n.quit\n',success=False)
     assert len(query_attempts)==2 and query_attempts[0]==query_attempts[1], 'unconfirmed replies cannot clear interactive pending work'
+    with tempfile.TemporaryDirectory() as directory:
+        directory=Path(directory);mode='failed';sequence=7
+        for operation, code, message, outcome in [('query','RDB_CONSTRAINT','Duplicate key','rolled-back'),('read','RDB_QUERY','no such table: missing','read-failed')]:
+            journal=directory/(operation+'-failed.json')
+            for args in [['db',operation,database,str(journal)],['db','retry',str(journal)]]:
+                result=run(args,'INSERT INTO t VALUES (1);',success=False)
+                reply=json.loads(result.stdout)
+                assert (reply['error'],reply['code'],reply['outcome'])==(message,code,outcome), reply
+                assert reply['requestId']==json.loads(journal.read_text())['request']['requestId']
+                assert reply['sequence']==(8 if operation=='query' else 7)
+                assert 'Unconfirmed' not in result.stderr, 'a confirmed failure is not an unknown outcome'
+        for malformed in ['failed-unnamed','failed-text','failed-with-results']:
+            mode=malformed
+            result=run(['db','query',database,str(directory/(malformed+'.json'))],'INSERT INTO t VALUES (1);',success=False)
+            assert 'Unconfirmed response identity' in result.stderr and result.stdout=='', (malformed,result.stdout)
+    mode='failed-once';sequence=7;query_attempts.clear()
+    result=run(['db','access',database],'INSERT INTO t VALUES (1);\nINSERT INTO t VALUES (2);\n.quit\n',success=False)
+    lines=[json.loads(line) for line in result.stdout.splitlines()]
+    assert (lines[0]['error'],lines[0]['code'],lines[0]['outcome'])==('Duplicate key','RDB_CONSTRAINT','rolled-back'), lines
+    assert lines[1]['sequence']==9 and lines[1]['results']==[]
+    assert [q['afterSequence'] for q in query_attempts]==[7,8], 'a confirmed failure leaves no pending request and gives the next sequence'
+    assert 'Unresolved request' not in result.stderr
     mode = 'redirect'
     before = len(requests)
     run(['whoami'], success=False)

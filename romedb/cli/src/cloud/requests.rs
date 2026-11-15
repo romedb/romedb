@@ -37,19 +37,37 @@ fn validate_body(body: &Value, limit: usize) -> Result<()> {
     }
     Ok(())
 }
-pub(super) fn confirmed(body: &Value, reply: &Value) -> bool {
-    reply["requestId"] == body["requestId"]
-        && body["afterSequence"].as_u64().is_some_and(|after| {
-            reply["sequence"].as_u64().is_some_and(|sequence| {
-                sequence <= MAX_SEQUENCE + 1
-                    && if body["readVersion"] == 2 {
-                        reply["readVersion"] == 2 && sequence >= after
-                    } else {
-                        sequence > after && sequence - after <= 64
-                    }
-            })
-        })
-        && reply["results"].is_array()
+pub(super) enum Receipt {
+    Results,
+    Failure,
+}
+pub(super) fn receipt(body: &Value, reply: &Value) -> Option<Receipt> {
+    let after = body["afterSequence"].as_u64()?;
+    let sequence = reply["sequence"].as_u64()?;
+    let placed = sequence <= MAX_SEQUENCE + 1
+        && if body["readVersion"] == 2 {
+            reply["readVersion"] == 2 && sequence >= after
+        } else {
+            sequence > after && sequence - after <= 64
+        };
+    if reply["requestId"] != body["requestId"] || !placed {
+        return None;
+    }
+    let error = &reply["error"];
+    if reply["results"].is_array() {
+        return error.is_null().then_some(Receipt::Results);
+    }
+    let named = error["code"]
+        .as_str()
+        .and_then(|code| code.strip_prefix("RDB_"))
+        .is_some_and(|name| {
+            !name.is_empty()
+                && name
+                    .bytes()
+                    .all(|b| b.is_ascii_uppercase() || b.is_ascii_digit() || b == b'_')
+        });
+    (reply.get("results").is_none() && named && error["message"].is_string())
+        .then_some(Receipt::Failure)
 }
 pub(super) fn sole_commit_sequence(body: &Value, reply: &Value) -> Option<u64> {
     let after = body["afterSequence"].as_u64()?;
@@ -111,13 +129,17 @@ fn dispatch(cloud: &Cloud, value: &Value) -> Result<ExitCode> {
         body["requestId"]
     );
     match cloud.query_request(&path, body, query_version) {
-        Ok(reply) => {
-            if !confirmed(body, &reply) {
-                return Err("Unconfirmed response identity; retry the same journal".into());
+        Ok(reply) => match receipt(body, &reply) {
+            Some(Receipt::Results) => {
+                cloud.output(&reply)?;
+                Ok(ExitCode::SUCCESS)
             }
-            cloud.output(&reply)?;
-            Ok(ExitCode::SUCCESS)
-        }
+            Some(Receipt::Failure) => {
+                cloud.output(&failure(body, &reply))?;
+                Ok(ExitCode::FAILURE)
+            }
+            None => Err("Unconfirmed response identity; retry the same journal".into()),
+        },
         Err(error) => {
             // The immutable journal can have earlier unknown dispatches. A new
             // rejection must never be presented as proof that they rolled back.
@@ -125,6 +147,11 @@ fn dispatch(cloud: &Cloud, value: &Value) -> Result<ExitCode> {
             Ok(ExitCode::FAILURE)
         }
     }
+}
+pub(super) fn failure(body: &Value, reply: &Value) -> Value {
+    json!({"error":reply["error"]["message"],"code":reply["error"]["code"],
+        "outcome":if body["readVersion"] == 2 { "read-failed" } else { "rolled-back" },
+        "requestId":reply["requestId"],"sequence":reply["sequence"]})
 }
 pub(super) fn start(cloud: &Cloud, operation: &str, id: &str, path: &str) -> Result<ExitCode> {
     cloud.database_path(id)?;
