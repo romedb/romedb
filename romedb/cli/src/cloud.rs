@@ -328,20 +328,22 @@ impl Cloud {
             };
             let response = self
                 .query_request(&(path.clone() + "/query"), request, QUERY_VERSION)
-                .and_then(|reply| {
-                    if requests::confirmed(request, &reply) {
-                        Ok(reply)
-                    } else {
-                        Err(Failure {
-                            message: "Unconfirmed response identity; use .retry".into(),
-                            uncertain: true,
-                            status: None,
-                        })
-                    }
+                .and_then(|reply| match requests::receipt(request, &reply) {
+                    Some(receipt) => Ok((receipt, reply)),
+                    None => Err(Failure {
+                        message: "Unconfirmed response identity; use .retry".into(),
+                        uncertain: true,
+                        status: None,
+                    }),
                 });
             match response {
-                Ok(result) => {
-                    self.output(&result)?;
+                Ok((receipt, result)) => {
+                    if matches!(receipt, requests::Receipt::Failure) {
+                        self.output(&requests::failure(request, &result))?;
+                        failed = true;
+                    } else {
+                        self.output(&result)?;
+                    }
                     confirmed_sequence = requests::sole_commit_sequence(request, &result)
                         .map(|value| (value, std::time::Instant::now()));
                     pending = None;

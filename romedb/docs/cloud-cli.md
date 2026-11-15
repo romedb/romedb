@@ -92,6 +92,10 @@ execute again and may return newer rows. Each attempt has its own quota hold; lo
 of metrics can leave the maximum reservation unknown. Writes replay their retained
 result without executing again. Response IDs and the versioned causal/replay
 position must validate before the command reports success.
+A validated reply that holds an error instead of results is a confirmed failure. The
+command prints the error, its code and `"outcome":"rolled-back"` (`"read-failed"` for
+a read) and exits nonzero. The batch changed nothing, and `db retry` of that journal
+prints the same failure: correct the SQL and use a new journal.
 Mismatched endpoints/organizations, malformed journals and unconfirmed responses
 fail without silently creating a replacement request. A later rejection is not
 proof that an earlier dispatch rolled back. The journal remains on disk after
@@ -130,6 +134,8 @@ SQL/RomeQL ends in semicolons; each submitted
 batch commits atomically. `.quit` exits, `.clear` clears unsubmitted input,
 `.help` shows usage and `.retry` reuses the pending request ID, sequence and SQL.
 Uncertain failures or unconfirmed response identities block new SQL until resolved.
+A confirmed failure does not: its batch was rolled back, the error is printed with its
+code, and the next batch can be sent.
 A session that observed an error exits nonzero even if its retry later succeeds.
 
 Interactive pending state is in memory only. Use journaled `db query` for writes
