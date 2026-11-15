@@ -1,12 +1,12 @@
 {
-  "reviewed_at": "2026-11-13T04:58:11.477988+00:00",
-  "source_commit": "e91a9bb58867d64bde3019a366403551497d821d",
-  "cargo_lock_sha256": "3a2e541b9c77a9c93d29416b2c54cf3149bc8d3fea5b22dc44548d5509c00f04",
+  "reviewed_at": "2026-11-15T13:23:46.817771+00:00",
+  "source_commit": "84342dc6a381cd15890aafdf79b32b4e435588f5",
+  "cargo_lock_sha256": "e4058d83c883be6a0802b4470a02ecbb761167a3537ebf9787240efc0391cf2e",
   "advisory_database": {
     "repository": "https://github.com/RustSec/advisory-db.git",
-    "commit": "af7b3ec33460b8e2de8d422e16d628518891a519",
-    "committed_at": "2026-11-12T15:21:59+01:00",
-    "advisory_count": 1490
+    "commit": "02e2517f457a359fc6d3440ea4560c8ea188fee8",
+    "committed_at": "2026-11-15T10:59:21+01:00",
+    "advisory_count": 1509
   },
   "scanner": "cargo-audit 0.22.2",
   "target": "x86_64-unknown-linux-gnu",
@@ -927,35 +927,35 @@
     },
     {
       "name": "romedb",
-      "version": "0.2.24"
+      "version": "0.2.25"
     },
     {
       "name": "romedb-c",
-      "version": "0.2.24"
+      "version": "0.2.25"
     },
     {
       "name": "romedb-cli",
-      "version": "0.2.24"
+      "version": "0.2.25"
     },
     {
       "name": "romedb-node",
-      "version": "0.2.24"
+      "version": "0.2.25"
     },
     {
       "name": "romedb-protocol",
-      "version": "0.2.24"
+      "version": "0.2.25"
     },
     {
       "name": "romedb-python",
-      "version": "0.2.24"
+      "version": "0.2.25"
     },
     {
       "name": "romedb-service",
-      "version": "0.2.24"
+      "version": "0.2.25"
     },
     {
       "name": "romeql-parser",
-      "version": "0.2.24"
+      "version": "0.2.25"
     },
     {
       "name": "rquickjs",
@@ -1520,9 +1520,33 @@
       "kind": "vulnerability",
       "package": "quinn-proto",
       "version": "0.11.17",
+      "id": "RUSTSEC-2026-0524",
+      "title": "Long Retry token can panic or exhaust memory in a QUIC client",
+      "url": "https://rustsec.org/advisories/RUSTSEC-2026-0524.html"
+    },
+    {
+      "kind": "vulnerability",
+      "package": "quinn-proto",
+      "version": "0.11.17",
+      "id": "RUSTSEC-2026-0523",
+      "title": "MAX_STREAM_DATA frame can open streams beyond the stream limit",
+      "url": "https://rustsec.org/advisories/RUSTSEC-2026-0523.html"
+    },
+    {
+      "kind": "vulnerability",
+      "package": "quinn-proto",
+      "version": "0.11.17",
       "id": "RUSTSEC-2026-0343",
       "title": "Outgoing datagram buffer accounting can panic the sender in quinn-proto",
       "url": "https://rustsec.org/advisories/RUSTSEC-2026-0343.html"
+    },
+    {
+      "kind": "vulnerability",
+      "package": "quinn-udp",
+      "version": "0.5.14",
+      "id": "RUSTSEC-2026-0538",
+      "title": "Receive loop can spin after a truncated datagram",
+      "url": "https://rustsec.org/advisories/RUSTSEC-2026-0538.html"
     },
     {
       "kind": "vulnerability",

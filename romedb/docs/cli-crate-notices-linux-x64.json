@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "target": "x86_64-unknown-linux-gnu",
-  "inventorySha256": "f1e6fe2b4fed9d7d4c399d472acfbb4d77cd89249c9b6db09205f862c5601871",
+  "inventorySha256": "a3b09a96c4c9aad558bfd7333df9b7aa82b0c002bd9151b0b29a91d5e706e0f0",
   "scope": "Checksummed crate archive notice candidates; not complete notices or linked-binary evidence",
   "packages": [
     {
@@ -3654,22 +3654,22 @@
     },
     {
       "name": "romedb-cli",
-      "version": "0.2.24",
+      "version": "0.2.25",
       "status": "workspace_source_requires_separate_review"
     },
     {
       "name": "romedb-service",
-      "version": "0.2.24",
+      "version": "0.2.25",
       "status": "workspace_source_requires_separate_review"
     },
     {
       "name": "romedb",
-      "version": "0.2.24",
+      "version": "0.2.25",
       "status": "workspace_source_requires_separate_review"
     },
     {
       "name": "romeql-parser",
-      "version": "0.2.24",
+      "version": "0.2.25",
       "status": "workspace_source_requires_separate_review"
     },
     {
