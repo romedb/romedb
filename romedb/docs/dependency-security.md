@@ -1,4 +1,26 @@
-# Dependency security review for 0.2.25
+# Dependency security review for 0.2.26
+Reviewed 2026-11-19 for the Linux x64 0.2.26 candidate. The exact lockfile scan
+covers 361 package/version identities against the RustSec advisory database at
+`7133866a6b44d6d3e1994ae6a48a296553c3c3da` (1,550 advisories) using the pinned
+`cargo-audit 0.22.2` binary. It found no vulnerabilities and one informational
+finding in the shipping closure, RUSTSEC-2026-0543, which is accepted below.
+
+The lockfile differs from 0.2.25 only in the nine RomeDB workspace package
+versions.
+
+### Accepted informational finding: chrono 0.4.42
+
+[RUSTSEC-2026-0543](https://rustsec.org/advisories/RUSTSEC-2026-0543.html) says
+that `chrono` is unmaintained. Every version is affected and none is fixed; the
+advisory names no vulnerability. It was added to the database after the 0.2.25
+review, and 0.2.25 ships the same `chrono` 0.4.42. `chrono` reaches the shipping
+closure only through the Turso engine (`turso_core` and `turso_ext`), which uses
+it for the SQL date and time functions and for its clock. Upstream Turso uses the
+same version. Replacing it means changing the engine, so 0.2.26 keeps it, and the
+scan accepts this one advisory with `--allow-informational RUSTSEC-2026-0543`. Any
+other advisory for `chrono`, and any vulnerability, still fails the scan.
+
+## Dependency security review for 0.2.25
 Reviewed 2026-11-15 for the Linux x64 0.2.25 candidate. The exact lockfile scan
 covers 361 package/version identities against the RustSec advisory database at
 `02e2517f457a359fc6d3440ea4560c8ea188fee8` (1,509 advisories) using the pinned
@@ -337,6 +359,7 @@ advisory database revision. Run from the repository root:
 python3 romedb/scripts/check-dependency-advisories.py \
   --database /path/to/advisory-db \
   --cargo-audit /path/to/cargo-audit \
+  --allow-informational RUSTSEC-2026-0543 \
   --output romedb/docs/dependency-security-rustsec.json
 ```
 
