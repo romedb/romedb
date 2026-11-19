@@ -633,7 +633,8 @@ test('a saved write larger than the connection limits is refused before it is se
   const reader = await connect({ url: 'http://localhost:4321', token: 'test-token', fetch });
   try {
     for (const request of [saved, statements]) {
-      await assert.rejects(reader.submit(request), error => error.code === 'RDB_LIMIT' && error.outcome === 'not-sent' && error.request === request);
+      const limit = request === saved ? 'request-bytes' : 'request-statements';
+      await assert.rejects(reader.submit(request), error => error.code === 'RDB_LIMIT' && error.outcome === 'not-sent' && error.request === request && error.limit === limit);
     }
     assert.equal(sent, 0);
   } finally { await reader.close(); }
@@ -928,7 +929,7 @@ test('a full client takes back the places of requests past their deadline, even 
   const db = await connect({ url: 'http://127.0.0.1:4321', token: 'test-token', timeoutMs: 1000, fetch: stuckReads(signals) });
   try {
     for (let index = 0; index < 32; index++) db.read([{ sql: 'SELECT slow' }]).catch(() => {});
-    await assert.rejects(db.read([{ sql: 'SELECT 1' }]), error => error.code === 'RDB_LIMIT' && error.outcome === 'not-sent');
+    await assert.rejects(db.read([{ sql: 'SELECT 1' }]), error => error.code === 'RDB_LIMIT' && error.outcome === 'not-sent' && error.limit === 'client-requests');
     t.mock.timers.setTime(999);
     await assert.rejects(db.read([{ sql: 'SELECT 1' }]), error => error.code === 'RDB_LIMIT');
     t.mock.timers.setTime(1000);
@@ -943,6 +944,31 @@ test('a full client takes back the places of requests past their deadline, even 
     await assert.rejects(db.read([{ sql: 'SELECT 1' }]), error => error.code === 'RDB_LIMIT', 'places with a later deadline stay taken');
   } finally { await db.close(); }
   assert.ok(signals.every(signal => signal.aborted), 'close stops every request still in flight');
+});
+
+test('a refusal the client raises itself names its limit; a refusal from the server names none', async () => {
+  const signals = [];
+  const stuck = stuckReads(signals);
+  let refuse = false;
+  const fetch = async (url, options) => {
+    if (options.method === 'GET') return json({ ...details(0), limits: { maxRequestBytes: 1_048_576 } });
+    if (refuse) return json({ error: { message: 'request too large' } }, 413);
+    return stuck(url, options);
+  };
+  const db = await connect({ url: 'http://127.0.0.1:4321', token: 'test-token', fetch });
+  try {
+    const large = [{ sql: 'SELECT slow', params: { $p: 'x'.repeat(800_000) } }];
+    for (let index = 0; index < 2; index++) db.read(large).catch(() => {});
+    await assert.rejects(db.read(large), error => error.code === 'RDB_LIMIT' && error.outcome === 'not-sent' && error.limit === 'client-bytes');
+    for (let index = 0; index < 30; index++) db.read([{ sql: 'SELECT slow' }]).catch(() => {});
+    await assert.rejects(db.read([{ sql: 'SELECT 1' }]), error => error.code === 'RDB_LIMIT' && error.outcome === 'not-sent' && error.limit === 'client-requests');
+    await assert.rejects(db.exportFile(), error => error.code === 'RDB_LIMIT' && error.limit === 'client-requests');
+  } finally { await db.close(); }
+  refuse = true;
+  const refused = await connect({ url: 'http://127.0.0.1:4321', token: 'test-token', fetch });
+  try {
+    await assert.rejects(refused.read([{ sql: 'SELECT 1' }]), error => error.code === 'RDB_LIMIT' && error.status === 413 && !('limit' in error));
+  } finally { await refused.close(); }
 });
 
 test('a place is given back when the caller aborts its signal, even when the fetch never settles', async () => {

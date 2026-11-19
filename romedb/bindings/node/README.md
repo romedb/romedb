@@ -831,7 +831,10 @@ refused, so no data disappears without an error.
 
 Requests and responses have finite byte and row limits. Each call times out after 20
 seconds by default and accepts `signal` and `timeoutMs`. Each client object runs up to 32
-requests at once, and a 33rd fails at once with `RDB_LIMIT` and outcome `not-sent`. A
+requests at once, and a 33rd fails at once with `RDB_LIMIT`, outcome `not-sent` and
+`limit: 'client-requests'` (`'client-bytes'` when its requests in flight hold too many
+bytes). A saved request over the database's limits has `'request-bytes'` or
+`'request-statements'` instead, and a refusal from the server has no `limit`. A
 request keeps its place until it ends, its `signal` aborts or its `timeoutMs` has passed.
 For a client kept for a whole Workers isolate, see
 [requests in flight](https://github.com/romedb/romedb/blob/main/romedb/bindings/client/README.md#requests-in-flight). An HTTP error reply with a

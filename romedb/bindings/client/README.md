@@ -52,6 +52,13 @@ to the database or the isolate: a 33rd request fails at once with `RDB_LIMIT` an
 `not-sent`. So do not start one call per row with `Promise.all`; run them in turn or in
 small groups, or read the rows in one statement.
 
+To tell this refusal apart from others, test `error.limit`, not the message. It is
+`'client-requests'` when the client already runs 32 requests and `'client-bytes'` when its
+requests in flight already hold too many bytes. Both pass once earlier requests end, so
+you can wait and send again. A saved request that is larger than the database accepts
+fails before it is sent with `'request-bytes'` or `'request-statements'`, and never
+passes. An `RDB_LIMIT` from the server has no `limit`.
+
 You can keep one client for the whole isolate. Then note that when a Worker sends its
 response while some of its database calls are still running, Workers stop the I/O of those
 calls, and they never finish. In 0.2.25 and earlier their places stayed taken for the life
