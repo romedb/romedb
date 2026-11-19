@@ -45,6 +45,41 @@ export default {
 };
 ```
 
+### Requests in flight
+
+Each client object runs up to 32 requests at once. The limit belongs to the object, not
+to the database or the isolate: a 33rd request fails at once with `RDB_LIMIT` and outcome
+`not-sent`. So do not start one call per row with `Promise.all`; run them in turn or in
+small groups, or read the rows in one statement.
+
+You can keep one client for the whole isolate. Then note that when a Worker sends its
+response while some of its database calls are still running, Workers stop the I/O of those
+calls, and they never finish. In 0.2.25 and earlier their places stayed taken for the life
+of the isolate, so every later call failed with `RDB_LIMIT`. Since the source after 0.2.25,
+a full client takes a place back once its call's `timeoutMs` has passed (20 seconds by
+default), or at once when the `signal` given to the call aborts. To get places back at
+once, give each incoming request an `AbortController`, pass its signal to every call and
+abort it before you return:
+
+```js
+import { connect } from '@romedb/client';
+
+let rql;
+
+export default {
+  async fetch(request, env) {
+    rql ??= await connect({ url: env.ROMEDB_URL, token: env.ROMEDB_TOKEN });
+    const done = new AbortController();
+    try {
+      const { results } = await rql.read([{ sql: 'SELECT title FROM posts LIMIT 20' }], { signal: done.signal });
+      return Response.json(results[0].rows);
+    } finally {
+      done.abort();
+    }
+  },
+};
+```
+
 ## Value types only
 
 `@romedb/client/values` exports `Float64`, `Record`, `Vector`, `encodeValue` and

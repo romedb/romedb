@@ -1,7 +1,11 @@
 import type { Value } from './values';
 export { Float64, Record, Vector, Value, PortableValue, encodeValue, decodeValue } from './values';
 export interface Statement { sql: string; params?: { [key: string]: Value }; }
-/** timeoutMs: 1 to 600,000 (10 minutes); the default is 20,000. A big commit on Cloud can take minutes. */
+/**
+ * timeoutMs: 1 to 600,000 (10 minutes); the default is 20,000. A big commit on Cloud can take minutes.
+ * A client runs up to 32 requests at once. A request keeps its place until it ends, its signal
+ * aborts or its timeoutMs has passed, whichever comes first.
+ */
 export interface RequestOptions { signal?: AbortSignal; timeoutMs?: number; }
 /** What a copy of the database leaves out. */
 export interface CopyOptions {

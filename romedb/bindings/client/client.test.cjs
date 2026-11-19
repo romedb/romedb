@@ -910,3 +910,52 @@ test('a Cloud result can hold a Binary of more than 786,432 bytes as base64', as
     assert.ok(Buffer.from(read.results[0].rows[0][0]).equals(payload));
   } finally { await db.close(); }
 });
+
+// On Workers, a fetch started by a request that has already sent its response never
+// settles and ignores its signal. These fetches do the same.
+function stuckReads(signals) {
+  return async (_url, options) => {
+    if (options.method === 'GET') return json(details(0));
+    const request = JSON.parse(options.body);
+    if (request.statements[0].sql === 'SELECT slow') { signals.push(options.signal); return new Promise(() => {}); }
+    return json({ readVersion: 2, requestId: request.requestId, sequence: 0, results: [result()] });
+  };
+}
+
+test('a full client takes back the places of requests past their deadline, even when their fetch never settles', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 0 });
+  const signals = [];
+  const db = await connect({ url: 'http://127.0.0.1:4321', token: 'test-token', timeoutMs: 1000, fetch: stuckReads(signals) });
+  try {
+    for (let index = 0; index < 32; index++) db.read([{ sql: 'SELECT slow' }]).catch(() => {});
+    await assert.rejects(db.read([{ sql: 'SELECT 1' }]), error => error.code === 'RDB_LIMIT' && error.outcome === 'not-sent');
+    t.mock.timers.setTime(999);
+    await assert.rejects(db.read([{ sql: 'SELECT 1' }]), error => error.code === 'RDB_LIMIT');
+    t.mock.timers.setTime(1000);
+    assert.equal(signals.filter(signal => signal.aborted).length, 0, 'no timer ran, as on Workers after the request ended');
+    assert.equal((await db.read([{ sql: 'SELECT 1' }])).results[0].rows.length, 1);
+    assert.equal(signals.filter(signal => signal.aborted).length, 32, 'the stale requests are stopped when their places are taken back');
+    for (let index = 0; index < 31; index++) db.read([{ sql: 'SELECT slow' }], { timeoutMs: 5000 }).catch(() => {});
+    db.read([{ sql: 'SELECT slow' }]).catch(() => {});
+    t.mock.timers.setTime(2500);
+    assert.equal((await db.read([{ sql: 'SELECT 1' }])).results[0].rows.length, 1);
+    db.read([{ sql: 'SELECT slow' }]).catch(() => {});
+    await assert.rejects(db.read([{ sql: 'SELECT 1' }]), error => error.code === 'RDB_LIMIT', 'places with a later deadline stay taken');
+  } finally { await db.close(); }
+  assert.ok(signals.every(signal => signal.aborted), 'close stops every request still in flight');
+});
+
+test('a place is given back when the caller aborts its signal, even when the fetch never settles', async () => {
+  const signals = [];
+  const db = await connect({ url: 'http://127.0.0.1:4321', token: 'test-token', fetch: stuckReads(signals) });
+  try {
+    const page = new AbortController();
+    const reads = Array.from({ length: 32 }, () => db.read([{ sql: 'SELECT slow' }], { signal: page.signal }));
+    for (const read of reads) read.catch(() => {});
+    await assert.rejects(db.read([{ sql: 'SELECT 1' }]), error => error.code === 'RDB_LIMIT');
+    page.abort();
+    assert.equal((await db.read([{ sql: 'SELECT 1' }])).results[0].rows.length, 1);
+    const reply = await Promise.race([Promise.allSettled(reads), new Promise(resolve => setTimeout(resolve, 50, 'pending'))]);
+    assert.equal(reply, 'pending', 'the reads themselves never settled');
+  } finally { await db.close(); }
+});

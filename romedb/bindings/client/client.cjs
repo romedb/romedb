@@ -9,6 +9,7 @@ const CLOUD_LIMITS = Object.freeze({ maxRequestBytes: 1_048_576, maxStatements: 
 const REPORTED_LIMIT_CEILINGS = Object.freeze({ maxRequestBytes: 64 * 1024 * 1024, maxStatements: 4096, maxRows: 1_000_000, maxResultBytes: 64 * 1024 * 1024, maxResponseBytes: 128 * 1024 * 1024, maxCommitBytes: 4 * 1024 * 1024 * 1024, maxCommitRows: 1_000_000_000 });
 const COMMIT_LIMITS = Object.freeze(['maxCommitBytes', 'maxCommitRows']);
 const MAX_TIMEOUT_MS = 600_000;
+const MAX_ACTIVE_REQUESTS = 32;
 const MAX_SEQUENCE = Number.MAX_SAFE_INTEGER - 1;
 const DATABASE_FILE_TYPE = 'application/vnd.romedb.database';
 const construction = Symbol('RemoteDatabase');
@@ -173,18 +174,14 @@ class RemoteDatabase {
     const duration = timeout(options.timeoutMs ?? this.#timeout);
     this.#checkJob(options);
     const finished = this.#cloud ? await this.#exportJob(options, duration) : undefined;
-    const controller = new AbortController();
-    const abort = () => controller.abort();
-    options.signal?.addEventListener('abort', abort, { once: true });
-    const timer = setTimeout(abort, duration);
-    this.#active.add(controller);
+    const place = this.#take(options.signal, 0, duration);
+    const { controller } = place;
+    place.timer = setTimeout(place.stop, duration);
     let open = true;
     const finish = () => {
       if (!open) return;
       open = false;
-      clearTimeout(timer);
-      options.signal?.removeEventListener('abort', abort);
-      this.#active.delete(controller);
+      this.#free(place);
     };
     const credential = this.#token;
     let status;
@@ -195,7 +192,10 @@ class RemoteDatabase {
         redirect: 'manual', signal: controller.signal,
       });
       // The deadline covers building the copy; the caller's signal still stops the download.
-      clearTimeout(timer);
+      // While the file arrives, its place lasts until no bytes have moved for `duration`.
+      clearTimeout(place.timer);
+      const extend = () => { place.expires = Date.now() + duration; };
+      extend();
       status = response.status;
       if (response.type === 'opaqueredirect' || (status >= 300 && status < 400)) throw new ClientError('RDB_PROTOCOL', 'Database URL redirected; redirects are never followed with a credential', 'read-failed', { status });
       if (!response.ok) {
@@ -214,7 +214,7 @@ class RemoteDatabase {
       this.#id ??= identity;
       this.#sequence = Math.max(this.#sequence, exported);
       this.#sequenceKnown = true;
-      return { sequence: exported, size, body: countedBody(response.body, size, controller, finish) };
+      return { sequence: exported, size, body: countedBody(response.body, size, controller, finish, extend) };
     } catch (error) {
       finish();
       if (error instanceof ClientError) throw new ClientError(error.code, redactMessage(error.message, credential), error.outcome, { ...(error.status === undefined ? {} : { status: error.status }), ...(error.retryAfterMs === undefined ? {} : { retryAfterMs: error.retryAfterMs }) });
@@ -232,10 +232,10 @@ class RemoteDatabase {
   // with `cancel` is canceled when the wait ends early, because nobody is left to
   // answer for it. With `optional`, a service without such jobs gives undefined.
   async #job(route, name, options, duration, { query = '', body, optional = false, cancel = false, failure = 'RDB_STORAGE', outcome = 'read-failed' }) {
-    const controller = new AbortController();
-    const abort = () => controller.abort();
-    options.signal?.addEventListener('abort', abort, { once: true });
-    this.#active.add(controller);
+    // Each step waits, asks once and may cancel, so a place that outlives a step is stale.
+    const step = EXPORT_POLL_MS + duration + CANCEL_MS;
+    const place = this.#take(options.signal, 0, step);
+    const { controller } = place;
     const credential = this.#token, deadline = Date.now() + (options.waitMs ?? MAX_EXPORT_WAIT);
     const label = name[0].toUpperCase() + name.slice(1);
     const headers = { authorization: `Bearer ${credential}`, accept: 'application/json', ...(this.#id === undefined ? {} : { 'x-romedb-database-id': this.#id }) };
@@ -260,6 +260,7 @@ class RemoteDatabase {
       running = job.id;
       for (let failures = 0; ;) {
         if (Date.now() >= deadline) throw new ClientError('RDB_TIMEOUT', `The ${name} is still running`, 'read-failed');
+        place.expires = Date.now() + step;
         await pause(EXPORT_POLL_MS, controller.signal);
         const reply = await call('GET', `${route}/${job.id}`).catch(error => {
           if (controller.signal.aborted || ++failures > EXPORT_POLL_FAILURES) throw error;
@@ -277,8 +278,7 @@ class RemoteDatabase {
       if (error instanceof ClientError) throw error;
       throw new ClientError(controller.signal.aborted ? 'RDB_CANCELLED' : 'RDB_TRANSPORT', `${label} request failed`, 'read-failed');
     } finally {
-      options.signal?.removeEventListener('abort', abort);
-      this.#active.delete(controller);
+      this.#free(place);
     }
   }
   async buildIndex(sql, options = {}) {
@@ -294,12 +294,12 @@ class RemoteDatabase {
   #checkJob(options) {
     if (options.signal !== undefined && !(options.signal instanceof AbortSignal)) throw new TypeError('signal must be an AbortSignal');
     if (options.signal?.aborted) throw new ClientError('RDB_CANCELLED', 'Request cancelled before dispatch', 'not-sent');
-    if (this.#active.size >= 32) throw new ClientError('RDB_LIMIT', 'Client request limit reached', 'not-sent');
+    this.#room(0, {});
     if (options.waitMs !== undefined && (!Number.isInteger(options.waitMs) || options.waitMs < 1 || options.waitMs > MAX_EXPORT_WAIT)) throw new RangeError(`waitMs must be 1..${MAX_EXPORT_WAIT}`);
   }
   async close() {
     this.#closed = true;
-    for (const controller of this.#active) controller.abort();
+    for (const place of this.#active) place.stop();
     this.#token = '';
   }
   #assertOpen() {
@@ -312,13 +312,10 @@ class RemoteDatabase {
     if (options.signal !== undefined && !(options.signal instanceof AbortSignal)) throw new TypeError('signal must be an AbortSignal');
     if (options.signal?.aborted) throw new ClientError('RDB_CANCELLED', 'Request cancelled before dispatch', 'not-sent', prepared ? { request: prepared } : {});
     const bodyBytes = body === undefined ? 0 : byteLength(body);
-    if (this.#active.size >= 32 || this.#inflightBytes + bodyBytes > Math.max(2_097_152, 2 * this.#limits.maxRequestBytes)) throw new ClientError('RDB_LIMIT', 'Client request limit reached', 'not-sent', prepared ? { request: prepared } : {});
-    const controller = new AbortController();
-    const abort = () => controller.abort();
-    options.signal?.addEventListener('abort', abort, { once: true });
-    const timer = setTimeout(abort, duration);
-    this.#active.add(controller);
-    this.#inflightBytes += bodyBytes;
+    this.#room(bodyBytes, prepared ? { request: prepared } : {});
+    const place = this.#take(options.signal, bodyBytes, duration);
+    const { controller } = place;
+    place.timer = setTimeout(place.stop, duration);
     const credential = this.#token;
     const fetch = this.#fetch;
     let status;
@@ -371,11 +368,34 @@ class RemoteDatabase {
       const code = controller.signal.aborted ? 'RDB_CANCELLED' : status === undefined ? 'RDB_TRANSPORT' : 'RDB_PROTOCOL';
       throw new ClientError(code, writing ? 'Write was not confirmed; recover the saved request' : 'Database request failed', writing ? 'unknown' : 'read-failed', { ...(status === undefined ? {} : { status }), ...(prepared ? { request: prepared } : {}), cause: error });
     } finally {
-      clearTimeout(timer);
-      options.signal?.removeEventListener('abort', abort);
-      this.#active.delete(controller);
-      this.#inflightBytes -= bodyBytes;
+      this.#free(place);
     }
+  }
+  // A request holds one of MAX_ACTIVE_REQUESTS places in this client until it ends, its
+  // caller's signal aborts or its deadline passes. On Workers, a call still running when
+  // its Worker request sent the response never ends and its timer never fires, so a full
+  // client first gives back the places whose deadline has passed.
+  #room(bytes, details) {
+    if (!this.#full(bytes)) return;
+    const now = Date.now();
+    for (const place of this.#active) if (place.expires <= now) place.stop();
+    if (this.#full(bytes)) throw new ClientError('RDB_LIMIT', 'Client request limit reached', 'not-sent', details);
+  }
+  #full(bytes) {
+    return this.#active.size >= MAX_ACTIVE_REQUESTS || this.#inflightBytes + bytes > Math.max(2_097_152, 2 * this.#limits.maxRequestBytes);
+  }
+  #take(signal, bytes, duration) {
+    const controller = new AbortController();
+    const place = { controller, signal, bytes, expires: Date.now() + duration, timer: undefined, stop: () => { controller.abort(); this.#free(place); } };
+    signal?.addEventListener('abort', place.stop, { once: true });
+    this.#active.add(place);
+    this.#inflightBytes += bytes;
+    return place;
+  }
+  #free(place) {
+    clearTimeout(place.timer);
+    place.signal?.removeEventListener('abort', place.stop);
+    if (this.#active.delete(place)) this.#inflightBytes -= place.bytes;
   }
 }
 
@@ -476,12 +496,13 @@ async function boundedJson(response, limit) {
 }
 
 // Passes the download through and fails it unless exactly `size` bytes arrive.
-function countedBody(body, size, controller, finish) {
+function countedBody(body, size, controller, finish, extend) {
   const reader = body.getReader();
   let received = 0;
   const failure = (message, cause) => new ClientError(controller.signal.aborted ? 'RDB_CANCELLED' : 'RDB_TRANSPORT', message, 'read-failed', cause === undefined ? {} : { cause });
   return new ReadableStream({
     async pull(stream) {
+      extend();
       let chunk;
       try { chunk = await reader.read(); }
       catch (error) { finish(); stream.error(failure('Database file download failed', error)); return; }
@@ -492,6 +513,7 @@ function countedBody(body, size, controller, finish) {
         return;
       }
       received += chunk.value.byteLength;
+      extend();
       if (received > size) {
         finish(); controller.abort();
         stream.error(new ClientError('RDB_PROTOCOL', 'Database file is larger than its declared size', 'read-failed'));

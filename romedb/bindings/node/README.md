@@ -830,7 +830,11 @@ refused, so no data disappears without an error.
 ### Errors and timeouts
 
 Requests and responses have finite byte and row limits. Each call times out after 20
-seconds by default and accepts `signal` and `timeoutMs`. An HTTP error reply with a
+seconds by default and accepts `signal` and `timeoutMs`. Each client object runs up to 32
+requests at once, and a 33rd fails at once with `RDB_LIMIT` and outcome `not-sent`. A
+request keeps its place until it ends, its `signal` aborts or its `timeoutMs` has passed.
+For a client kept for a whole Workers isolate, see
+[requests in flight](https://github.com/romedb/romedb/blob/main/romedb/bindings/client/README.md#requests-in-flight). An HTTP error reply with a
 `Retry-After` header sets `ClientError.retryAfterMs`. A transport or response failure
 without a database reply keeps the underlying error as `ClientError.cause`, for
 example a `fetch failed` TypeError with `ECONNREFUSED`.
