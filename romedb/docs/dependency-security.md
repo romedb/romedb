@@ -20,6 +20,10 @@ same version. Replacing it means changing the engine, so 0.2.26 keeps it, and th
 scan accepts this one advisory with `--allow-informational RUSTSEC-2026-0543`. Any
 other advisory for `chrono`, and any vulnerability, still fails the scan.
 
+At release time, the same scan of build commit `8cc1a465` against the advisory
+database, still at `7133866a6b44d6d3e1994ae6a48a296553c3c3da` (1,550 advisories),
+found the same accepted finding and no other.
+
 ## Dependency security review for 0.2.25
 Reviewed 2026-11-15 for the Linux x64 0.2.25 candidate. The exact lockfile scan
 covers 361 package/version identities against the RustSec advisory database at
