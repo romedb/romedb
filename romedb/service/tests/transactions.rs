@@ -1,6 +1,8 @@
 use romedb_service::DatabaseService;
 use serde_json::{json, Value};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Barrier};
+use std::time::{Duration, Instant};
 
 fn request(id: &str, after: u64, statements: &[&str]) -> String {
     json!({"requestId":id,"afterSequence":after,"statements":statements.iter().map(|sql| json!({"sql":sql})).collect::<Vec<_>>()}).to_string()
@@ -679,5 +681,63 @@ fn requests_use_the_raised_size_statement_and_row_limits() {
             .unwrap_err()
             .code,
         "RDB_LIMIT"
+    );
+}
+
+#[test]
+fn a_waiting_schema_change_runs_before_later_writes() {
+    let directory = tempfile::tempdir().unwrap();
+    let service = Arc::new(DatabaseService::create(&directory.path().join("app.romedb")).unwrap());
+    query(
+        &service,
+        "setup",
+        &["CREATE TABLE items (id INTEGER PRIMARY KEY, writer INTEGER)"],
+    );
+    let stop = Arc::new(AtomicBool::new(false));
+    let writes = Arc::new(AtomicU64::new(0));
+    let writers: Vec<_> = (0..2)
+        .map(|writer| {
+            let service = service.clone();
+            let stop = stop.clone();
+            let writes = writes.clone();
+            std::thread::spawn(move || {
+                let mut count = 0;
+                while !stop.load(Ordering::SeqCst) {
+                    let id = format!("writer_{writer}_{count}");
+                    let sql = format!("INSERT INTO items (writer) VALUES ({writer})");
+                    let response = query(&service, &id, &[&sql]);
+                    assert!(response["error"].is_null(), "{response}");
+                    writes.fetch_add(1, Ordering::SeqCst);
+                    count += 1;
+                }
+            })
+        })
+        .collect();
+    while writes.load(Ordering::SeqCst) < 20 {
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    let started = Instant::now();
+    let migration = query(
+        &service,
+        "migration",
+        &["CREATE TABLE added (id INTEGER PRIMARY KEY)"],
+    );
+    let waited = started.elapsed();
+    let during = writes.load(Ordering::SeqCst);
+    while writes.load(Ordering::SeqCst) < during + 20 {
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    stop.store(true, Ordering::SeqCst);
+    for writer in writers {
+        writer.join().unwrap();
+    }
+    assert!(migration["error"].is_null(), "{migration}");
+    assert!(
+        waited < Duration::from_secs(2),
+        "the schema change waited {waited:?}"
+    );
+    assert_eq!(
+        read(&service, "SELECT count(*) FROM added")["results"][0]["rows"][0][0]["value"],
+        "0"
     );
 }
