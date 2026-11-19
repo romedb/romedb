@@ -1,12 +1,12 @@
 {
-  "reviewed_at": "2026-11-15T13:23:46.817771+00:00",
-  "source_commit": "84342dc6a381cd15890aafdf79b32b4e435588f5",
-  "cargo_lock_sha256": "e4058d83c883be6a0802b4470a02ecbb761167a3537ebf9787240efc0391cf2e",
+  "reviewed_at": "2026-11-19T11:10:04.746102+00:00",
+  "source_commit": "13ad87d813b7ee6bd869f52c3865c8527322453c",
+  "cargo_lock_sha256": "787801cde1bf33558e3c0c1a8707ff3ca6f8402949d33547c6821e84311b390a",
   "advisory_database": {
     "repository": "https://github.com/RustSec/advisory-db.git",
-    "commit": "02e2517f457a359fc6d3440ea4560c8ea188fee8",
-    "committed_at": "2026-11-15T10:59:21+01:00",
-    "advisory_count": 1509
+    "commit": "7133866a6b44d6d3e1994ae6a48a296553c3c3da",
+    "committed_at": "2026-11-19T09:55:47+01:00",
+    "advisory_count": 1550
   },
   "scanner": "cargo-audit 0.22.2",
   "target": "x86_64-unknown-linux-gnu",
@@ -927,35 +927,35 @@
     },
     {
       "name": "romedb",
-      "version": "0.2.25"
+      "version": "0.2.26"
     },
     {
       "name": "romedb-c",
-      "version": "0.2.25"
+      "version": "0.2.26"
     },
     {
       "name": "romedb-cli",
-      "version": "0.2.25"
+      "version": "0.2.26"
     },
     {
       "name": "romedb-node",
-      "version": "0.2.25"
+      "version": "0.2.26"
     },
     {
       "name": "romedb-protocol",
-      "version": "0.2.25"
+      "version": "0.2.26"
     },
     {
       "name": "romedb-python",
-      "version": "0.2.25"
+      "version": "0.2.26"
     },
     {
       "name": "romedb-service",
-      "version": "0.2.25"
+      "version": "0.2.26"
     },
     {
       "name": "romeql-parser",
-      "version": "0.2.25"
+      "version": "0.2.26"
     },
     {
       "name": "rquickjs",
@@ -1466,7 +1466,17 @@
       "version": "2.1.2+zstd.1.5.7"
     }
   ],
-  "findings": [],
+  "findings": [
+    {
+      "kind": "unmaintained",
+      "package": "chrono",
+      "version": "0.4.42",
+      "id": "RUSTSEC-2026-0543",
+      "title": "chrono is unmaintained",
+      "url": "https://rustsec.org/advisories/RUSTSEC-2026-0543.html",
+      "accepted_informational": true
+    }
+  ],
   "excluded_workspace_findings": [
     {
       "kind": "vulnerability",
