@@ -140,7 +140,8 @@ class RemoteDatabase {
     const request = validatePrepared(prepared);
     if (this.#capabilities.atomicWrites !== true || this.#capabilities.replayWindow !== 64 || (request.ifSequence !== undefined && this.#capabilities.exactSequenceCondition !== true)) throw new ClientError('RDB_UNSUPPORTED', 'Database does not support this write contract', 'not-sent', { request: prepared });
     if (prepared.url !== this.#url || prepared.databaseId !== this.#id) throw new ClientError('RDB_REQUEST_IDENTITY', 'Saved request belongs to another database', 'not-sent');
-    if (byteLength(prepared.body) > this.#limits.maxRequestBytes || request.statements.length > this.#limits.maxStatements) throw new ClientError('RDB_LIMIT', 'Saved request exceeds the request limits of this database', 'not-sent', { request: prepared });
+    const over = byteLength(prepared.body) > this.#limits.maxRequestBytes ? 'request-bytes' : request.statements.length > this.#limits.maxStatements ? 'request-statements' : undefined;
+    if (over) throw new ClientError('RDB_LIMIT', 'Saved request exceeds the request limits of this database', 'not-sent', { request: prepared, limit: over });
     try {
       const reply = await this.#request('/query', prepared.body, options, true, prepared, preparedQueryVersion(prepared));
       const result = confirmReply(reply, request, false, prepared, this.#limits);
@@ -376,13 +377,16 @@ class RemoteDatabase {
   // its Worker request sent the response never ends and its timer never fires, so a full
   // client first gives back the places whose deadline has passed.
   #room(bytes, details) {
-    if (!this.#full(bytes)) return;
+    if (!this.#fullLimit(bytes)) return;
     const now = Date.now();
     for (const place of this.#active) if (place.expires <= now) place.stop();
-    if (this.#full(bytes)) throw new ClientError('RDB_LIMIT', 'Client request limit reached', 'not-sent', details);
+    const limit = this.#fullLimit(bytes);
+    if (limit) throw new ClientError('RDB_LIMIT', 'Client request limit reached', 'not-sent', { ...details, limit });
   }
-  #full(bytes) {
-    return this.#active.size >= MAX_ACTIVE_REQUESTS || this.#inflightBytes + bytes > Math.max(2_097_152, 2 * this.#limits.maxRequestBytes);
+  #fullLimit(bytes) {
+    if (this.#active.size >= MAX_ACTIVE_REQUESTS) return 'client-requests';
+    if (this.#inflightBytes + bytes > Math.max(2_097_152, 2 * this.#limits.maxRequestBytes)) return 'client-bytes';
+    return undefined;
   }
   #take(signal, bytes, duration) {
     const controller = new AbortController();

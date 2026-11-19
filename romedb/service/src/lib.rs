@@ -18,8 +18,8 @@ use std::{
     fs::OpenOptions,
     path::{Path, PathBuf},
     sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc, Mutex, RwLock, TryLockError,
+        atomic::{AtomicBool, AtomicUsize, Ordering},
+        Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard, TryLockError,
     },
     time::{Duration, Instant},
 };
@@ -70,6 +70,7 @@ pub struct DatabaseService {
     database_id: String,
     publication: Mutex<Publication>,
     schema: RwLock<()>,
+    schema_changes_waiting: AtomicUsize,
     admission: Arc<Admission>,
     fenced: Arc<AtomicBool>,
     folder: PathBuf,
@@ -210,6 +211,7 @@ impl DatabaseService {
                 sequence: catalog.sequence,
             }),
             schema: RwLock::new(()),
+            schema_changes_waiting: AtomicUsize::new(0),
             admission: Arc::default(),
             fenced: Arc::default(),
             folder,
@@ -245,7 +247,7 @@ impl DatabaseService {
         request.result_limits = limits;
         let statements = request.prepare(true)?;
         let _permit = self.admission.acquire(started, request_slots(body.len()))?;
-        let _schema = self.lock_before(started, || self.schema.try_read())?;
+        let _schema = self.shared_schema(started)?;
         self.check_fence()?;
         let scope = self.connection()?;
         scope.begin(false)?;
@@ -340,12 +342,12 @@ impl DatabaseService {
         });
         let _permit = self.admission.acquire(started, request_slots(body.len()))?;
         if !schema_change {
-            let _schema = self.lock_before(started, || self.schema.try_read())?;
+            let _schema = self.shared_schema(started)?;
             if let Some(reply) = self.query_locked(&request, &hash, &statements, started, false)? {
                 return Ok(reply);
             }
         }
-        let _schema = self.lock_before(started, || self.schema.try_write())?;
+        let _schema = self.exclusive_schema(started)?;
         Ok(self
             .query_locked(&request, &hash, &statements, started, true)?
             .expect("an exclusive transaction never asks for another exclusive retry"))
@@ -577,6 +579,22 @@ impl DatabaseService {
         }
     }
 
+    fn shared_schema(&self, deadline: Instant) -> Result<RwLockReadGuard<'_, ()>> {
+        self.lock_before(deadline, || {
+            if self.schema_changes_waiting.load(Ordering::SeqCst) > 0 {
+                return Err(TryLockError::WouldBlock);
+            }
+            self.schema.try_read()
+        })
+    }
+
+    fn exclusive_schema(&self, deadline: Instant) -> Result<RwLockWriteGuard<'_, ()>> {
+        self.schema_changes_waiting.fetch_add(1, Ordering::SeqCst);
+        let schema = self.lock_before(deadline, || self.schema.try_write());
+        self.schema_changes_waiting.fetch_sub(1, Ordering::SeqCst);
+        schema
+    }
+
     fn lock_before<T>(
         &self,
         deadline: Instant,
@@ -614,7 +632,7 @@ impl DatabaseService {
             return Ok(());
         }
         let deadline = Instant::now() + SHUTDOWN_CHECKPOINT_WAIT;
-        let _schema = self.lock_before(deadline, || self.schema.try_write())?;
+        let _schema = self.exclusive_schema(deadline)?;
         let _publication = self.lock_before(deadline, || self.publication.try_lock())?;
         let connection = self.database.connect()?;
         let result = connection.execute("PRAGMA wal_checkpoint(TRUNCATE)", &Parameters::new())?;

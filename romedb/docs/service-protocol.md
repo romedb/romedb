@@ -438,7 +438,9 @@ never raise or disable them. Zero is a valid budget. Include them in the exact
 saved write body; changing a budget changes its recovery identity.
 
 Client timeout includes connection setup and response reading. Finite server budgets
-include queue time. Cooperative deadlines are not process-memory caps. Service
+include queue time. A schema change waits only for the reads and writes already running:
+once it waits, later reads and writes wait for it, so a steady stream of writes cannot
+hold a migration off until its deadline. Cooperative deadlines are not process-memory caps. Service
 qualification must measure memory and residual uncancellable work before release.
 Native work counters bound rows read, mutations and VM steps; negotiated capabilities
 must state which statements have checked coverage. No SQL prefix alone proves a

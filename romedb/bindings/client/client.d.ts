@@ -83,6 +83,14 @@ export interface DatabaseFile {
   body: ReadableStream<Uint8Array>;
 }
 export type Outcome = 'not-sent' | 'read-failed' | 'unknown' | 'rolled-back';
+/**
+ * The limit behind an RDB_LIMIT the client raised itself, before sending anything.
+ * `client-requests`: this client object already runs 32 requests. `client-bytes`: its
+ * requests in flight already hold too many bytes. Both pass once earlier requests end, so
+ * wait and send again. `request-bytes` and `request-statements`: a saved request is larger
+ * than this database accepts; it never passes.
+ */
+export type ClientLimit = 'client-requests' | 'client-bytes' | 'request-bytes' | 'request-statements';
 export class ClientError extends Error {
   readonly code: string;
   readonly outcome: Outcome;
@@ -91,9 +99,11 @@ export class ClientError extends Error {
   readonly sequence?: number;
   /** The server's Retry-After delay in milliseconds, on HTTP error replies that send one. */
   readonly retryAfterMs?: number;
+  /** On an RDB_LIMIT raised by the client with outcome `not-sent`: which limit. A refusal from the server has none. */
+  readonly limit?: ClientLimit;
   /** For RDB_TRANSPORT, RDB_PROTOCOL and RDB_CANCELLED without a reply: the fetch or parse error underneath. */
   readonly cause?: unknown;
-  constructor(code: string, message: string, outcome: Outcome, details?: { request?: PreparedWrite; status?: number; sequence?: number; retryAfterMs?: number; cause?: unknown });
+  constructor(code: string, message: string, outcome: Outcome, details?: { request?: PreparedWrite; status?: number; sequence?: number; retryAfterMs?: number; limit?: ClientLimit; cause?: unknown });
 }
 export interface Client {
   readonly sequence: number;
