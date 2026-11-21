@@ -231,7 +231,10 @@ impl Connection {
         serde_json::to_writer(&mut budget, &document)
             .map_err(|_| Error::Limit("computed input/evaluation exceeds 64 MiB".into()))?;
         for (path, expression) in plan {
-            if path.len() > 1 && crate::path_value(document, &path[..path.len() - 1])?.is_none() {
+            if path.len() > 1
+                && crate::path_value(document, &path[..path.len() - 1])?
+                    .is_none_or(|parent| matches!(parent, Value::Null))
+            {
                 continue;
             }
             let value = self.evaluate_with_budget(

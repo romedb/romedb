@@ -2158,6 +2158,7 @@ fn path_value<'a>(doc: &'a Document, path: &[String]) -> Result<Option<&'a Value
         }
         match value {
             Some(Value::Object(object)) => fields = object,
+            Some(Value::Null) => return Ok(None),
             _ => return Err(Error::Validation(format!("non-object parent at {part}"))),
         }
     }
@@ -2167,7 +2168,10 @@ fn validate_document(c: &Collection, doc: &Document) -> Result<()> {
     value::validate_document_value(doc)?;
     for f in &c.fields {
         // A required nested child applies only when its parent object exists.
-        if f.path.len() > 1 && path_value(doc, &f.path[..f.path.len() - 1])?.is_none() {
+        if f.path.len() > 1
+            && path_value(doc, &f.path[..f.path.len() - 1])?
+                .is_none_or(|parent| matches!(parent, Value::Null))
+        {
             continue;
         }
         let value = path_value(doc, &f.path)?;

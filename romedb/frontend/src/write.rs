@@ -24,6 +24,13 @@ pub(crate) fn is_data_write(connection: &Connection, sql: &str) -> Result<bool> 
     ))
 }
 
+fn write_predicate(statement: &mut Stmt) -> &mut Option<Box<Expr>> {
+    match statement {
+        Stmt::Update(update) => &mut update.where_clause,
+        Stmt::Delete { where_clause, .. } => where_clause,
+        _ => unreachable!("UPDATE or DELETE"),
+    }
+}
 fn unsupported(message: &str) -> Error {
     Error::Unsupported(message.into())
 }
@@ -507,6 +514,98 @@ impl Connection {
             limits,
         )
     }
+    fn relational_write_with_document_condition(
+        &self,
+        sql: &str,
+        statement: &Stmt,
+        params: &Parameters,
+        limits: Option<crate::ResultLimits>,
+    ) -> Result<Option<QueryResult>> {
+        let (table, predicate) = match statement {
+            Stmt::Update(update)
+                if update.with.is_none() && update.from.is_none() && update.indexed.is_none() =>
+            {
+                (&update.tbl_name, &update.where_clause)
+            }
+            Stmt::Delete {
+                with: None,
+                indexed: None,
+                tbl_name,
+                where_clause,
+                ..
+            } => (tbl_name, where_clause),
+            _ => return Ok(None),
+        };
+        let Some(predicate) = predicate else {
+            return Ok(None);
+        };
+        if table.db_name.is_some() || self.guard_native_sql(sql).is_ok() {
+            return Ok(None);
+        }
+        let mut unconditional = statement.clone();
+        *write_predicate(&mut unconditional) = None;
+        if self.guard_native_sql(&unconditional.to_string()).is_err()
+            || romeql_parser::tokenize(sql)?
+                .iter()
+                .any(|token| token.text == "?")
+        {
+            return Ok(None);
+        }
+        crate::guard::internal_names(sql)?;
+        let predicate = predicate.to_string();
+        let name = crate::quote(table.alias.as_ref().unwrap_or(&table.name).as_str());
+        let source = match &table.alias {
+            Some(_) => format!("{} AS {name}", crate::quote(table.name.as_str())),
+            None => name.clone(),
+        };
+        self.atomic(|| {
+            let Some(found) = self.write_candidate_select(
+                &format!("SELECT {name}.rowid FROM {source} WHERE {predicate}"),
+                params,
+                true,
+            )?
+            else {
+                return Ok(None);
+            };
+            let rows = found
+                .rows
+                .iter()
+                .map(|row| match row.first() {
+                    Some(Value::Integer(rowid)) => Ok(rowid.to_string()),
+                    _ => Err(Error::Storage("invalid candidate rowid".into())),
+                })
+                .collect::<Result<Vec<_>>>()?;
+            let Cmd::Stmt(Stmt::Select(chosen)) = parsed(&format!(
+                "SELECT 1 WHERE {name}.rowid IN ({})",
+                if rows.is_empty() {
+                    "NULL".into()
+                } else {
+                    rows.join(",")
+                }
+            ))?
+            else {
+                unreachable!()
+            };
+            let OneSelect::Select { where_clause, .. } = chosen.body.select else {
+                unreachable!()
+            };
+            let mut native = statement.clone();
+            *write_predicate(&mut native) = where_clause;
+            let native = native.to_string();
+            let prepared = self.prepare(&native)?;
+            let mut used = Parameters::new();
+            for (name, value) in params {
+                if crate::bind_index(&prepared, name).is_some() {
+                    used.insert(name.clone(), value.clone());
+                } else if !predicate.contains(name.as_str()) {
+                    return Err(Error::Parameter(name.clone()));
+                }
+            }
+            drop(prepared);
+            self.native_profiled_with_limits(&native, &used, limits)
+                .map(|profile| Some(profile.result))
+        })
+    }
     pub(crate) fn collection_write(
         &self,
         sql: &str,
@@ -564,7 +663,17 @@ impl Connection {
         match self.catalog(table.name.as_str()) {
             Ok(_) => {}
             Err(Error::NotFound(_)) => {
-                return self.relational_insert_select(sql, &statement, params, leading_with, limits)
+                if matches!(statement, Stmt::Update(_) | Stmt::Delete { .. }) {
+                    return self
+                        .relational_write_with_document_condition(sql, &statement, params, limits);
+                }
+                return self.relational_insert_select(
+                    sql,
+                    &statement,
+                    params,
+                    leading_with,
+                    limits,
+                );
             }
             Err(e) => return Err(e),
         };
@@ -931,9 +1040,10 @@ impl Connection {
                     |n| n.paths.clone(),
                 );
                 crate::update::validate_targets(&paths)?;
-                let unset = normalized.as_ref().is_some_and(|n| n.unset);
-                if unset
-                    && paths.iter().any(|path| matches!(path[0].as_str(), "source" | "target"))
+                let unset = normalized
+                    .as_ref()
+                    .map_or_else(|| vec![false; paths.len()], |n| n.unset.clone());
+                if paths.iter().zip(&unset).any(|(path, unset)| *unset && matches!(path[0].as_str(), "source" | "target"))
                     && self.catalog(update.tbl_name.name.as_str())?.edge.is_some()
                 {
                     return Err(Error::Validation(
@@ -966,7 +1076,7 @@ impl Connection {
                     // All assignments were evaluated before any mutation. Move
                     // their owned values and the snapshot instead of cloning them.
                     let before = capture.then(||document.clone());
-                    let mut targets = paths.iter();
+                    let mut targets = paths.iter().zip(&unset);
                     for (value, width) in values.zip(&widths) {
                         let assigned = if *width == 1 {
                             vec![value]
@@ -982,13 +1092,13 @@ impl Connection {
                             }
                         };
                         for value in assigned {
-                            let path = targets.next().ok_or_else(|| {
+                            let (path, unset) = targets.next().ok_or_else(|| {
                                 Error::Storage("missing assignment target".into())
                             })?;
                             crate::update::apply(
                                 &mut document,
                                 path,
-                                if unset { None } else { Some(value) },
+                                if *unset { None } else { Some(value) },
                             )?;
                         }
                     }

@@ -42,7 +42,7 @@ The initial Rust error categories have stable identifiers exposed by code(). Eng
 
 Collection SELECT now lowers through the pinned AST for the subset described in status.md. Direct field projections preserve typed values; scalar expression operands map booleans to integers. Missing nested reads return NULL. Duplicate projection names fail with a request to use AS. Record ORDER BY compares target names, then integer keys numerically before string keys. Mixed record/scalar ordering and derived typed expressions are not frozen. Implemented SQL-shaped collection writes use the same savepoint/validation/index path as document operations. Unsupported read/write forms still reach a conservative managed-name guard, which rejects some harmless strings. Complete AST-aware lowering and dependency authorization before claiming ordinary SQL preservation or enabling all write paths. Do not expose raw engine connection handles through RomeDB.
 
-SQL-shaped VALUES/SET writes preserve a direct typed parameter or copied document field without coercion. Other scalar expressions retain engine types, including integer 0/1 for SQL FALSE/TRUE; use a typed Boolean parameter for a boolean validator. Multirow assignments are evaluated from pre-update documents before any changes. Nested SET creates absent object parents and rejects non-object parents. UNSET removes the path and final-candidate validation still applies. Quoted keys containing dots stay distinct from nested paths; overlapping targets are rejected before writing. SQL-shaped and object INSERT/UPDATE/DELETE, including UPSERT, support typed RETURNING projections.
+SQL-shaped VALUES/SET writes preserve a direct typed parameter or copied document field without coercion. Other scalar expressions retain engine types, including integer 0/1 for SQL FALSE/TRUE; use a typed Boolean parameter for a boolean validator. Multirow assignments are evaluated from pre-update documents before any changes. Nested SET creates absent object parents, replaces a null parent with an object, and rejects other non-object parents. UNSET removes the path and final-candidate validation still applies. One UPDATE can hold both clauses, in either order (`UPDATE t SET "team" = $t UNSET "bio" WHERE ...`); a path named in both is rejected as an overlapping target. A field that holds null is read as missing by the indexes and validators of the fields under it, so `SET "address" = NULL` is accepted when `address.city` is indexed. Quoted keys containing dots stay distinct from nested paths; overlapping targets are rejected before writing. SQL-shaped and object INSERT/UPDATE/DELETE, including UPSERT, support typed RETURNING projections.
 
 Record literals in expression positions and type::record(target,key) compile to a private pure constructor. Direct record projections retain the typed value; arbitrary type propagation through scalar functions remains incomplete. The Rust parameter map addresses anonymous/numbered slots as ?1, ?2, etc. The pinned engine rejects namespace-like $name::suffix parameters; RomeDB preserves that baseline error.
 
@@ -321,6 +321,17 @@ that top-level field. `id` is always ambiguous. The bare alias of the collection
 (`SELECT p.title, u FROM ...`) returns its whole document, like `doc::row(u)`.
 Unresolvable names fail with `qualify NAME in collection joins`.
 
+An `UPDATE` or `DELETE` on a relational table can test documents in its `WHERE`
+clause, for example `UPDATE members SET name = $n WHERE id = $key AND EXISTS
+(SELECT 1 FROM member_fields d WHERE d.id = $id AND d."team" = $t)`. The engine
+first reads the rowids of the rows that match, with the same rules as a `SELECT`
+from that table, and then writes those rows, both inside one statement
+transaction. The affected count and `RETURNING` are those of the write. This
+form needs a table with a rowid and named or numbered parameters (`$n`, `?1`),
+and it does not accept `WITH`, `UPDATE ... FROM`, `INDEXED BY`, or a document
+in a `SET` expression or in `RETURNING`; those still fail with
+`managed collection SQL requires logical lowering`.
+
 ## Mixed query star projections
 
 In collection-aware SELECT queries, relational `alias.*` expands to the pinned engine's visible columns in their native order. Expansion prepares a standalone source SELECT for metadata without executing it, then generates qualified column expressions. This also supports ordinary views. Collection stars produce one typed `document` column per collection source; unqualified `*` expands sources in FROM/join order. Outer-join null extension and relational scalar/blob types remain native.
@@ -492,7 +503,7 @@ CHECK expressions now accept candidate paths beyond three field segments through
 
 ## Relational inspection details
 
-INFO FOR DB retains its tables array and adds a separate views array, with logical names and relational model tags. INFO FOR TABLE on a relational table or view adds kind (table/view), uses native table_xinfo rows for columns, and includes native index_list rows as indexes. INFO FOR INDEX on an explicit relational index retains its name/model/table/sql fields and adds index_xinfo rows as columns.
+INFO FOR DB retains its tables array and adds a separate views array, with logical names and relational model tags. INFO FOR TABLE on a relational table or view adds kind (table/view), uses native table_xinfo rows for columns, and includes native index_list rows as indexes. Each index row has `columns`, the key rows of index_xinfo in key order (`name`, `desc`, `coll`, `cid`, `seqno`; an expression has an empty name), and the table has `foreign_keys`, the native foreign_key_list rows (`table`, `from`, `to`, `on_update`, `on_delete`, `match`, `id`, `seq`). INFO FOR INDEX on an explicit relational index retains its name/model/table/sql fields and adds index_xinfo rows as columns.
 
 PRAGMA fields retain their pinned-engine names and values: these include column hidden flags, index uniqueness/origin/partial flags, and index-key direction/collation/auxiliary entries. Expression-key names and column IDs are native metadata rather than a portable SQLite interpretation. Native unique-constraint autoindexes may appear in relational table index lists; direct INFO lookup still follows the existing reserved-name policy. No experimental engine feature is enabled by inspection.
 

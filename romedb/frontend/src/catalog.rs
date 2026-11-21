@@ -866,7 +866,16 @@ impl Connection {
                         self.drop_collection(tbl_name.name.as_str(), if_exists)?;
                         Ok(Some(QueryResult::command(0)))
                     }
-                    Err(Error::NotFound(_)) => Ok(None),
+                    Err(Error::NotFound(_)) => {
+                        let edges = self.graph_edges_of_table(tbl_name.name.as_str())?;
+                        if !edges.is_empty() {
+                            return Err(Error::Validation(format!(
+                                "drop dependent edge tables ({}) before their endpoint table",
+                                edges.join(", ")
+                            )));
+                        }
+                        Ok(None)
+                    }
                     Err(e) => Err(e),
                 }
             }
@@ -1067,11 +1076,40 @@ impl Connection {
                     ("model", Value::String("relational".into())),
                     ("kind", crate::from_engine(row[0].clone())),
                     ("columns", self.pragma_info("table_xinfo", &name)?),
-                    ("indexes", self.pragma_info("index_list", &name)?),
+                    ("indexes", self.relational_indexes(&name)?),
+                    ("foreign_keys", self.pragma_info("foreign_key_list", &name)?),
                 ]))
             }
             Err(e) => Err(e),
         }
+    }
+    fn relational_indexes(&self, table: &str) -> Result<Value> {
+        let Value::Array(indexes) = self.pragma_info("index_list", table)? else {
+            unreachable!("pragma_info returns an array")
+        };
+        indexes
+            .into_iter()
+            .map(|index| {
+                let Value::Object(mut index) = index else {
+                    unreachable!("pragma_info returns objects")
+                };
+                let Some(Value::String(name)) = index.get("name").cloned() else {
+                    return Err(Error::Storage("invalid index list".into()));
+                };
+                let Value::Array(columns) = self.pragma_info("index_xinfo", &name)? else {
+                    unreachable!("pragma_info returns an array")
+                };
+                let key_columns = columns
+                    .into_iter()
+                    .filter(|column| {
+                        matches!(column, Value::Object(column) if column.get("key") == Some(&Value::Integer(1)))
+                    })
+                    .collect();
+                index.insert("columns".into(), Value::Array(key_columns));
+                Ok(Value::Object(index))
+            })
+            .collect::<Result<Vec<_>>>()
+            .map(Value::Array)
     }
     fn pragma_info(&self, pragma: &str, name: &str) -> Result<Value> {
         let result = self.sql(
