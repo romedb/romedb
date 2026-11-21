@@ -31,8 +31,10 @@ CREATE EDGE TABLE [IF NOT EXISTS] name FROM source_table TO target_table
   [ON DELETE RESTRICT | ON DELETE CASCADE];
 ```
 
-Both endpoint tables must already exist as document tables. An edge table cannot
-be an endpoint of another edge table. Edges are directed. Parallel edges and
+Both endpoint tables must already exist. An endpoint is a document table, or a
+relational table with one TEXT or INTEGER primary key; a record such as
+`members:u1` then names the row with that key. An edge table cannot be an
+endpoint of another edge table. Edges are directed. Parallel edges and
 self-loops are allowed. Add a unique index, for example
 `CREATE UNIQUE INDEX follows_pair ON follows(source, target)`, to allow at most
 one edge per ordered pair.
@@ -48,6 +50,22 @@ dropped. `INFO FOR TABLE` reports `kind: "edge"` and an `edge` object with
 `source`, `target`, `on_delete` and `adjacency_indexes`. Endpoint tables report
 their dependent `edge_tables`. `INFO FOR DB` marks edge tables with
 `kind: "edge"`, `source` and `target`.
+
+A relational endpoint has weaker rules than a document endpoint, because a write
+to a relational table does not pass through the document write path:
+
+- `RELATE` and `INSERT` still require the row to exist.
+- `ON DELETE` does not apply to it. Deleting the row, or changing its key, leaves
+  its edges in place. Delete them in the same write, for example
+  `DELETE FROM follows WHERE source = members:u1 OR target = members:u1`.
+- A traversal does not start from a row that is gone and does not return one. It
+  reads each relational neighbor once to check this, and a node filter sees the
+  row's columns as fields.
+- `g.node` is still a record. Read the row with `record::fetch(g.node)` or join
+  it with `ON m.id = record::id(g.node)`.
+- The integrity check does not count an edge to a deleted row as damage.
+- `ALTER TABLE ... RENAME` on a relational endpoint is not checked; drop its
+  edge tables first.
 
 `DROP TABLE` on an edge table removes its edges and adjacency storage atomically.
 Dropping an endpoint table fails while an edge table still names it, even when

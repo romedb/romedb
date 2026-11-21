@@ -150,7 +150,7 @@ struct Hop {
     outgoing: bool,
     incoming: bool,
     edge_predicate: Option<Predicate>,
-    node: Collection,
+    node: super::Node,
     node_predicate: Option<Predicate>,
 }
 
@@ -259,15 +259,12 @@ impl Connection {
                 )))
             }
         };
-        let root_collection = self.catalog(&root.table)?;
-        let hops = self.graph_hops(&query, &root_collection, params)?;
+        let root_node = self.graph_node(&root.table)?;
+        let hops = self.graph_hops(&query, &root_node, params)?;
         let explain = EXPLAIN.with(std::cell::Cell::get);
         if explain {
             let mut plan = self.graph_plan.lock().unwrap_or_else(|e| e.into_inner());
-            plan.push(format!(
-                "GRAPH ROOT {} USING PRIMARY KEY",
-                root_collection.name
-            ));
+            plan.push(format!("GRAPH ROOT {} USING PRIMARY KEY", root_node.name()));
             for (i, hop) in hops.iter().enumerate() {
                 let mut detail = format!("GRAPH HOP {} {}", i + 1, hop.edges.name);
                 for (used, index) in [
@@ -281,7 +278,7 @@ impl Connection {
                 if hop.edge_predicate.is_some() {
                     detail.push_str(" EDGE FILTER");
                 }
-                detail.push_str(&format!(" TO {}", hop.node.name));
+                detail.push_str(&format!(" TO {}", hop.node.name()));
                 if hop.node_predicate.is_some() {
                     detail.push_str(" NODE FILTER");
                 }
@@ -319,15 +316,15 @@ impl Connection {
             edge_matches: HashMap::new(),
             node_matches: HashMap::new(),
         };
-        let exists = !self
-            .run_customer(
-                &format!(
-                    "SELECT 1 FROM {} WHERE id = ?1",
-                    quote(&root_collection.storage)
-                ),
-                &[EngineValue::Blob(root_id.to_vec())],
-            )?
-            .is_empty();
+        let exists = match &root_node {
+            super::Node::Collection(collection) => !self
+                .run_customer(
+                    &format!("SELECT 1 FROM {} WHERE id = ?1", quote(&collection.storage)),
+                    &[EngineValue::Blob(root_id.to_vec())],
+                )?
+                .is_empty(),
+            super::Node::Table(table) => self.graph_table_row(table, &root_id)?.is_some(),
+        };
         let rows = if !exists {
             Vec::new()
         } else {
@@ -360,10 +357,10 @@ impl Connection {
     fn graph_hops(
         &self,
         query: &GraphQuery,
-        root: &Collection,
+        root: &super::Node,
         params: &Parameters,
     ) -> Result<Vec<Hop>> {
-        let mut current = root.name.clone();
+        let mut current = root.name().to_owned();
         let mut hops = Vec::new();
         for hop in &query.hops {
             let edges = self.catalog(&hop.edge.table)?;
@@ -373,9 +370,9 @@ impl Connection {
                     edges.name
                 )));
             };
-            let node = self.catalog(&hop.node.table)?;
-            let forward = edge.source == current && edge.target == node.name;
-            let backward = edge.target == current && edge.source == node.name;
+            let node = self.graph_node(&hop.node.table)?;
+            let forward = edge.source == current && edge.target == node.name();
+            let backward = edge.target == current && edge.source == node.name();
             let (outgoing, incoming) = match hop.direction {
                 Direction::Out => (forward, false),
                 Direction::In => (false, backward),
@@ -392,10 +389,10 @@ impl Connection {
                         Direction::In => "<-",
                         Direction::Both => "<->",
                     },
-                    node.name
+                    node.name()
                 )));
             }
-            if query.depth.is_some() && !(edge.source == edge.target && node.name == current) {
+            if query.depth.is_some() && !(edge.source == edge.target && node.name() == current) {
                 return Err(Error::Validation(format!(
                     "recursive GRAPH queries require an edge table from {current} to {current}"
                 )));
@@ -421,7 +418,7 @@ impl Connection {
                 incoming,
                 node,
             });
-            current = hops.last().expect("hop").node.name.clone();
+            current = hops.last().expect("hop").node.name().to_owned();
         }
         Ok(hops)
     }
@@ -568,22 +565,38 @@ impl Traversal<'_> {
                 return Ok(false);
             }
         }
-        if let Some(predicate) = &hop.node_predicate {
-            let key = (step, neighbor.clone());
-            let matched = match self.node_matches.get(&key) {
-                Some(matched) => *matched,
-                None => {
-                    let doc = self.document(&hop.node, neighbor)?.ok_or_else(|| {
-                        Error::Storage("adjacency refers to a missing node".into())
-                    })?;
-                    let matched = predicate.matches(&doc)?;
-                    self.node_matches.insert(key, matched);
-                    matched
+        let table = match &hop.node {
+            super::Node::Collection(collection) => {
+                let Some(predicate) = &hop.node_predicate else {
+                    return Ok(true);
+                };
+                let key = (step, neighbor.clone());
+                if let Some(matched) = self.node_matches.get(&key) {
+                    return Ok(*matched);
                 }
-            };
-            return Ok(matched);
+                let doc = self
+                    .document(collection, neighbor)?
+                    .ok_or_else(|| Error::Storage("adjacency refers to a missing node".into()))?;
+                let matched = predicate.matches(&doc)?;
+                self.node_matches.insert(key, matched);
+                return Ok(matched);
+            }
+            super::Node::Table(table) => table,
+        };
+        let key = (step, neighbor.clone());
+        if let Some(matched) = self.node_matches.get(&key) {
+            return Ok(*matched);
         }
-        Ok(true)
+        self.counters.documents += 1;
+        let matched = match self.connection.graph_table_row(table, neighbor)? {
+            None => false,
+            Some(row) => match &hop.node_predicate {
+                Some(predicate) => predicate.matches(&row)?,
+                None => true,
+            },
+        };
+        self.node_matches.insert(key, matched);
+        Ok(matched)
     }
 
     fn fixed(&mut self, root: &Id, hops: &[Hop], with_path: bool) -> Result<Vec<Row>> {

@@ -843,3 +843,96 @@ fn graph_sources_are_rejected_in_writes() {
         Value::Integer(4)
     );
 }
+
+#[test]
+fn relational_rows_are_edge_endpoints() {
+    let db = Database::open(":memory:").unwrap();
+    let c = db.connect().unwrap();
+    q(
+        &c,
+        "CREATE TABLE members (id TEXT PRIMARY KEY, name TEXT NOT NULL)",
+    );
+    q(
+        &c,
+        "INSERT INTO members VALUES ('u1','A'),('u2','B'),('u3','C')",
+    );
+    q(&c, "CREATE TABLE posts");
+    q(&c, "INSERT INTO posts {id:posts:p1,title:'T'}");
+    q(&c, "CREATE TABLE no_key (a TEXT)");
+    assert_eq!(
+        fails(&c, "CREATE EDGE TABLE bad FROM no_key TO posts").code(),
+        "RDB_UNSUPPORTED"
+    );
+    assert_eq!(
+        fails(&c, "CREATE EDGE TABLE bad FROM missing TO posts").code(),
+        "RDB_NOT_FOUND"
+    );
+    q(&c, "CREATE EDGE TABLE follows FROM members TO members");
+    q(
+        &c,
+        "CREATE EDGE TABLE likes FROM members TO posts ON DELETE CASCADE",
+    );
+    q(&c, "RELATE members:u1 -> follows -> members:u2");
+    q(&c, "RELATE members:u2 -> follows -> members:u3");
+    q(&c, "RELATE members:u1 -> likes -> posts:p1");
+    assert_eq!(
+        fails(&c, "RELATE members:nobody -> follows -> members:u1").code(),
+        "RDB_CONSTRAINT"
+    );
+    assert_eq!(
+        fails(&c, "RELATE members:1 -> follows -> members:u1").code(),
+        "RDB_CONSTRAINT"
+    );
+    assert_eq!(
+        keys(
+            &q(
+                &c,
+                "SELECT g.node FROM GRAPH(members:u1 -> follows -> members DEPTH 1 TO 3 MODE REACHABLE) g ORDER BY g.depth"
+            )
+            .rows
+        ),
+        ["u2", "u3"]
+    );
+    let joined = q(
+        &c,
+        "SELECT m.name FROM GRAPH(posts:p1 <- likes <- members) AS g JOIN members m ON m.id = record::id(g.node)",
+    );
+    assert_eq!(joined.rows, vec![vec![Value::String("A".into())]]);
+    let fetched = q(
+        &c,
+        "SELECT record::fetch(g.node) FROM GRAPH(members:u1 -> likes -> posts) AS g",
+    );
+    assert!(
+        matches!(&fetched.rows[0][0], Value::Object(post) if post["title"] == Value::String("T".into()))
+    );
+    assert_eq!(fails(&c, "DROP TABLE members").code(), "RDB_VALIDATION");
+    q(&c, "DELETE FROM members WHERE id = 'u2'");
+    assert!(q(
+        &c,
+        "SELECT g.node FROM GRAPH(members:u1 -> follows -> members) g"
+    )
+    .rows
+    .is_empty());
+    assert!(q(
+        &c,
+        "SELECT g.node FROM GRAPH(members:u2 -> follows -> members) g"
+    )
+    .rows
+    .is_empty());
+    q(&c, "DELETE FROM posts WHERE id = posts:p1");
+    assert_eq!(
+        q(&c, "SELECT count(*) FROM likes").rows[0][0],
+        Value::Integer(0)
+    );
+    q(
+        &c,
+        "DELETE FROM follows WHERE source = members:u2 OR target = members:u2",
+    );
+    assert_eq!(
+        q(&c, "SELECT count(*) FROM follows").rows[0][0],
+        Value::Integer(0)
+    );
+    q(&c, "DROP TABLE follows");
+    q(&c, "DROP TABLE likes");
+    q(&c, "DROP TABLE members");
+}
