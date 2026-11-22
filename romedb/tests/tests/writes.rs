@@ -4117,3 +4117,167 @@ fn joined_update_pagination_coercion_matches_native_with_empty_sources() {
         }
     }
 }
+
+#[test]
+fn null_parent_of_an_indexed_nested_field_is_stored_like_a_missing_parent() {
+    let db = Database::open(":memory:").expect("open");
+    let c = db.connect().expect("connect");
+    q(&c, "CREATE TABLE places");
+    q(&c, "CREATE INDEX places_city ON places (address.city)");
+    q(
+        &c,
+        "DEFINE FIELD address.zip ON places TYPE string REQUIRED",
+    );
+    q(
+        &c,
+        "INSERT INTO places {id:places:a,address:{city:'Hue',zip:'1'}}",
+    );
+    q(&c, "INSERT INTO places {id:places:b,address:null}");
+    assert_eq!(q(&c, "UPDATE places SET address = NULL").affected, 2);
+    let found = q(
+        &c,
+        "SELECT count(*) FROM places p WHERE p.address.city IS NULL",
+    );
+    assert_eq!(found.rows[0][0], Value::Integer(2));
+    assert!(
+        q(&c, "SELECT id FROM places p WHERE p.address.city = 'Hue'")
+            .rows
+            .is_empty()
+    );
+    q(
+        &c,
+        "UPDATE places:a SET address.city = 'Hoi An', address.zip = '2'",
+    );
+    let found = q(
+        &c,
+        "SELECT id FROM places p WHERE p.address.city = 'Hoi An'",
+    );
+    assert_eq!(found.rows.len(), 1);
+    let error = c
+        .execute(
+            "INSERT INTO places {id:places:c,address:'text'}",
+            &Parameters::new(),
+        )
+        .expect_err("text parent");
+    assert_eq!(error.code(), "RDB_VALIDATION");
+}
+
+#[test]
+fn one_update_sets_some_fields_and_unsets_others() {
+    let (_db, c) = setup();
+    q(
+        &c,
+        "INSERT INTO users {id:users:u1,name:'Alice',bio:'b',unset:1,profile:{city:'Hue',zip:'1'}}",
+    );
+    q(&c, "INSERT INTO users {id:users:u2,name:'Bob',bio:'b'}");
+    let changed = q(
+        &c,
+        "UPDATE users SET team = 'red', profile.city = 'Da Nang' UNSET bio, profile.zip WHERE name = 'Alice' RETURNING *",
+    );
+    assert_eq!(changed.affected, 1);
+    let Value::Object(doc) = &changed.rows[0][0] else {
+        panic!()
+    };
+    assert_eq!(doc["team"], Value::String("red".into()));
+    assert!(!doc.contains_key("bio"));
+    assert_eq!(
+        doc["profile"],
+        Value::Object(Document::from([(
+            "city".into(),
+            Value::String("Da Nang".into())
+        )]))
+    );
+    let changed = q(
+        &c,
+        "UPDATE users:u2 UNSET bio SET team = 'blue', score = 1 + 1 RETURNING *",
+    );
+    let Value::Object(doc) = &changed.rows[0][0] else {
+        panic!()
+    };
+    assert!(!doc.contains_key("bio"));
+    assert_eq!(doc["team"], Value::String("blue".into()));
+    assert_eq!(doc["score"], Value::Integer(2));
+    let kept = q(&c, "UPDATE users:u1 SET score = unset + 1 RETURNING *");
+    let Value::Object(doc) = &kept.rows[0][0] else {
+        panic!()
+    };
+    assert_eq!(doc["score"], Value::Integer(2));
+    let error = c
+        .execute("UPDATE users SET team = 'x' UNSET team", &Parameters::new())
+        .expect_err("same field twice");
+    assert_eq!(error.code(), "RDB_VALIDATION");
+}
+
+#[test]
+fn relational_update_and_delete_accept_a_condition_on_a_document() {
+    let db = Database::open(":memory:").expect("open");
+    let c = db.connect().expect("connect");
+    q(
+        &c,
+        "CREATE TABLE members (id TEXT PRIMARY KEY, name TEXT NOT NULL)",
+    );
+    q(
+        &c,
+        "INSERT INTO members VALUES ('u1','A'),('u2','B'),('u3','C')",
+    );
+    q(&c, "CREATE TABLE member_fields");
+    q(
+        &c,
+        "INSERT INTO member_fields {id:member_fields:u1,team:'red'}",
+    );
+    q(
+        &c,
+        "INSERT INTO member_fields {id:member_fields:u2,team:'blue'}",
+    );
+    let params = Parameters::from([
+        ("$n".into(), Value::String("Renamed".into())),
+        ("$key".into(), Value::String("u1".into())),
+        (
+            "$id".into(),
+            Value::Record(Record {
+                table: "member_fields".into(),
+                key: Key::String("u1".into()),
+            }),
+        ),
+        ("$t".into(), Value::String("red".into())),
+    ]);
+    let sql = "UPDATE members SET name = $n WHERE id = $key AND EXISTS (SELECT 1 FROM member_fields d WHERE d.id = $id AND d.\"team\" = $t) RETURNING id, name";
+    let changed = c.execute(sql, &params).expect(sql);
+    assert_eq!(changed.affected, 1);
+    assert_eq!(
+        changed.rows,
+        vec![vec![
+            Value::String("u1".into()),
+            Value::String("Renamed".into())
+        ]]
+    );
+    let mut other_team = params.clone();
+    other_team.insert("$t".into(), Value::String("green".into()));
+    assert_eq!(c.execute(sql, &other_team).expect(sql).affected, 0);
+    let mut unused = params.clone();
+    unused.insert("$extra".into(), Value::Integer(1));
+    assert_eq!(
+        c.execute(sql, &unused).expect_err("unused").code(),
+        "RDB_PARAMETER"
+    );
+    let removed = q(
+        &c,
+        "DELETE FROM members AS m WHERE EXISTS (SELECT 1 FROM member_fields d WHERE record::id(d.id) = m.id AND d.team = 'blue')",
+    );
+    assert_eq!(removed.affected, 1);
+    let left = q(&c, "SELECT id, name FROM members ORDER BY id");
+    assert_eq!(
+        left.rows,
+        vec![
+            vec![Value::String("u1".into()), Value::String("Renamed".into())],
+            vec![Value::String("u3".into()), Value::String("C".into())],
+        ]
+    );
+    let error = c
+        .execute(
+            "UPDATE members SET name = (SELECT team FROM member_fields LIMIT 1)",
+            &Parameters::new(),
+        )
+        .expect_err("document in SET");
+    assert_eq!(error.code(), "RDB_UNSUPPORTED");
+}

@@ -165,43 +165,12 @@ impl Connection {
                     }
                 }
                 Err(Error::NotFound(_)) => {
-                    let schema = self.run(
-                        "SELECT type FROM main.sqlite_schema WHERE name=?1 COLLATE NOCASE",
-                        &[text(&table)],
-                    )?;
-                    let Some(row) = schema.first() else {
-                        continue;
-                    };
-                    if from_engine(row[0].clone()) != Value::String("table".into()) {
-                        return Err(Error::Unsupported(
-                            "record::fetch requires a table target".into(),
-                        ));
-                    }
-                    let info =
-                        self.run(&format!("PRAGMA main.table_info({})", quote(&table)), &[])?;
-                    let keys = info
-                        .iter()
-                        .filter(|r| matches!(from_engine(r[5].clone()),Value::Integer(i) if i>0))
-                        .collect::<Vec<_>>();
-                    let [key] = keys.as_slice() else {
-                        return Err(Error::Unsupported(
-                            "record::fetch requires a single explicit TEXT or INTEGER primary key"
-                                .into(),
-                        ));
-                    };
-                    let (Value::String(key_name), Value::String(key_type)) =
-                        (from_engine(key[1].clone()), from_engine(key[2].clone()))
+                    let Some(RelationalKey {
+                        column: key_name,
+                        integer,
+                    }) = self.relational_key(&table, "record::fetch")?
                     else {
-                        return Err(Error::Storage("invalid primary key metadata".into()));
-                    };
-                    let integer = match key_type.trim().to_ascii_uppercase().as_str() {
-                        "INTEGER" => true,
-                        "TEXT" => false,
-                        _ => {
-                            return Err(Error::Unsupported(
-                                "record::fetch requires TEXT or INTEGER primary key".into(),
-                            ))
-                        }
+                        continue;
                     };
                     for (_, record) in &records {
                         if matches!(record.key, Key::Integer(_)) != integer {
@@ -296,6 +265,59 @@ impl Connection {
                     .unwrap_or(Value::Null)
             })
             .collect())
+    }
+}
+
+pub(crate) struct RelationalKey {
+    pub(crate) column: String,
+    pub(crate) integer: bool,
+}
+
+impl Connection {
+    /// The single TEXT or INTEGER primary key of a relational table, or `None`
+    /// when no table or view has this name.
+    pub(crate) fn relational_key(
+        &self,
+        table: &str,
+        purpose: &str,
+    ) -> Result<Option<RelationalKey>> {
+        let schema = self.run(
+            "SELECT type FROM main.sqlite_schema WHERE name=?1 COLLATE NOCASE",
+            &[text(table)],
+        )?;
+        let Some(row) = schema.first() else {
+            return Ok(None);
+        };
+        if from_engine(row[0].clone()) != Value::String("table".into()) {
+            return Err(Error::Unsupported(format!(
+                "{purpose} requires a table target"
+            )));
+        }
+        let info = self.run(&format!("PRAGMA main.table_info({})", quote(table)), &[])?;
+        let keys = info
+            .iter()
+            .filter(|r| matches!(from_engine(r[5].clone()),Value::Integer(i) if i>0))
+            .collect::<Vec<_>>();
+        let [key] = keys.as_slice() else {
+            return Err(Error::Unsupported(format!(
+                "{purpose} requires a single explicit TEXT or INTEGER primary key"
+            )));
+        };
+        let (Value::String(column), Value::String(key_type)) =
+            (from_engine(key[1].clone()), from_engine(key[2].clone()))
+        else {
+            return Err(Error::Storage("invalid primary key metadata".into()));
+        };
+        let integer = match key_type.trim().to_ascii_uppercase().as_str() {
+            "INTEGER" => true,
+            "TEXT" => false,
+            _ => {
+                return Err(Error::Unsupported(format!(
+                    "{purpose} requires TEXT or INTEGER primary key"
+                )))
+            }
+        };
+        Ok(Some(RelationalKey { column, integer }))
     }
 }
 

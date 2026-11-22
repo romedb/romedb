@@ -102,8 +102,9 @@ pub(crate) fn validate_version(collection: &Collection) -> Result<()> {
     Ok(())
 }
 
-/// Every edge names existing node collections that list it as a dependent,
-/// and every dependent entry is backed by such an edge.
+/// Every edge endpoint that is a collection lists the edge as a dependent, and
+/// every dependent entry is backed by such an edge. An endpoint that is not a
+/// collection names a relational table.
 pub(crate) fn validate_catalog(collections: &[Collection], marker: bool) -> Result<()> {
     let by_name: std::collections::BTreeMap<_, _> =
         collections.iter().map(|c| (c.name.as_str(), c)).collect();
@@ -117,15 +118,17 @@ pub(crate) fn validate_catalog(collections: &[Collection], marker: bool) -> Resu
         }
         for endpoint in [&edge.source, &edge.target] {
             match by_name.get(endpoint.as_str()) {
-                Some(node) if node.edge.is_none() => {}
-                _ => {
+                Some(node) if node.edge.is_none() => {
+                    expected.insert((endpoint.clone(), c.name.clone()));
+                }
+                Some(_) => {
                     return Err(Error::Storage(format!(
                         "edge table {} has an invalid endpoint collection {endpoint}",
                         c.name
                     )))
                 }
+                None => {}
             }
-            expected.insert((endpoint.clone(), c.name.clone()));
         }
     }
     let actual: std::collections::BTreeSet<_> = collections
@@ -166,7 +169,97 @@ fn display(record: &crate::Record) -> String {
     }
 }
 
+/// A graph node table: a document collection, or a relational table with one
+/// TEXT or INTEGER primary key.
+#[derive(Clone)]
+pub(crate) enum Node {
+    Collection(Collection),
+    Table(TableNode),
+}
+#[derive(Clone)]
+pub(crate) struct TableNode {
+    pub(crate) name: String,
+    key: String,
+    integer: bool,
+}
+impl Node {
+    pub(crate) fn name(&self) -> &str {
+        match self {
+            Node::Collection(collection) => &collection.name,
+            Node::Table(table) => &table.name,
+        }
+    }
+}
+
 impl Connection {
+    pub(crate) fn graph_node(&self, name: &str) -> Result<Node> {
+        match self.catalog(name) {
+            Ok(collection) => Ok(Node::Collection(collection)),
+            Err(Error::NotFound(_)) => {
+                let name = canonical(name)?;
+                let key = self
+                    .relational_key(&name, "a graph endpoint")?
+                    .ok_or_else(|| Error::NotFound(name.clone()))?;
+                Ok(Node::Table(TableNode {
+                    name,
+                    key: key.column,
+                    integer: key.integer,
+                }))
+            }
+            Err(error) => Err(error),
+        }
+    }
+
+    /// The row of a relational node as a document of its columns.
+    pub(crate) fn graph_table_row(&self, table: &TableNode, id: &[u8]) -> Result<Option<Document>> {
+        let Value::Record(record) = Value::decode(id)? else {
+            return Err(Error::Storage("invalid graph node id".into()));
+        };
+        let key = match (&record.key, table.integer) {
+            (crate::Key::Integer(key), true) => crate::scalar(&Value::Integer(*key))?,
+            (crate::Key::String(key), false) => text(key),
+            _ => return Ok(None),
+        };
+        let mut statement = self.prepare(format!(
+            "SELECT * FROM main.{} WHERE {} = ?1 AND typeof({}) = '{}'",
+            quote(&table.name),
+            quote(&table.key),
+            quote(&table.key),
+            if table.integer { "integer" } else { "text" }
+        ))?;
+        statement.bind_at(std::num::NonZeroUsize::MIN, key)?;
+        let names = (0..statement.num_columns())
+            .map(|i| statement.get_column_name(i).into_owned())
+            .collect::<Vec<_>>();
+        let mut found = None;
+        crate::links::visit_target_rows(self, &mut statement, |row| {
+            found = Some(
+                names
+                    .iter()
+                    .cloned()
+                    .zip(row.into_iter().map(crate::from_engine))
+                    .collect::<Document>(),
+            );
+            Ok(())
+        })?;
+        Ok(found)
+    }
+
+    /// Edge tables that name this relational table as an endpoint.
+    pub(crate) fn graph_edges_of_table(&self, table: &str) -> Result<Vec<String>> {
+        Ok(self
+            .collections()?
+            .into_iter()
+            .filter(|collection| {
+                collection.edge.as_ref().is_some_and(|edge| {
+                    edge.source.eq_ignore_ascii_case(table)
+                        || edge.target.eq_ignore_ascii_case(table)
+                })
+            })
+            .map(|collection| collection.name)
+            .collect())
+    }
+
     pub fn create_edge_table(
         &self,
         name: &str,
@@ -195,18 +288,24 @@ impl Connection {
             }
             let mut endpoints = Vec::new();
             for endpoint in [&source, &target] {
-                let collection = self.catalog(endpoint).map_err(|error| match error {
+                let node = self.graph_node(endpoint).map_err(|error| match error {
                     Error::NotFound(_) => Error::NotFound(format!(
-                        "edge endpoint collection {endpoint}; create it with CREATE TABLE {endpoint}"
+                        "edge endpoint table {endpoint}; create it with CREATE TABLE {endpoint}"
                     )),
                     error => error,
                 })?;
+                let Node::Collection(collection) = node else {
+                    continue;
+                };
                 if collection.edge.is_some() {
                     return Err(Error::Unsupported(
                         "edge tables cannot be endpoints of other edge tables".into(),
                     ));
                 }
-                if !endpoints.iter().any(|c: &Collection| c.name == collection.name) {
+                if !endpoints
+                    .iter()
+                    .any(|c: &Collection| c.name == collection.name)
+                {
                     endpoints.push(collection);
                 }
             }
@@ -249,7 +348,11 @@ impl Connection {
         };
         self.run(&format!("DROP TABLE {}", quote(&edge.adjacency)), &[])?;
         for endpoint in [&edge.source, &edge.target] {
-            let mut node = self.catalog(endpoint)?;
+            let mut node = match self.catalog(endpoint) {
+                Ok(node) => node,
+                Err(Error::NotFound(_)) => continue,
+                Err(error) => return Err(error),
+            };
             if node.edge_dependents.contains(&collection.name) {
                 node.edge_dependents.retain(|name| name != &collection.name);
                 self.save_catalog(&node)?;
@@ -326,8 +429,21 @@ impl Connection {
             let Value::Record(record) = &doc[field] else {
                 unreachable!("normalized endpoint");
             };
-            let node = self.catalog(table)?;
-            let encoded = EngineValue::Blob(Value::Record(record.clone()).encode()?);
+            let encoded = Value::Record(record.clone()).encode()?;
+            let node = match self.graph_node(table)? {
+                Node::Collection(node) => node,
+                Node::Table(node) => {
+                    if self.graph_table_row(&node, &encoded)?.is_none() {
+                        return Err(constraint(format!(
+                            "edge {} {field} {} does not exist",
+                            c.name,
+                            display(record)
+                        )));
+                    }
+                    continue;
+                }
+            };
+            let encoded = EngineValue::Blob(encoded);
             let exists = if self.engine.mvcc_enabled() {
                 self.run_customer(
                     &format!(
@@ -548,7 +664,11 @@ impl Connection {
             return fail("has orphan adjacency entries");
         }
         for (column, table) in [("source_id", &edge.source), ("target_id", &edge.target)] {
-            let node = self.catalog(table)?;
+            let node = match self.catalog(table) {
+                Ok(node) => node,
+                Err(Error::NotFound(_)) => continue,
+                Err(error) => return Err(error),
+            };
             if count(format!(
                 "SELECT count(*) FROM {} AS a LEFT JOIN {} AS n ON n.id = a.{column} WHERE n.id IS NULL",
                 quote(&edge.adjacency),

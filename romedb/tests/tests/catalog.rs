@@ -656,3 +656,72 @@ fn reopening_rejects_missing_indexes_and_unexpected_managed_dependencies() {
         assert_eq!(error.code(), "RDB_STORAGE", "{mutation}");
     }
 }
+
+#[test]
+fn relational_table_info_lists_index_columns_and_foreign_keys() {
+    let db = Database::open(":memory:").expect("open");
+    let c = db.connect().expect("connect");
+    q(&c, "CREATE TABLE teams (id INTEGER PRIMARY KEY, name TEXT)");
+    q(
+        &c,
+        "CREATE TABLE members (id INTEGER PRIMARY KEY, email TEXT UNIQUE, team_id INTEGER REFERENCES teams(id) ON DELETE CASCADE)",
+    );
+    q(
+        &c,
+        "CREATE INDEX members_team ON members (team_id, email DESC)",
+    );
+    let Value::Object(info) = &q(&c, "INFO FOR TABLE members").rows[0][0] else {
+        panic!()
+    };
+    let Value::Array(indexes) = &info["indexes"] else {
+        panic!()
+    };
+    let columns = |index_name: &str| -> Vec<(Value, Value)> {
+        let index = indexes
+            .iter()
+            .find_map(|index| match index {
+                Value::Object(index) if index["name"] == Value::String(index_name.into()) => {
+                    Some(index)
+                }
+                _ => None,
+            })
+            .expect(index_name);
+        let Value::Array(columns) = &index["columns"] else {
+            panic!()
+        };
+        columns
+            .iter()
+            .map(|column| {
+                let Value::Object(column) = column else {
+                    panic!()
+                };
+                (column["name"].clone(), column["desc"].clone())
+            })
+            .collect()
+    };
+    assert_eq!(
+        columns("members_team"),
+        vec![
+            (Value::String("team_id".into()), Value::Integer(0)),
+            (Value::String("email".into()), Value::Integer(1)),
+        ]
+    );
+    assert_eq!(
+        columns("sqlite_autoindex_members_1"),
+        vec![(Value::String("email".into()), Value::Integer(0))]
+    );
+    let Value::Array(foreign_keys) = &info["foreign_keys"] else {
+        panic!()
+    };
+    let [Value::Object(key)] = foreign_keys.as_slice() else {
+        panic!()
+    };
+    assert_eq!(key["table"], Value::String("teams".into()));
+    assert_eq!(key["from"], Value::String("team_id".into()));
+    assert_eq!(key["to"], Value::String("id".into()));
+    assert_eq!(key["on_delete"], Value::String("CASCADE".into()));
+    let Value::Object(teams) = &q(&c, "INFO FOR TABLE teams").rows[0][0] else {
+        panic!()
+    };
+    assert_eq!(teams["foreign_keys"], Value::Array(Vec::new()));
+}

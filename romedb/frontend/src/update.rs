@@ -5,7 +5,7 @@ use romeql_parser::{Kind, Token};
 pub(crate) struct UpdateSyntax {
     pub sql: String,
     pub paths: Vec<Vec<String>>,
-    pub unset: bool,
+    pub unset: Vec<bool>,
 }
 fn word(t: &Token, s: &str) -> bool {
     t.kind == Kind::Word && t.text.eq_ignore_ascii_case(s)
@@ -38,35 +38,45 @@ pub(crate) fn normalize(sql: &str) -> Result<Option<UpdateSyntax>> {
     else {
         return Ok(None);
     };
-    let unset = word(&tokens[set], "UNSET");
+    let mut unset = word(&tokens[set], "UNSET");
     let mut paths = Vec::new();
+    let mut unset_paths = Vec::new();
     let mut assignments = Vec::new();
     let mut start = set + 1;
     let mut depth = 0;
     let mut end = tokens.len();
     for i in set + 1..=tokens.len() {
         let t = tokens.get(i);
+        let slice = &tokens[start..i];
+        let value_start = if unset {
+            None
+        } else {
+            slice
+                .iter()
+                .position(|t| t.kind == Kind::Symbol && t.text == "=")
+                .map(|eq| eq + 1)
+        };
+        let complete = if unset {
+            !slice.is_empty()
+        } else {
+            value_start.is_some_and(|value| value < slice.len())
+        };
+        let next_clause =
+            depth == 0 && complete && t.is_some_and(|t| word(t, "SET") || word(t, "UNSET"));
         let boundary = depth == 0
             && t.is_none_or(|t| {
                 t.text == "," || t.text == ";" || word(t, "WHERE") || word(t, "RETURNING")
             });
-        if boundary {
-            let slice = &tokens[start..i];
+        if boundary || next_clause {
             let (lhs, rhs) = if unset {
                 (slice, "NULL")
             } else {
-                let Some(eq) = slice
-                    .iter()
-                    .position(|t| t.kind == Kind::Symbol && t.text == "=")
-                else {
-                    return Ok(None);
-                };
-                let Some(first) = slice.get(eq + 1) else {
+                let Some(value) = value_start.filter(|value| *value < slice.len()) else {
                     return Ok(None);
                 };
                 (
-                    &slice[..eq],
-                    &sql[first.start..slice.last().expect("nonempty assignment").end],
+                    &slice[..value - 1],
+                    &sql[slice[value].start..slice.last().expect("nonempty assignment").end],
                 )
             };
             let Some(p) = path(lhs) else {
@@ -74,6 +84,12 @@ pub(crate) fn normalize(sql: &str) -> Result<Option<UpdateSyntax>> {
             };
             assignments.push(format!("{} = {}", quote(&p.join(".")), rhs));
             paths.push(p);
+            unset_paths.push(unset);
+            if next_clause {
+                unset = t.is_some_and(|t| word(t, "UNSET"));
+                start = i + 1;
+                continue;
+            }
             if t.is_some_and(|t| t.text == ",") {
                 start = i + 1;
             } else {
@@ -127,7 +143,7 @@ pub(crate) fn normalize(sql: &str) -> Result<Option<UpdateSyntax>> {
             suffix
         ),
         paths,
-        unset,
+        unset: unset_paths,
     }))
 }
 pub(crate) fn validate_targets(paths: &[Vec<String>]) -> Result<()> {
@@ -159,6 +175,9 @@ pub(crate) fn apply(doc: &mut Document, path: &[String], value: Option<Value>) -
         let parent = fields
             .entry(part.clone())
             .or_insert_with(|| Value::Object(Document::new()));
+        if value.is_some() && matches!(parent, Value::Null) {
+            *parent = Value::Object(Document::new());
+        }
         match parent {
             Value::Object(object) => fields = object,
             _ if value.is_none() => return Ok(()),
