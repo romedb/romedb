@@ -1,0 +1,129 @@
+{
+  "version": "0.2.28",
+  "qualified": true,
+  "qualifiedAtUtc": "2026-11-22T06:54:57.541503+00:00",
+  "sourceCommit": "e8c4a243c1d31e5529593468224b31dcac371325",
+  "sourceArchiveSha256": "7c5a9926e3e025930ac1d2782099d01e6031a32c6fc1dc1163e679a1dcf5240d",
+  "cargoLockSha256": "dd90373a67869ee8bf121b859e9640642346529ef056e5becbe05a864e5b2b21",
+  "buildManifestSha256": "35c7b6279db75c5ab7a3805100da27ea7c17fab99c429c1eabddf5203ccba364",
+  "buildChecksumsSha256": "d0b9f3ecc2a4c41913c5da1c15181793edf9ee76ca88ed79cfa5e60b3cd03482",
+  "buildProfile": "romedb-production",
+  "sourceCi": "https://github.com/romedb/romedb/actions/runs/44991892393",
+  "sourceTests": {
+    "rust": 1177,
+    "rustIgnored": 4,
+    "node": 235,
+    "cAbi": 5,
+    "releasePolicy": 2,
+    "upgradeTable": 4,
+    "formatting": "passed",
+    "scopedClippy": "passed",
+    "strictTypeScript": "passed"
+  },
+  "installedGroups": [
+    "c-abi",
+    "cli",
+    "cli-v22",
+    "cli-graph",
+    "cli-spatial",
+    "sqlite-adoption",
+    "cli-elf",
+    "c-elf",
+    "node-0",
+    "node-client-0",
+    "node-1",
+    "node-client-1",
+    "python-0",
+    "python-1",
+    "python-2",
+    "php-package",
+    "go-package",
+    "swift-package",
+    "node-upgrade-install",
+    "node-ownership-0",
+    "v0213-upgrade-restore-0",
+    "v0214-upgrade-restore-0",
+    "v0215-upgrade-restore-0",
+    "v0216-upgrade-restore-0",
+    "v0217-upgrade-restore-0",
+    "v0218-upgrade-restore-0",
+    "v0219-upgrade-restore-0",
+    "v0220-upgrade-restore-0",
+    "v0221-upgrade-restore-0",
+    "v0222-upgrade-restore-0",
+    "v0223-upgrade-restore-0",
+    "v0224-upgrade-restore-0",
+    "v0225-upgrade-restore-0",
+    "v0226-upgrade-restore-0",
+    "v0227-upgrade-restore-0",
+    "node-ownership-1",
+    "v0213-upgrade-restore-1",
+    "v0214-upgrade-restore-1",
+    "v0215-upgrade-restore-1",
+    "v0216-upgrade-restore-1",
+    "v0217-upgrade-restore-1",
+    "v0218-upgrade-restore-1",
+    "v0219-upgrade-restore-1",
+    "v0220-upgrade-restore-1",
+    "v0221-upgrade-restore-1",
+    "v0222-upgrade-restore-1",
+    "v0223-upgrade-restore-1",
+    "v0224-upgrade-restore-1",
+    "v0225-upgrade-restore-1",
+    "v0226-upgrade-restore-1",
+    "v0227-upgrade-restore-1",
+    "nuget-package"
+  ],
+  "nodeVersions": [
+    "22.0.0",
+    "24.19.0"
+  ],
+  "pythonVersions": [
+    "3.10.21",
+    "3.12.3",
+    "3.14.7"
+  ],
+  "standaloneRustConsumer": "passed with the romedb-production profile; 344 registry/git package identities match the workspace lockfile",
+  "upgradeRestore": "Passed from the 0.2.13 to 0.2.27 packages on Node 22.0.0 and 24.19.0 (groups v0213-upgrade-restore to v0227-upgrade-restore). 0.2.13 is the floor: it changed the stored value prefix, and earlier files are refused. 0.2.28 adds no storage format change; a file with an edge table that has a relational endpoint cannot be opened by 0.2.27 and earlier.",
+  "engine": {
+    "upstream": "Turso v0.8.3",
+    "upstreamCommit": "607bff9fd0e547a25a97b3bf06e83bcc5d99d53c",
+    "previousUpstream": "607bff9fd0e547a25a97b3bf06e83bcc5d99d53c",
+    "exceptions": "the maintained engine exceptions retained, none added (romedb/docs/core-exceptions.md)",
+    "storageFormat": "__romedb_ schema prefix, .romedb extension, stored values prefixed RDB 01 (FDB 01 before 0.2.13); openEmbedded and serve use MVCC files; collections with a * array path index use catalog version 8, others keep version 7 or earlier; collections with a weighted full-text index use catalog version 9; collections with a folded or stemmed full-text index use catalog version 10; collections with a full-text index that declares filter paths use catalog version 11",
+    "sync": "romedb/romedb#30",
+    "change": "unchanged engine and patches from 0.2.27 (Turso v0.8.3, Tantivy 0.27.0). Frontend changes from romedb/romedb#100: a field that holds null is read as missing by the indexes and validators of the fields under it; one UPDATE can hold SET and UNSET; UPDATE and DELETE on a relational table accept a condition on documents in WHERE; INFO FOR TABLE on a relational table lists index columns and foreign keys; an edge table endpoint can be a relational table with one TEXT or INTEGER primary key, without ON DELETE rules for that endpoint. No dependency changed"
+  },
+  "spatial": {
+    "catalogVersion": 7,
+    "explainReadsNoData": "metered EXPLAIN reports zero rows read for every spatial form (spatial_explain_reads_no_documents_or_index_entries)",
+    "cliSpatialCheck": "passed"
+  },
+  "supportedScope": {
+    "platform": "Linux x64",
+    "clients": [
+      "rust",
+      "node",
+      "python",
+      "php",
+      "swift",
+      "csharp",
+      "go"
+    ],
+    "ownership": "One owning process per database file; shared clients connect to its service"
+  },
+  "security": {
+    "unresolvedFindings": 0,
+    "acceptedInformational": [
+      "RUSTSEC-2026-0543"
+    ],
+    "advisoryDatabase": "55e1c3dfbd834237a05bbbf7b50ba3b5be27b662",
+    "resolvedForRelease": []
+  },
+  "documentationOverrides": {
+    "ENVELOPE.md": "Historical 2.1.0 measurements; the raw-evidence link points to the immutable fastdb-v2.1.0 release"
+  },
+  "performance": "Historical 2.1.0 operating envelope retained; fresh bounded application sample, not capacity guarantees",
+  "buildHost": "Built and qualified under scripts/romedb-heavy (shared lock, 16 jobs, cgroup memory ceiling)",
+  "publication": "Qualified for publication; anonymous public-download verification is separate"
+}
