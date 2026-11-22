@@ -9,6 +9,10 @@ which stays accepted for the reasons in the 0.2.26 review below.
 The lockfile differs from 0.2.27 only in the nine RomeDB workspace package
 versions.
 
+At release time, the same scan of build commit `e8c4a243` against the advisory
+database, still at `55e1c3dfbd834237a05bbbf7b50ba3b5be27b662` (1,555 advisories),
+found the same accepted finding and no other.
+
 ## Dependency security review for 0.2.27
 Reviewed 2026-11-19 for the Linux x64 0.2.27 candidate. The exact lockfile scan
 covers 361 package/version identities against the RustSec advisory database at

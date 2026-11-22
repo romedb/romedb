@@ -1,0 +1,49 @@
+{
+  "version": "0.2.28",
+  "verifiedAtUtc": "2026-11-22T07:06:32.975997+00:00",
+  "releaseUrl": "https://github.com/romedb/romedb/releases/tag/romedb-v0.2.28",
+  "archiveUrl": "https://github.com/romedb/romedb/releases/download/romedb-v0.2.28/romedb-0.2.28-linux-x64.tar.gz",
+  "archiveSha256": "5a1e3f9b09e5f86c89dc14db6d54bce08989ba20a74d75873f727069749c34e2",
+  "archiveBytes": 104389604,
+  "archiveReproduced": "the downloaded tar.gz is byte-identical to the archive built from the assembled bundle (fixed owner and commit-time mtimes)",
+  "sourceCommit": "e8c4a243c1d31e5529593468224b31dcac371325",
+  "sourceArchiveSha256": "7c5a9926e3e025930ac1d2782099d01e6031a32c6fc1dc1163e679a1dcf5240d",
+  "anonymousDownload": true,
+  "outerChecksumMatches": true,
+  "internalChecksumsPass": true,
+  "internalFiles": 286,
+  "sourceArchiveMatchesTag": "the tag is on the manifest's source commit and the source archive has the manifest's checksum",
+  "cAbiSmoke": "not repeated on the download; the c-abi group passed on the same files before assembly",
+  "cliVersion": "bin/romedb --version prints 'romedb 0.2.28'",
+  "nodePackageAsset": {
+    "url": "https://github.com/romedb/romedb/releases/download/romedb-v0.2.28/romedb-node-0.2.28.tgz",
+    "sha256": "ce8be03076a4008ea8f80a2bbad70bbeceb115633d6fcf61d75417ece7e4d4f0",
+    "bytes": 15650063,
+    "matchesBundle": "byte-identical to packages/romedb-node-0.2.28.tgz in the archive"
+  },
+  "npmPackage": {
+    "url": "https://www.npmjs.com/package/@romedb/node/v/0.2.28",
+    "tarball": "https://registry.npmjs.org/@romedb/node/-/node-0.2.28.tgz",
+    "matchesAsset": "the registry tarball is byte-identical to romedb-node-0.2.28.tgz",
+    "dependsOn": "@romedb/client 0.2.28",
+    "publishedBy": "GitHub Actions run https://github.com/romedb/romedb/actions/runs/44996386456 of npm-publish.yml through npm trusted publishing, without an npm token",
+    "provenance": "npm audit signatures reports a verified attestation; transparency log https://search.sigstore.dev/?logIndex=4037992773"
+  },
+  "consumerChecks": "from clean npm installs of @romedb/client and @romedb/node 0.2.28, on Node 22.0.0 and 24.19.0: one installed copy of @romedb/client; Record is the same class through @romedb/client and @romedb/node/client; in an embedded database, null is stored in the parent of an indexed nested field, one UPDATE sets a field and unsets another, an UPDATE of a relational row with a condition on a document changes the row only when the document matches, INFO FOR TABLE lists the columns of an index and the foreign key, and an edge between two relational rows is created, traversed and joined, while RELATE to a missing row is refused with RDB_CONSTRAINT. The same check stops on the 0.2.27 packages at the null parent (non-object parent at address). pnpm add of the romedb-node-0.2.28.tgz asset URL alone installs @romedb/client 0.2.28 from the registry and runs the null parent and SET with UNSET writes in an embedded database",
+  "workersCheck": "not repeated: @romedb/client differs from 0.2.27 only in its version",
+  "cloudCheck": "RomeDB Cloud stays on 0.2.24 and was not deployed, so the changes of this release are not on Cloud. No hosted check was run",
+  "manifestSha256": "eda6cbb369540c42170401c832b0d04377d5ff17e5840fbc73bbfd352c783bd6",
+  "clientPackageAsset": {
+    "url": "https://github.com/romedb/romedb/releases/download/romedb-v0.2.28/romedb-client-0.2.28.tgz",
+    "sha256": "7987cb89f600e7ba4ab59736a50da314ed035350462eb8c44d815599c8768722",
+    "bytes": 36305,
+    "matchesBundle": "byte-identical to packages/romedb-client-0.2.28.tgz in the archive"
+  },
+  "npmClientPackage": {
+    "url": "https://www.npmjs.com/package/@romedb/client/v/0.2.28",
+    "tarball": "https://registry.npmjs.org/@romedb/client/-/client-0.2.28.tgz",
+    "matchesAsset": "the registry tarball is byte-identical to romedb-client-0.2.28.tgz",
+    "publishedBy": "the same run, before @romedb/node",
+    "provenance": "npm audit signatures reports a verified attestation; transparency log https://search.sigstore.dev/?logIndex=4037990794"
+  }
+}
