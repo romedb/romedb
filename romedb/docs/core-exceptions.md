@@ -365,7 +365,9 @@ Notes and evidence: [integration notes](turso-0.8.4.md).
 | MVCC exact seeks over shadowed B-tree rows | Keep both parts | Upstream `2c837d49a` is not in 0.8.4, so the rowid seek backport stays too. `core/mvcc/` is unchanged. |
 | MVCC log-byte budget, MVCC commit schema scan once | Keep | `core/mvcc/` and the insert and delete opcodes are unchanged. |
 
-Results of the combined checks are in the [integration notes](turso-0.8.4.md#checks).
+New on this sync: the test-only backport of upstream `c7588f403` (first entry above),
+which is not in 0.8.4 and fixes a flaky core unit test. Results of the combined checks
+are in the [integration notes](turso-0.8.4.md#checks).
 
 Not taken: the whole-table DELETE fast path (`58f350a90`) is still only on upstream
 `main`. The hazard recorded below still applies to the sync that takes 0.9.0.

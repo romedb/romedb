@@ -73,14 +73,16 @@ Run on 2026-11-25 with Rust 1.89 under `scripts/romedb-heavy`, from a clean work
   `test_delete_collects_rowids_first_only_when_foreign_keys_are_on`) and the
   integration regressions of every engine exception (savepoint commit resume,
   VACUUM INTO, the four FTS patches).
-- `cargo test -p turso_core --lib`: 2,522 passed, 17 ignored, with one test
-  skipped: `attached_reader_does_not_pin_read_mark_until_checkpoint_gate_is_available`
-  in `core/mvcc/database/tests.rs`. It passes alone and with `--test-threads 1`
-  (the `mvcc::database::tests` module: 419 passed), but fails when the `mvcc::`
-  module runs on 8 threads, and its second panic aborts the test process. A
-  build of `main` before the merge (`df6c8cb0f`) fails the same way 3 times out
-  of 3, so 0.8.4 did not cause it. The MVCC exception regressions in this crate
-  pass (`test_build_log_record_scans_the_write_set_for_schema_rows_once`, the
+- `cargo test -p turso_core --lib -- --test-threads 8`: 2,523 passed, 17 ignored,
+  nothing skipped. The first run aborted in
+  `attached_reader_does_not_pin_read_mark_until_checkpoint_gate_is_available`, which
+  failed only when the `mvcc::` module ran in parallel; a build of `main` before the
+  merge (`df6c8cb0f`) failed the same way 3 times out of 3, so 0.8.4 did not cause
+  it. The cause was unit tests that emptied the whole database registry. This
+  branch fixes it with the test-only backport of upstream `c7588f403` (see
+  [the register](core-exceptions.md)); after it, the `mvcc::` module passed 3 of 3
+  runs on 8 threads (519 tests). The MVCC exception regressions in this crate pass
+  (`test_build_log_record_scans_the_write_set_for_schema_rows_once`, the
   `log_byte_*` tests, `test_exact_rowid_seek_over_shadowed_btree_rows`,
   `test_unique_check_over_shadowed_btree_index_entries`).
 - RustSec review (advisory-db `10db6998b`, 2026-11-24): 361 shipping packages,
