@@ -4,7 +4,7 @@ Generated from the pinned Cargo dependency inventory and checksummed source arch
 
 This is a partial notice collection. It supplements LICENSE.md and THIRD_PARTY_NOTICES.md. Inline attributions, unconventional filenames and other bundled components require further review before a complete distribution-notice claim.
 
-Target: `x86_64-unknown-linux-gnu`. Cargo.lock SHA-256: `dd90373a67869ee8bf121b859e9640642346529ef056e5becbe05a864e5b2b21`.
+Target: `x86_64-unknown-linux-gnu`. Cargo.lock SHA-256: `1691dc83598b9f39cec45cf16d11f1acbd67c09cb552fb53162e5aa4d7dfbc80`.
 
 ## Packages without collected archive or supplemental texts
 
@@ -66,10 +66,10 @@ Target: `x86_64-unknown-linux-gnu`. Cargo.lock SHA-256: `dd90373a67869ee8bf121b8
 - `LICENSE-APACHE`: [source text a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2](#text-a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2)
 - `LICENSE-MIT`: [source text 27995d58ad5c1145c1a8cd86244ce844886958a35eb2b78c6b772748669999ac](#text-27995d58ad5c1145c1a8cd86244ce844886958a35eb2b78c6b772748669999ac)
 
-### aws-lc-rs 1.18.1
+### aws-lc-rs 1.18.2
 - `LICENSE`: [source text b50b376e7d24a0598488b730c3034ffcd0b58dd36c0913a24b9903a3cfd04bf7](#text-b50b376e7d24a0598488b730c3034ffcd0b58dd36c0913a24b9903a3cfd04bf7)
 
-### aws-lc-sys 0.45.0
+### aws-lc-sys 0.46.0
 - `LICENSE`: [source text 728536b4160e051f86d7c9c388f704866b3d512cd7df97ac3516c65279523c4e](#text-728536b4160e051f86d7c9c388f704866b3d512cd7df97ac3516c65279523c4e)
 - `aws-lc/LICENSE`: [source text 977c541bd25ffe36975dde25c028c0cd15ddf3d08243983b58e8a6a3d9447523](#text-977c541bd25ffe36975dde25c028c0cd15ddf3d08243983b58e8a6a3d9447523)
 - `aws-lc/third_party/fiat/LICENSE`: [source text 43e358d7b6eb109d0f51f7b3a090fd82607965767c25fadee39e922475de2061](#text-43e358d7b6eb109d0f51f7b3a090fd82607965767c25fadee39e922475de2061)
@@ -302,7 +302,7 @@ Target: `x86_64-unknown-linux-gnu`. Cargo.lock SHA-256: `dd90373a67869ee8bf121b8
 ### foldhash 0.2.0
 - `LICENSE`: [source text b1181a40b2a7b25cf66fd01481713bc1005df082c53ef73e851e55071b102744](#text-b1181a40b2a7b25cf66fd01481713bc1005df082c53ef73e851e55071b102744)
 
-### form_urlencoded 1.2.1
+### form_urlencoded 1.2.3
 - `LICENSE-APACHE`: [source text a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2](#text-a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2)
 - `LICENSE-MIT`: [source text 20c7855c364d57ea4c97889a5e8d98470a9952dade37bd9248b9a54431670e5e](#text-20c7855c364d57ea4c97889a5e8d98470a9952dade37bd9248b9a54431670e5e)
 
@@ -495,9 +495,9 @@ Target: `x86_64-unknown-linux-gnu`. Cargo.lock SHA-256: `dd90373a67869ee8bf121b8
 ### ident_case 1.0.1
 - `LICENSE`: [source text 508a77d2e7b51d98adeed32648ad124b7b30241a8e70b2e72c99f92d8e5874d1](#text-508a77d2e7b51d98adeed32648ad124b7b30241a8e70b2e72c99f92d8e5874d1)
 
-### idna 1.0.3
+### idna 1.1.0
 - `LICENSE-APACHE`: [source text a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2](#text-a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2)
-- `LICENSE-MIT`: [source text 76e972ac0f4ddb116e86e10100132a783931a596e7b9872eaa31be15cd4d751d](#text-76e972ac0f4ddb116e86e10100132a783931a596e7b9872eaa31be15cd4d751d)
+- `LICENSE-MIT`: [source text b38f11f6096706e6de553dabe2a7ed142d59b6fa8c97e290c67496154745cdd5](#text-b38f11f6096706e6de553dabe2a7ed142d59b6fa8c97e290c67496154745cdd5)
 
 ### idna_adapter 1.2.0
 - `LICENSE-APACHE`: [source text a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2](#text-a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2)
@@ -695,9 +695,9 @@ Target: `x86_64-unknown-linux-gnu`. Cargo.lock SHA-256: `dd90373a67869ee8bf121b8
 - `LICENSE-APACHE`: [source text 62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a](#text-62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a)
 - `LICENSE-MIT`: [source text 23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3](#text-23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3)
 
-### percent-encoding 2.3.1
+### percent-encoding 2.3.2
 - `LICENSE-APACHE`: [source text a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2](#text-a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2)
-- `LICENSE-MIT`: [source text 76e972ac0f4ddb116e86e10100132a783931a596e7b9872eaa31be15cd4d751d](#text-76e972ac0f4ddb116e86e10100132a783931a596e7b9872eaa31be15cd4d751d)
+- `LICENSE-MIT`: [source text b38f11f6096706e6de553dabe2a7ed142d59b6fa8c97e290c67496154745cdd5](#text-b38f11f6096706e6de553dabe2a7ed142d59b6fa8c97e290c67496154745cdd5)
 
 ### pin-project-lite 0.2.16
 - `LICENSE-APACHE`: [source text 0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594](#text-0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594)
@@ -1102,7 +1102,7 @@ Target: `x86_64-unknown-linux-gnu`. Cargo.lock SHA-256: `dd90373a67869ee8bf121b8
 ### try-lock 0.2.5
 - `LICENSE`: [source text c816a0749cdc6bf062a5111c159723de51b2bfac66a1dac2655abd9e6b1583eb](#text-c816a0749cdc6bf062a5111c159723de51b2bfac66a1dac2655abd9e6b1583eb)
 
-### turso_core 0.8.3
+### turso_core 0.8.4
 - Workspace `LICENSE.md`: [source text b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5](#text-b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5)
 - Workspace `licenses/core/crossbeam-skiplist-apache-license.md`: [source text a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2](#text-a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2)
 - Workspace `licenses/core/crossbeam-skiplist-mit-license.md`: [source text 5734ed989dfca1f625b40281ee9f4530f91b2411ec01cb748223e7eb87e201ab](#text-5734ed989dfca1f625b40281ee9f4530f91b2411ec01cb748223e7eb87e201ab)
@@ -1115,13 +1115,13 @@ Target: `x86_64-unknown-linux-gnu`. Cargo.lock SHA-256: `dd90373a67869ee8bf121b8
 - Workspace `licenses/core/windows-apache.license.md`: [source text c16f8dcf1a368b83be78d826ea23de4079fe1b4469a0ab9ee20563f37ff3d44b](#text-c16f8dcf1a368b83be78d826ea23de4079fe1b4469a0ab9ee20563f37ff3d44b)
 - Workspace `licenses/core/windows-mit-license.md`: [source text 7ed4b96bdab9fc581e04229c810adef21d1b91af6cce7a02762365406c2d86e3](#text-7ed4b96bdab9fc581e04229c810adef21d1b91af6cce7a02762365406c2d86e3)
 
-### turso_ext 0.8.3
+### turso_ext 0.8.4
 - Workspace `LICENSE.md`: [source text b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5](#text-b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5)
 
-### turso_macros 0.8.3
+### turso_macros 0.8.4
 - Workspace `LICENSE.md`: [source text b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5](#text-b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5)
 
-### turso_parser 0.8.3
+### turso_parser 0.8.4
 - Workspace `LICENSE.md`: [source text b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5](#text-b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5)
 
 ### twox-hash 2.1.1
@@ -1179,9 +1179,9 @@ Target: `x86_64-unknown-linux-gnu`. Cargo.lock SHA-256: `dd90373a67869ee8bf121b8
 - `LICENSE-APACHE`: [source text a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2](#text-a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2)
 - `LICENSE-MIT`: [source text 76c88028846cd884418c1773ca7991b89f00a29a503fe84076182c6d37389d17](#text-76c88028846cd884418c1773ca7991b89f00a29a503fe84076182c6d37389d17)
 
-### url 2.5.4
+### url 2.5.9
 - `LICENSE-APACHE`: [source text a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2](#text-a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2)
-- `LICENSE-MIT`: [source text 76e972ac0f4ddb116e86e10100132a783931a596e7b9872eaa31be15cd4d751d](#text-76e972ac0f4ddb116e86e10100132a783931a596e7b9872eaa31be15cd4d751d)
+- `LICENSE-MIT`: [source text b38f11f6096706e6de553dabe2a7ed142d59b6fa8c97e290c67496154745cdd5](#text-b38f11f6096706e6de553dabe2a7ed142d59b6fa8c97e290c67496154745cdd5)
 
 ### usearch 2.26.2
 - Repository source [https://raw.githubusercontent.com/unum-cloud/USearch/f91fe5bc000222aa1af6e91daf78c2bb20b0c90e/LICENSE](https://raw.githubusercontent.com/unum-cloud/USearch/f91fe5bc000222aa1af6e91daf78c2bb20b0c90e/LICENSE): [source text c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4](#text-c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4)
@@ -11267,36 +11267,6 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-<a id="text-76e972ac0f4ddb116e86e10100132a783931a596e7b9872eaa31be15cd4d751d"></a>
-
-## Source text 76e972ac0f4ddb116e86e10100132a783931a596e7b9872eaa31be15cd4d751d
-
-Copyright (c) 2013-2022 The rust-url developers
-
-Permission is hereby granted, free of charge, to any
-person obtaining a copy of this software and associated
-documentation files (the "Software"), to deal in the
-Software without restriction, including without
-limitation the rights to use, copy, modify, merge,
-publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software
-is furnished to do so, subject to the following
-conditions:
-
-The above copyright notice and this permission notice
-shall be included in all copies or substantial portions
-of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
-ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
-TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
-SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-DEALINGS IN THE SOFTWARE.
-
 <a id="text-7abd9b6960dcf7d4d0a48606a5b71bfe37d472db68d70637f3a58a56785f1621"></a>
 
 ## Source text 7abd9b6960dcf7d4d0a48606a5b71bfe37d472db68d70637f3a58a56785f1621
@@ -16200,6 +16170,36 @@ AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR 
 WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT,
 NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
+
+<a id="text-b38f11f6096706e6de553dabe2a7ed142d59b6fa8c97e290c67496154745cdd5"></a>
+
+## Source text b38f11f6096706e6de553dabe2a7ed142d59b6fa8c97e290c67496154745cdd5
+
+Copyright (c) 2013-2025 The rust-url developers
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
 
 <a id="text-b4eb00df6e2a4d22518fcaa6a2b4646f249b3a3c9814509b22bd2091f1392ff1"></a>
 
