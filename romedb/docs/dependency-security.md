@@ -12,6 +12,10 @@ to 2.5.9 (with `idna` 1.1.0, `form_urlencoded` 1.2.3 and `percent-encoding`
 2.3.2) for RUSTSEC-2026-0592, which affected `url` 2.5.4 in 0.2.28. The nine
 RomeDB workspace packages move to 0.2.29.
 
+At release time, the same scan of build commit `f99cff33` against the advisory
+database, still at `87025f60dbbb1f8820c2bd068cee9140244d4dc9` (1,567 advisories),
+found the same accepted finding and no other.
+
 ## Dependency security review for 0.2.28
 Reviewed 2026-11-22 for the Linux x64 0.2.28 candidate. The exact lockfile scan
 covers 361 package/version identities against the RustSec advisory database at
