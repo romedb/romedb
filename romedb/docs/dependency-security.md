@@ -1,4 +1,18 @@
-# Dependency security review for 0.2.28
+# Dependency security review for 0.2.29
+Reviewed 2026-11-25 for the Linux x64 0.2.29 candidate. The exact lockfile scan
+covers 361 package/version identities against the RustSec advisory database at
+`87025f60dbbb1f8820c2bd068cee9140244d4dc9` (1,567 advisories) using the pinned
+`cargo-audit 0.22.2` binary. It found no vulnerabilities and the same one
+informational finding as 0.2.28, RUSTSEC-2026-0543 (`chrono` is unmaintained),
+which stays accepted for the reasons in the 0.2.26 review below.
+
+Shipping packages that changed from 0.2.28: the Turso engine crates move to
+0.8.4, `aws-lc-rs` 1.18.2 and `aws-lc-sys` 0.46.0 come with it, and `url` moves
+to 2.5.9 (with `idna` 1.1.0, `form_urlencoded` 1.2.3 and `percent-encoding`
+2.3.2) for RUSTSEC-2026-0592, which affected `url` 2.5.4 in 0.2.28. The nine
+RomeDB workspace packages move to 0.2.29.
+
+## Dependency security review for 0.2.28
 Reviewed 2026-11-22 for the Linux x64 0.2.28 candidate. The exact lockfile scan
 covers 361 package/version identities against the RustSec advisory database at
 `55e1c3dfbd834237a05bbbf7b50ba3b5be27b662` (1,555 advisories) using the pinned
