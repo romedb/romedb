@@ -236,6 +236,14 @@ estimate passes the limit stops with an interrupt before COMMIT, like the mutati
 Keep it until upstream can limit the log size of a transaction before its commit; the
 register has the regressions.
 
+Test-only backport (2026-11-25): **unit tests remove only their own database from the
+registry**, upstream `c7588f403`, in `core/mvcc/database/tests.rs`,
+`core/multiprocess_tests.rs` and the `#[cfg(test)]` `remove_file_from_database_registry` in
+`core/database.rs`. Tests that cleared the whole `DATABASE_MANAGER` made concurrent tests
+open a second `Database` for one file; `attached_reader_does_not_pin_read_mark_until_checkpoint_gate_is_available`
+failed and aborted the test process on 8 threads. Drop it at the first sync that contains
+`c7588f403`; the register has the check.
+
 Newer patch (2026-11-12): **MVCC exact seeks over shadowed B-tree rows**,
 `seek_btree_and_set_peek` in `core/mvcc/cursor.rs`. An exact rowid seek stops at its row
 (backport of upstream `d94a7d320` and `4813f6096`; drop it at the first sync that contains

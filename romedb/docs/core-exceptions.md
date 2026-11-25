@@ -7,6 +7,32 @@ below tracks upstream replacement candidates; no patch is removed from the
 existing pinned engine merely because a newer upstream revision contains a fix.
 No automatic removal or periodic monitoring is configured.
 
+## Unit tests remove only their own database from the registry (2026-11-25)
+
+Test-only backport of upstream `c7588f403` (2026-10-18, upstream issue #9575); no engine
+code changes. The test helpers `MvccTestDbNoConn::restart_result` and
+`force_close_for_artifact_tamper`, eight more tests in `core/mvcc/database/tests.rs` and
+twelve in `core/multiprocess_tests.rs` called `DATABASE_MANAGER.lock().clear()`, which
+empties the registry of open databases for every test in the process. When that ran
+between two opens of one file in another test, the second open built a second `Database`
+with its own `MvStore`. `attached_reader_does_not_pin_read_mark_until_checkpoint_gate_is_available`
+failed this way in 3 of 3 runs of the `mvcc::` filter on 8 threads: its reader's
+`ATTACH` did not see the writer's checkpoint lock and read a row instead of returning
+Busy, and the unwind then failed the `dirty pages should be empty for read txn` assert in
+`core/storage/pager.rs` and aborted the test process. The tests now call
+`remove_file_from_database_registry(path)` (`#[cfg(test)]` in `core/database.rs`), which
+removes only their own file. The conflict on cherry-pick was context only: upstream tests
+that we do not have. Clearing the registry just before the reader's `ATTACH` makes the test
+fail alone on one thread with the same two panics. With the backport, the `mvcc::` filter
+passed 3 of 3 runs on 8 threads (519 tests), and `cargo test -p turso_core --lib` on 8
+threads passed 2,523 tests.
+
+Drop this entry at the first upstream sync that contains `c7588f403` (upstream main has it;
+Turso 0.8.4 does not). On a sync before then, check that no new test in `core/` clears the
+whole registry: `grep -rn "manager.clear()\|DATABASE_MANAGER.lock().clear" core` should
+find only `clear_database_registry` (simulator feature). The check is
+`cargo test -p turso_core --lib mvcc:: -- --test-threads 8`.
+
 ## MVCC commit scans its write set for schema rows once (2026-11-13)
 
 `step_build_log_record` in `core/mvcc/database/mod.rs` builds a commit's log record in
