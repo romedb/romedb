@@ -1,8 +1,8 @@
 # RomeDB implementation status
 
-RomeDB and RomeQL **0.2.28 are the current release for Linux x64**, on the Turso
-0.8.3 engine. See the [release record](release-0.2.28.md), the
-[sync notes](turso-0.8.3.md) and [engine provenance](../UPSTREAM.md). RomeDB
+RomeDB and RomeQL **0.2.29 are the current release for Linux x64**, on the Turso
+0.8.4 engine. See the [release record](release-0.2.29.md), the
+[sync notes](turso-0.8.4.md) and [engine provenance](../UPSTREAM.md). RomeDB
 Cloud runs the same engine but is a separate private project.
 
 Release clients are Rust, Node.js/TypeScript, Python, PHP, Swift, C# and Go.
