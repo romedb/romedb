@@ -1,14 +1,26 @@
 # Engine provenance
 
 - Repository: https://github.com/tursodatabase/turso (remote `upstream`).
-- Baseline: release `v0.8.3`, full commit `607bff9fd0e547a25a97b3bf06e83bcc5d99d53c`.
-- Previous base: `v0.8.1`, commit `8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a`; before that `v0.7.2`, commit `046e9cbf67d22491e8ecc941ec2891b02a9f3cad`.
-- Upgrade behavior and validation: [0.8.3 notes](docs/turso-0.8.3.md);
+- Baseline: release `v0.8.4`, full commit `72eafab83fee6ad5876657c5861b1fc9e5a39ec1`.
+- Previous base: `v0.8.3`, commit `607bff9fd0e547a25a97b3bf06e83bcc5d99d53c`; before that `v0.8.1`, commit `8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a`, and `v0.7.2`, commit `046e9cbf67d22491e8ecc941ec2891b02a9f3cad`.
+- Upgrade behavior and validation: [0.8.4 notes](docs/turso-0.8.4.md), [0.8.3 notes](docs/turso-0.8.3.md);
   [core exception review](docs/core-exceptions.md).
 - RomeDB fork: `git@github.com:romedb/romedb.git` (remote `origin`). Upstream ancestry is preserved; inspect current refs rather than relying on historical branch names.
 - Toolchain: upstream Rust 1.88. Since 2026-11-10 the workspace builds with Rust 1.89 (`rust-toolchain.toml`), because `rusqlite` 0.41, which bundles SQLite 3.54.1 and fixes RUSTSEC-2026-0459, requires it. Locally tested with 1.89.0 on Linux x86_64.
 - Engine dependency: in-workspace `turso_core` with default features plus `conn_raw_api` for engine WAL hooks and `fts` for V2 full-text search. V2 opens opt into index methods; managed search owns the public surface.
 - This release exposes `Connection::prepare`, `prepare_stmt`, and blocking statement execution. RomeDB retains its separate-frontend boundary and the explicitly registered core exceptions.
+
+Upstream check-runs inspected for the exact 0.8.4 release commit `72eafab83`:
+[Release](https://github.com/tursodatabase/turso/actions/runs/44708175832),
+[Publish Crates](https://github.com/tursodatabase/turso/actions/runs/44708175619),
+[Run long fuzz tests and stress test](https://github.com/tursodatabase/turso/actions/runs/44708175995),
+[C compat Tests](https://github.com/tursodatabase/turso/actions/runs/44708175707),
+[Python](https://github.com/tursodatabase/turso/actions/runs/44708175949),
+[Dotnet Tests](https://github.com/tursodatabase/turso/actions/runs/44708175690) and
+[Java Tests](https://github.com/tursodatabase/turso/actions/runs/44708175971)
+succeeded; [Dotnet Publish](https://github.com/tursodatabase/turso/actions/runs/44708176720)
+failed, and RomeDB does not ship the .NET package. They cover upstream packaging
+and suites only, not the combined fork.
 
 Upstream check-runs inspected for the exact 0.8.3 release commit `607bff9fd`:
 [Release](https://github.com/tursodatabase/turso/actions/runs/38264553029),
@@ -37,7 +49,7 @@ Local integration changes:
 
 The sections below preserve the original exception approvals and release
 history. Their old version/dependency statements describe those releases.
-For the current tree, the 0.8.3 sync decisions (all exceptions retained), the 0.8.1 exception table and upgrade checklist linked
+For the current tree, the 0.8.4 and 0.8.3 sync decisions (all exceptions retained), the 0.8.1 exception table and upgrade checklist linked
 above are authoritative: the former FTS cache and first-FULL patches are
 retired, Tantivy is 0.26.2, and the approved backing-cursor fix is active.
 
