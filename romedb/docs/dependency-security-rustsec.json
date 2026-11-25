@@ -1,12 +1,12 @@
 {
-  "reviewed_at": "2026-11-22T06:01:19.849479+00:00",
-  "source_commit": "7edda3e9fd7a89a56f4aacf129228e881acf2e7d",
-  "cargo_lock_sha256": "dd90373a67869ee8bf121b859e9640642346529ef056e5becbe05a864e5b2b21",
+  "reviewed_at": "2026-11-25T06:14:59.728543+00:00",
+  "source_commit": "10aa8f858fad759bdf9a427acf1ad7cd1c7651fc",
+  "cargo_lock_sha256": "1691dc83598b9f39cec45cf16d11f1acbd67c09cb552fb53162e5aa4d7dfbc80",
   "advisory_database": {
     "repository": "https://github.com/RustSec/advisory-db.git",
-    "commit": "55e1c3dfbd834237a05bbbf7b50ba3b5be27b662",
-    "committed_at": "2026-11-21T10:28:03+01:00",
-    "advisory_count": 1555
+    "commit": "10db6998b5d74ec438bcf0763125bd425a068a8f",
+    "committed_at": "2026-11-24T22:47:44+01:00",
+    "advisory_count": 1567
   },
   "scanner": "cargo-audit 0.22.2",
   "target": "x86_64-unknown-linux-gnu",
@@ -79,11 +79,11 @@
     },
     {
       "name": "aws-lc-rs",
-      "version": "1.18.1"
+      "version": "1.18.2"
     },
     {
       "name": "aws-lc-sys",
-      "version": "0.45.0"
+      "version": "0.46.0"
     },
     {
       "name": "base64",
@@ -343,7 +343,7 @@
     },
     {
       "name": "form_urlencoded",
-      "version": "1.2.1"
+      "version": "1.2.3"
     },
     {
       "name": "frostem",
@@ -571,7 +571,7 @@
     },
     {
       "name": "idna",
-      "version": "1.0.3"
+      "version": "1.1.0"
     },
     {
       "name": "idna_adapter",
@@ -811,7 +811,7 @@
     },
     {
       "name": "percent-encoding",
-      "version": "2.3.1"
+      "version": "2.3.2"
     },
     {
       "name": "pin-project-lite",
@@ -1283,19 +1283,19 @@
     },
     {
       "name": "turso_core",
-      "version": "0.8.3"
+      "version": "0.8.4"
     },
     {
       "name": "turso_ext",
-      "version": "0.8.3"
+      "version": "0.8.4"
     },
     {
       "name": "turso_macros",
-      "version": "0.8.3"
+      "version": "0.8.4"
     },
     {
       "name": "turso_parser",
-      "version": "0.8.3"
+      "version": "0.8.4"
     },
     {
       "name": "twox-hash",
@@ -1351,7 +1351,7 @@
     },
     {
       "name": "url",
-      "version": "2.5.4"
+      "version": "2.5.9"
     },
     {
       "name": "usearch",

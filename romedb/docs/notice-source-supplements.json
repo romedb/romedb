@@ -379,7 +379,7 @@
  "workspaceEntries": [
   {
    "package": "turso_core",
-   "version": "0.8.3",
+   "version": "0.8.4",
    "manifestPath": "core/Cargo.toml",
    "licenseExpression": "MIT",
    "noticeFiles": [
@@ -431,7 +431,7 @@
   },
   {
    "package": "turso_ext",
-   "version": "0.8.3",
+   "version": "0.8.4",
    "manifestPath": "extensions/core/Cargo.toml",
    "licenseExpression": "MIT",
    "noticeFiles": [
@@ -443,7 +443,7 @@
   },
   {
    "package": "turso_macros",
-   "version": "0.8.3",
+   "version": "0.8.4",
    "manifestPath": "macros/Cargo.toml",
    "licenseExpression": "MIT",
    "noticeFiles": [
@@ -455,7 +455,7 @@
   },
   {
    "package": "turso_parser",
-   "version": "0.8.3",
+   "version": "0.8.4",
    "manifestPath": "sqlite/parser/Cargo.toml",
    "licenseExpression": "MIT",
    "noticeFiles": [

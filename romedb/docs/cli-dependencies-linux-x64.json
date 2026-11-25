@@ -7,7 +7,7 @@
     "build"
   ],
   "scope": "Cargo dependency declarations; includes build tools, excludes dev dependencies; not proof of linked code or complete notices",
-  "lockfileSha256": "dd90373a67869ee8bf121b859e9640642346529ef056e5becbe05a864e5b2b21",
+  "lockfileSha256": "1691dc83598b9f39cec45cf16d11f1acbd67c09cb552fb53162e5aa4d7dfbc80",
   "packages": [
     {
       "name": "aead",
@@ -81,12 +81,12 @@
     },
     {
       "name": "aws-lc-rs",
-      "version": "1.18.1",
+      "version": "1.18.2",
       "licenseExpression": "ISC AND (Apache-2.0 OR ISC)"
     },
     {
       "name": "aws-lc-sys",
-      "version": "0.45.0",
+      "version": "0.46.0",
       "licenseExpression": "ISC AND (Apache-2.0 OR ISC) AND Apache-2.0 AND MIT AND BSD-3-Clause AND (Apache-2.0 OR ISC OR MIT) AND (Apache-2.0 OR ISC OR MIT-0)"
     },
     {
@@ -386,7 +386,7 @@
     },
     {
       "name": "form_urlencoded",
-      "version": "1.2.1",
+      "version": "1.2.3",
       "licenseExpression": "MIT OR Apache-2.0"
     },
     {
@@ -661,7 +661,7 @@
     },
     {
       "name": "idna",
-      "version": "1.0.3",
+      "version": "1.1.0",
       "licenseExpression": "MIT OR Apache-2.0"
     },
     {
@@ -926,7 +926,7 @@
     },
     {
       "name": "percent-encoding",
-      "version": "2.3.1",
+      "version": "2.3.2",
       "licenseExpression": "MIT OR Apache-2.0"
     },
     {
@@ -1466,22 +1466,22 @@
     },
     {
       "name": "turso_core",
-      "version": "0.8.3",
+      "version": "0.8.4",
       "licenseExpression": "MIT"
     },
     {
       "name": "turso_ext",
-      "version": "0.8.3",
+      "version": "0.8.4",
       "licenseExpression": "MIT"
     },
     {
       "name": "turso_macros",
-      "version": "0.8.3",
+      "version": "0.8.4",
       "licenseExpression": "MIT"
     },
     {
       "name": "turso_parser",
-      "version": "0.8.3",
+      "version": "0.8.4",
       "licenseExpression": "MIT"
     },
     {
@@ -1551,7 +1551,7 @@
     },
     {
       "name": "url",
-      "version": "2.5.4",
+      "version": "2.5.9",
       "licenseExpression": "MIT OR Apache-2.0"
     },
     {

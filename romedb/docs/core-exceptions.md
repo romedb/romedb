@@ -7,6 +7,32 @@ below tracks upstream replacement candidates; no patch is removed from the
 existing pinned engine merely because a newer upstream revision contains a fix.
 No automatic removal or periodic monitoring is configured.
 
+## Unit tests remove only their own database from the registry (2026-11-25)
+
+Test-only backport of upstream `c7588f403` (2026-10-18, upstream issue #9575); no engine
+code changes. The test helpers `MvccTestDbNoConn::restart_result` and
+`force_close_for_artifact_tamper`, eight more tests in `core/mvcc/database/tests.rs` and
+twelve in `core/multiprocess_tests.rs` called `DATABASE_MANAGER.lock().clear()`, which
+empties the registry of open databases for every test in the process. When that ran
+between two opens of one file in another test, the second open built a second `Database`
+with its own `MvStore`. `attached_reader_does_not_pin_read_mark_until_checkpoint_gate_is_available`
+failed this way in 3 of 3 runs of the `mvcc::` filter on 8 threads: its reader's
+`ATTACH` did not see the writer's checkpoint lock and read a row instead of returning
+Busy, and the unwind then failed the `dirty pages should be empty for read txn` assert in
+`core/storage/pager.rs` and aborted the test process. The tests now call
+`remove_file_from_database_registry(path)` (`#[cfg(test)]` in `core/database.rs`), which
+removes only their own file. The conflict on cherry-pick was context only: upstream tests
+that we do not have. Clearing the registry just before the reader's `ATTACH` makes the test
+fail alone on one thread with the same two panics. With the backport, the `mvcc::` filter
+passed 3 of 3 runs on 8 threads (519 tests), and `cargo test -p turso_core --lib` on 8
+threads passed 2,523 tests.
+
+Drop this entry at the first upstream sync that contains `c7588f403` (upstream main has it;
+Turso 0.8.4 does not). On a sync before then, check that no new test in `core/` clears the
+whole registry: `grep -rn "manager.clear()\|DATABASE_MANAGER.lock().clear" core` should
+find only `clear_database_registry` (simulator feature). The check is
+`cargo test -p turso_core --lib mvcc:: -- --test-threads 8`.
+
 ## MVCC commit scans its write set for schema rows once (2026-11-13)
 
 `step_build_log_record` in `core/mvcc/database/mod.rs` builds a commit's log record in
@@ -314,6 +340,37 @@ exception without changing upstream change counters or transaction lifecycle.
 The regression is `mvcc_schema_writes_do_not_consume_customer_mutation_budgets`
 in `schema_meter.rs`; final milestone validation is recorded in the follow-up
 audit.
+
+## Upstream sync: Turso 0.8.4 (2026-11-25)
+
+Candidate upstream commit: `72eafab83fee6ad5876657c5861b1fc9e5a39ec1` (tag `v0.8.4`), a
+patch release on the 0.8.3 line, not upstream `main`. The only merge conflict was
+`Cargo.lock`. Upstream changed `core/statement.rs`, `core/translate/delete.rs`,
+`core/translate/plan.rs`, `core/translate/stmt_journal.rs` and `core/translate/upsert.rs`.
+RomeDB also changes `upsert.rs` (the `is_replace` field of the metered Delete), in a
+different place; the merge kept both. 0.8.4 replaces no exception, so every patch stays.
+Notes and evidence: [integration notes](turso-0.8.4.md).
+
+| Existing exception | 0.8.4 decision | Evidence |
+|---|---|---|
+| Trigger interruption | Keep | `op_program` is unchanged. |
+| Scalar read errors | Keep | `core/vdbe/execute.rs` is unchanged by 0.8.4. |
+| Checkpoint WAL barrier companion | Keep | No upstream change under `core/storage/`. |
+| Named-savepoint cancellation recovery | Keep | The savepoint code is unchanged. The new `Statement::rollback_autocommit_txn` only splits the existing rollback out of `reprepare`. |
+| FTS backing integrity, savepoint cursor pins, analyzer inspection | Keep | No upstream change under `core/index_method/`. |
+| FTS single-word prefixes, folding and stemming, filter columns, typo words | Keep | Same files unchanged. |
+| Execution counters and budgets | Keep, checked | A DELETE with an `ON DELETE` action now collects its row IDs first. New `turso_084` regression: a cascading DELETE of 2 parents and 4 children counts 6 mutations, and a budget of 5 rolls back all of it, in WAL and MVCC modes. |
+| MVCC savepoint commit resume | Keep | `SavepointOp::Release` is unchanged. |
+| VACUUM INTO tables without rows, VACUUM INTO in batches | Keep | `core/vdbe/vacuum.rs` is unchanged. |
+| MVCC exact seeks over shadowed B-tree rows | Keep both parts | Upstream `2c837d49a` is not in 0.8.4, so the rowid seek backport stays too. `core/mvcc/` is unchanged. |
+| MVCC log-byte budget, MVCC commit schema scan once | Keep | `core/mvcc/` and the insert and delete opcodes are unchanged. |
+
+New on this sync: the test-only backport of upstream `c7588f403` (first entry above),
+which is not in 0.8.4 and fixes a flaky core unit test. Results of the combined checks
+are in the [integration notes](turso-0.8.4.md#checks).
+
+Not taken: the whole-table DELETE fast path (`58f350a90`) is still only on upstream
+`main`. The hazard recorded below still applies to the sync that takes 0.9.0.
 
 ## Upstream sync: Turso 0.8.3 (2026-10-20)
 

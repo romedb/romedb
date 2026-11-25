@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "target": "x86_64-unknown-linux-gnu",
-  "inventorySha256": "3b1c965d4a52ab5326e0ec80cf9cc9594d7774743ad558a583e242ce54944c7c",
+  "inventorySha256": "b5cafa5b8213473b3f57253a8cbda1dacf75cd6a7e305ef8aa81ddb6e648a7ec",
   "scope": "Checksummed crate archive notice candidates; not complete notices or linked-binary evidence",
   "packages": [
     {
@@ -254,9 +254,9 @@
     },
     {
       "name": "aws-lc-rs",
-      "version": "1.18.1",
+      "version": "1.18.2",
       "status": "archive_verified",
-      "archiveSha256": "b281d307588d634de920874890732659e2e7672f72b5e10e81badc1a8a83621e",
+      "archiveSha256": "faac5829c2b74c28f830747e7818ccfb684261b5f48a1118b1e2a13d36dfab13",
       "declaredLicenseFile": null,
       "noticeCandidates": [
         {
@@ -268,9 +268,9 @@
     },
     {
       "name": "aws-lc-sys",
-      "version": "0.45.0",
+      "version": "0.46.0",
       "status": "archive_verified",
-      "archiveSha256": "9bff6c3b54fad79a2e60b8102caf565819711497c1f5f092f49508e2f5c31b27",
+      "archiveSha256": "f1622d8446a2d4b2ce0c7eefc73dd43a99779028d5ee5c2dd8073a658ba8a2bc",
       "declaredLicenseFile": null,
       "noticeCandidates": [
         {
@@ -1352,9 +1352,9 @@
     },
     {
       "name": "form_urlencoded",
-      "version": "1.2.1",
+      "version": "1.2.3",
       "status": "archive_verified",
-      "archiveSha256": "e13624c2627564efccf4934284bdd98cbaa14e79b0b5a141218e507b3a823456",
+      "archiveSha256": "afa489199eaffb1211795df1c6236ce1ad0d41a6fa45250add73e3b02420f06e",
       "declaredLicenseFile": null,
       "noticeCandidates": [
         {
@@ -2248,9 +2248,9 @@
     },
     {
       "name": "idna",
-      "version": "1.0.3",
+      "version": "1.1.0",
       "status": "archive_verified",
-      "archiveSha256": "686f825264d630750a544639377bae737628043f20d38bbc029e8f29ea968a7e",
+      "archiveSha256": "3b0875f23caa03898994f6ddc501886a45c7d3d62d04d2d90788d47be1b1e4de",
       "declaredLicenseFile": null,
       "noticeCandidates": [
         {
@@ -2261,7 +2261,7 @@
         {
           "path": "LICENSE-MIT",
           "bytes": 1072,
-          "sha256": "76e972ac0f4ddb116e86e10100132a783931a596e7b9872eaa31be15cd4d751d"
+          "sha256": "b38f11f6096706e6de553dabe2a7ed142d59b6fa8c97e290c67496154745cdd5"
         }
       ]
     },
@@ -3172,9 +3172,9 @@
     },
     {
       "name": "percent-encoding",
-      "version": "2.3.1",
+      "version": "2.3.2",
       "status": "archive_verified",
-      "archiveSha256": "e3148f5046208a5d56bcfc03053e3ca6334e51da8dfb19b6cdc8b306fae3283e",
+      "archiveSha256": "9b4f627cb1b25917193a259e49bdad08f671f8d9708acfd5fe0a8c1455d87220",
       "declaredLicenseFile": null,
       "noticeCandidates": [
         {
@@ -3185,7 +3185,7 @@
         {
           "path": "LICENSE-MIT",
           "bytes": 1072,
-          "sha256": "76e972ac0f4ddb116e86e10100132a783931a596e7b9872eaa31be15cd4d751d"
+          "sha256": "b38f11f6096706e6de553dabe2a7ed142d59b6fa8c97e290c67496154745cdd5"
         }
       ]
     },
@@ -4996,22 +4996,22 @@
     },
     {
       "name": "turso_core",
-      "version": "0.8.3",
+      "version": "0.8.4",
       "status": "workspace_source_requires_separate_review"
     },
     {
       "name": "turso_ext",
-      "version": "0.8.3",
+      "version": "0.8.4",
       "status": "workspace_source_requires_separate_review"
     },
     {
       "name": "turso_macros",
-      "version": "0.8.3",
+      "version": "0.8.4",
       "status": "workspace_source_requires_separate_review"
     },
     {
       "name": "turso_parser",
-      "version": "0.8.3",
+      "version": "0.8.4",
       "status": "workspace_source_requires_separate_review"
     },
     {
@@ -5278,9 +5278,9 @@
     },
     {
       "name": "url",
-      "version": "2.5.4",
+      "version": "2.5.9",
       "status": "archive_verified",
-      "archiveSha256": "32f8b686cadd1473f4bd0117a5d28d36b1ade384ea9b5069a1c40aefed7fda60",
+      "archiveSha256": "f00cd2407bb42c0ef17be88d4cf020f5cceffd121665bac9b8b9493a369b3b1a",
       "declaredLicenseFile": null,
       "noticeCandidates": [
         {
@@ -5291,7 +5291,7 @@
         {
           "path": "LICENSE-MIT",
           "bytes": 1072,
-          "sha256": "76e972ac0f4ddb116e86e10100132a783931a596e7b9872eaa31be15cd4d751d"
+          "sha256": "b38f11f6096706e6de553dabe2a7ed142d59b6fa8c97e290c67496154745cdd5"
         }
       ]
     },

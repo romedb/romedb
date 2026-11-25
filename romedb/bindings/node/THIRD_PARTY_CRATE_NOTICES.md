@@ -4,7 +4,7 @@ Generated from the pinned Cargo dependency inventory and checksummed source arch
 
 This is a partial notice collection. It supplements LICENSE.md and THIRD_PARTY_NOTICES.md. Inline attributions, unconventional filenames and other bundled components require further review before a complete distribution-notice claim.
 
-Target: `x86_64-unknown-linux-gnu`. Cargo.lock SHA-256: `dd90373a67869ee8bf121b859e9640642346529ef056e5becbe05a864e5b2b21`.
+Target: `x86_64-unknown-linux-gnu`. Cargo.lock SHA-256: `1691dc83598b9f39cec45cf16d11f1acbd67c09cb552fb53162e5aa4d7dfbc80`.
 
 ## Packages without collected archive or supplemental texts
 
@@ -932,7 +932,7 @@ Target: `x86_64-unknown-linux-gnu`. Cargo.lock SHA-256: `dd90373a67869ee8bf121b8
 ### tracing 0.1.41
 - `LICENSE`: [source text 898b1ae9821e98daf8964c8d6c7f61641f5f5aa78ad500020771c0939ee0dea1](#text-898b1ae9821e98daf8964c8d6c7f61641f5f5aa78ad500020771c0939ee0dea1)
 
-### turso_core 0.8.3
+### turso_core 0.8.4
 - Workspace `LICENSE.md`: [source text b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5](#text-b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5)
 - Workspace `licenses/core/crossbeam-skiplist-apache-license.md`: [source text a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2](#text-a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2)
 - Workspace `licenses/core/crossbeam-skiplist-mit-license.md`: [source text 5734ed989dfca1f625b40281ee9f4530f91b2411ec01cb748223e7eb87e201ab](#text-5734ed989dfca1f625b40281ee9f4530f91b2411ec01cb748223e7eb87e201ab)
@@ -945,13 +945,13 @@ Target: `x86_64-unknown-linux-gnu`. Cargo.lock SHA-256: `dd90373a67869ee8bf121b8
 - Workspace `licenses/core/windows-apache.license.md`: [source text c16f8dcf1a368b83be78d826ea23de4079fe1b4469a0ab9ee20563f37ff3d44b](#text-c16f8dcf1a368b83be78d826ea23de4079fe1b4469a0ab9ee20563f37ff3d44b)
 - Workspace `licenses/core/windows-mit-license.md`: [source text 7ed4b96bdab9fc581e04229c810adef21d1b91af6cce7a02762365406c2d86e3](#text-7ed4b96bdab9fc581e04229c810adef21d1b91af6cce7a02762365406c2d86e3)
 
-### turso_ext 0.8.3
+### turso_ext 0.8.4
 - Workspace `LICENSE.md`: [source text b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5](#text-b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5)
 
-### turso_macros 0.8.3
+### turso_macros 0.8.4
 - Workspace `LICENSE.md`: [source text b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5](#text-b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5)
 
-### turso_parser 0.8.3
+### turso_parser 0.8.4
 - Workspace `LICENSE.md`: [source text b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5](#text-b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5)
 
 ### twox-hash 2.1.1
