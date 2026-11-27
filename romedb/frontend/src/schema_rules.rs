@@ -124,6 +124,7 @@ impl crate::Connection {
     pub fn define_schema(&self, table: &str, strict: bool) -> Result<()> {
         self.atomic(|| {
             let mut collection = self.catalog(table)?;
+            self.managed_schema(&collection.name)?;
             collection.strict = strict;
             if strict {
                 collection.version = collection.version.max(5);

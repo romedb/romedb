@@ -43,6 +43,7 @@ pub use wal_replication::WalPosition;
 #[doc(hidden)]
 pub use wire_json::decode_wire_json;
 mod links;
+pub mod managed;
 pub use ann::VectorIndexOptions;
 pub use interrupt::{CancellationToken, InterruptHandle};
 mod meter;
@@ -454,6 +455,10 @@ impl Database {
             cancellation: Default::default(),
             meter_catalog_reads: Default::default(),
             meter_schema_changes: Default::default(),
+            host_access: Default::default(),
+            file_changes: Default::default(),
+            file_write_refused: Default::default(),
+            file_delete_refused: Default::default(),
             graph_limits: Default::default(),
             graph_counters: Default::default(),
             graph_plan: Default::default(),
@@ -587,6 +592,10 @@ pub struct Connection {
     cancellation: std::sync::Mutex<Option<Arc<interrupt::ActiveCancellation>>>,
     meter_catalog_reads: std::sync::atomic::AtomicBool,
     meter_schema_changes: std::sync::atomic::AtomicBool,
+    host_access: std::sync::atomic::AtomicBool,
+    file_changes: std::sync::atomic::AtomicU64,
+    file_write_refused: std::sync::atomic::AtomicBool,
+    file_delete_refused: std::sync::atomic::AtomicBool,
     graph_limits: std::sync::Mutex<GraphLimits>,
     graph_counters: std::sync::Mutex<graph::GraphCounters>,
     graph_plan: std::sync::Mutex<Vec<String>>,
@@ -791,6 +800,7 @@ impl Connection {
         }
     }
     fn save_catalog(&self, collection: &Collection) -> Result<()> {
+        self.managed_schema(&collection.name)?;
         let mut collection = collection.clone();
         collection.version = if collection
             .indexes
@@ -888,13 +898,15 @@ impl Connection {
     pub fn create_collection(&self, name: &str, if_not_exists: bool) -> Result<()> {
         let name = canonical(name)?;
         self.atomic(|| {
+            self.managed_create(&name)?;
             let exists = !self.run("SELECT name FROM sqlite_schema WHERE name = ?1 COLLATE NOCASE UNION ALL SELECT name FROM __romedb_catalog WHERE name = ?1", &[text(&name)])?.is_empty();
             if exists { return if if_not_exists { Ok(()) } else { Err(Error::AlreadyExists(name.clone())) }; }
             // Names are collision-free UTF-8 hex, independent of user quoting.
             let storage = format!("__romedb_c_{}", name.as_bytes().iter().map(|b| format!("{b:02x}")).collect::<String>());
             self.run(&format!("CREATE TABLE {} (id BLOB PRIMARY KEY, doc BLOB NOT NULL)", quote(&storage)), &[])?;
             let collection = Collection { version:catalog::version(), name: name.clone(), storage, fields: Vec::new(), indexes: Vec::new(), relations: Vec::new(), field_policies: Vec::new(), strict: false, edge: None, edge_dependents: Vec::new() };
-            self.run("INSERT INTO __romedb_catalog VALUES (?1, ?2)", &[text(&name), text(&serde_json::to_string(&collection)?)])?; Ok(())
+            self.run("INSERT INTO __romedb_catalog VALUES (?1, ?2)", &[text(&name), text(&serde_json::to_string(&collection)?)])?;
+            self.managed_created(&name)
         })
     }
     fn documents(&self, collection: &Collection) -> Result<Vec<Document>> {
@@ -1326,6 +1338,7 @@ impl Connection {
         Ok(())
     }
     fn store_insert_document(&self, c: &Collection, doc: &Document) -> Result<()> {
+        self.managed_insert(c)?;
         self.graph_check_new_edge(c, doc)?;
         self.run_customer(
             &format!("INSERT INTO {} VALUES (?1, ?2)", quote(&c.storage)),
@@ -1360,6 +1373,7 @@ impl Connection {
         self.write_validated_document(c, doc)
     }
     fn write_validated_document(&self, c: &Collection, doc: &Document) -> Result<()> {
+        self.managed_update(c, doc)?;
         self.graph_check_edge_update(c, doc)?;
         let readonly = c
             .field_policies
@@ -1468,6 +1482,7 @@ impl Connection {
     }
     // Caller owns the operation savepoint and a snapshot read within it.
     fn delete_document(&self, c: &Collection, doc: &Document) -> Result<()> {
+        self.managed_delete(c, doc)?;
         self.graph_delete(c, doc)?;
         let id = EngineValue::Blob(doc["id"].encode()?);
         for index in &c.indexes {
@@ -1973,6 +1988,24 @@ impl Connection {
             return Err(Error::Unsupported(
                 "native index methods require a managed search index".into(),
             ));
+        }
+        // A plain table, view or rename must not take a name kept for the host.
+        if let Ok(turso_parser::ast::Cmd::Stmt(statement)) = select::parsed(sql) {
+            use turso_parser::ast::{AlterTable, AlterTableBody, Stmt};
+            let created = match &statement {
+                Stmt::CreateTable { tbl_name, .. } => Some(tbl_name.name.as_str()),
+                Stmt::CreateView { view_name, .. } => Some(view_name.name.as_str()),
+                Stmt::AlterTable(AlterTable {
+                    body: AlterTableBody::RenameTo(name),
+                    ..
+                }) => Some(name.as_str()),
+                _ => None,
+            };
+            if let Some(name) = created {
+                self.managed_create(
+                    name.trim_matches(|c| matches!(c, '"' | '`' | '\'' | '[' | ']')),
+                )?;
+            }
         }
         let tokens = guard::native_tokens(sql)?;
         let collections = self.run("SELECT name FROM __romedb_catalog", &[])?;

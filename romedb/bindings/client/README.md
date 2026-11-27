@@ -254,6 +254,24 @@ storage still removes the bytes, and `db.files.deletionStatus(fileId)` reports i
 A file id is not a permission. Anyone who holds your backend's token can read or delete
 every file of the database, so the token stays on the server.
 
+**In SQL.** Where Cloud keeps file rows, each ready file is also a row of the
+collection `romedb_files` in the same database, so a query can list files and join them
+with your own records:
+
+```js
+import { Record } from '@romedb/client';
+
+await db.writeAtomic([{ sql: 'UPDATE articles:a1 MERGE {attachment: $file}', params: { $file: new Record('romedb_files', file.id) } }]);
+const { results } = await db.read([{ sql: "SELECT id, name, size FROM romedb_files WHERE mediaType = 'application/pdf' ORDER BY createdAt DESC LIMIT 20" }]);
+```
+
+The service writes the rows. SQL may change `name`, `description`, `tags` and `metadata`
+with a token that has `files:write`, and `DELETE` a row with `files:delete`, which
+deletes the file. A token with only `read` and `query` can read the rows. Nothing can
+insert a row or change its other fields. A changed row reaches `db.files.get()` after
+the commit, not inside the transaction, and a deleted file's bytes are removed after
+the commit.
+
 ## Local directories
 
 An organization URL on a loopback host, such as a database of `romedb serve

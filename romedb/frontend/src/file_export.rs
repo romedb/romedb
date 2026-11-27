@@ -183,11 +183,21 @@ struct CopyPlan {
 impl Connection {
     fn copy_plan(&self, options: &FileExportOptions) -> Result<CopyPlan> {
         let mut plan = CopyPlan::default();
-        let emptied = options
+        let mut emptied = options
             .empty_tables
             .iter()
             .map(|name| canonical(name).map_err(|_| unknown_table(name)))
             .collect::<Result<BTreeSet<_>>>()?;
+        // File rows name objects in the storage of the service this database lives
+        // in. A copy that becomes another database must not carry them, or the
+        // requests to delete them.
+        if options.new_identity {
+            for name in [crate::managed::FILES, crate::managed::FILE_CHANGES] {
+                if self.catalog(name).is_ok() {
+                    emptied.insert(name.to_owned());
+                }
+            }
+        }
         for name in &emptied {
             self.plan_empty_table(name, &emptied, &mut plan)?;
         }
