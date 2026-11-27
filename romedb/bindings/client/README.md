@@ -161,6 +161,117 @@ and writes start again. A build
 that fails throws `RDB_INDEX_BUILD` with the reason, such as duplicate values, and the
 database stays as it was. Local URLs refuse `buildIndex()`.
 
+## Files on RomeDB Cloud
+
+A Cloud database has managed file storage: your application uploads files, RomeDB keeps
+them in private storage, and you keep the file id in your own records. The bytes go from
+the browser straight to storage in parts, so there is no file size limit below 4.995 TiB
+other than your organization's storage allowance, and an upload that stops can continue.
+
+RomeDB does not know your users. Your backend decides who may upload, and gives the page
+an upload session: a permission for one file, with a token that works for that upload
+only. The page never gets a database token or an organization key.
+
+**The backend** needs a database token with the scope `files:write` (and `files:read`,
+`files:delete` for the calls below), or an organization key with `manage`:
+
+```js
+import { connect } from '@romedb/client';
+
+const db = await connect({ url: env.ROMEDB_URL, token: env.ROMEDB_FILES_TOKEN });
+
+// POST /api/uploads/authorize: the page sends { id, name, size, type, context }.
+async function authorizeUpload(request) {
+  const user = await requireUser(request);              // your authentication
+  const intent = await request.json();                  // from the browser: check it
+  await requireEditableArticle(user, intent.context.articleId);
+  if (intent.size > 25 * 1024 * 1024) return new Response('File too large', { status: 413 });
+  const session = await db.files.createUploadSession({
+    id: intent.id, name: intent.name, size: intent.size, mediaType: intent.type,
+    allowedMediaTypes: ['image/jpeg', 'image/png', 'application/pdf'],
+    subject: user.id,
+  });
+  return Response.json(session, { headers: { 'cache-control': 'no-store' } });
+}
+```
+
+**The page** imports only `@romedb/client/uploads`, which holds no code that takes a
+database token:
+
+```js
+import { createUploader } from '@romedb/client/uploads';
+
+const uploader = createUploader({
+  authorize: async intent => {
+    const response = await fetch('/api/uploads/authorize', {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'content-type': 'application/json', 'x-csrf-token': csrfToken() },
+      body: JSON.stringify(intent),
+    });
+    if (!response.ok) throw new Error('Upload not allowed');
+    return response.json();
+  },
+});
+
+const controller = new AbortController();
+const file = await uploader.upload(input.files[0], {
+  context: { articleId },
+  signal: controller.signal,
+  onProgress: ({ uploadedBytes, totalBytes }) => showProgress(uploadedBytes / totalBytes),
+});
+await attachToArticle(articleId, file.id);              // your backend checks again
+```
+
+`upload()` resolves when Cloud has published the file. It sends 4 parts at a time, sends
+a failed part again, and compares a checksum of the file with the one storage computed
+(for files up to 1 GiB, or always with `checksum: true`). Progress moves in steps of one
+part, 8 MiB for most files.
+
+To continue an upload after a reload or a failure, call `upload()` with the same file
+and the same `id`: the backend's `createUploadSession` returns the same session for the
+same `id`, and only the missing parts are sent. An `UploadError` says in `recoverable`
+whether that can work. `controller.abort()` stops the transfer in the page only; the
+session stays open in Cloud until `uploader.abort(session)` or its expiry (24 hours by
+default), and its reserved space counts against your allowance until then.
+
+**Afterwards, on the backend:**
+
+```js
+const file = await db.files.get(fileId);                // size, mediaType, checksum, metadata...
+const page = await db.files.list({ limit: 50, order: 'desc' });
+await db.files.update(fileId, { description: 'Signed copy', tags: ['contract'] });
+const { url } = await db.files.createDownloadUrl(fileId, { expiresInSeconds: 300 });
+const deletion = await db.files.delete(fileId);         // { state: 'done' | 'pending' }
+const stored = await db.files.upload(await fs.openAsBlob('report.pdf'), { name: 'report.pdf' });
+```
+
+A download URL works for anyone who has it until it expires, and it cannot be taken back.
+Check your user's permission before you create one, and keep its life short. Files
+download as attachments; `disposition: 'inline'` is allowed only for images, PDF, plain
+text, audio and video. `delete` removes the record at once; `state` is `'pending'` while
+storage still removes the bytes, and `db.files.deletionStatus(fileId)` reports it later.
+
+A file id is not a permission. Anyone who holds your backend's token can read or delete
+every file of the database, so the token stays on the server.
+
+**In SQL.** Where Cloud keeps file rows, each ready file is also a row of the
+collection `romedb_files` in the same database, so a query can list files and join them
+with your own records:
+
+```js
+import { Record } from '@romedb/client';
+
+await db.writeAtomic([{ sql: 'UPDATE articles:a1 MERGE {attachment: $file}', params: { $file: new Record('romedb_files', file.id) } }]);
+const { results } = await db.read([{ sql: "SELECT id, name, size FROM romedb_files WHERE mediaType = 'application/pdf' ORDER BY createdAt DESC LIMIT 20" }]);
+```
+
+The service writes the rows. SQL may change `name`, `description`, `tags` and `metadata`
+with a token that has `files:write`, and `DELETE` a row with `files:delete`, which
+deletes the file. A token with only `read` and `query` can read the rows. Nothing can
+insert a row or change its other fields. A changed row reaches `db.files.get()` after
+the commit, not inside the transaction, and a deleted file's bytes are removed after
+the commit.
+
 ## Local directories
 
 An organization URL on a loopback host, such as a database of `romedb serve

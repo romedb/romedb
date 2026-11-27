@@ -10,7 +10,7 @@ const details = sequence => ({ id: 'local-test', sequence, serviceVersion: 1, ca
 const json = (body, status = 200, headers = {}) => Response.json(body, { status, headers });
 
 test('the client and value sources use only Web APIs, so Workers and browsers can load them', async () => {
-  for (const file of ['client.cjs', 'values.cjs', 'client.mjs', 'values.mjs']) {
+  for (const file of ['client.cjs', 'values.cjs', 'uploads.cjs', 'files.cjs', 'client.mjs', 'values.mjs', 'uploads.mjs', 'files.mjs']) {
     assert.doesNotMatch(await readFile(new URL(file, import.meta.url), 'utf8'), /node:|\bBuffer\b|\bprocess\.|\bsetImmediate\b/, file);
   }
   assert.equal(Float64, values.Float64, 'client.mjs and values.mjs share one set of value classes');
@@ -122,4 +122,14 @@ test('a Record prints as table:key and compares by table and key', () => {
   assert.equal(record.equals(new Record('pages', 'a')), false);
   assert.equal(new Record('posts', '7').equals(new Record('posts', 7n)), false);
   assert.equal(record.equals({ table: 'posts', key: 'a' }), false);
+});
+
+test('the browser entry for uploads loads on its own and holds no code that takes a database token', async () => {
+  const uploads = await import('./uploads.mjs');
+  assert.deepEqual(Object.keys(uploads).sort(), ['UploadError', 'crc64nvme', 'createUploader', 'uploadToSession']);
+  const source = await readFile(new URL('uploads.cjs', import.meta.url), 'utf8');
+  assert.doesNotMatch(source, /require\(/, 'uploads.cjs loads nothing else');
+  const client = await import('./client.mjs');
+  assert.equal(client.createUploader, uploads.createUploader, 'client.mjs and uploads.mjs share one uploader');
+  assert.equal(client.UploadError, uploads.UploadError);
 });

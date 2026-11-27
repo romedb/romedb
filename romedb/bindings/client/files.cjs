@@ -1,0 +1,130 @@
+'use strict';
+// `db.files`: managed files of a RomeDB Cloud database, for backends. Every call carries
+// the connection's token, so this code belongs on a server. A token needs a file scope
+// (files:read, files:write, files:delete), or the organization key needs `manage`.
+// Browsers use ./uploads.cjs, which works with an upload session and no token.
+const { uploadToSession } = require('./uploads.cjs');
+
+const MAX_REPLY = 1_048_576;
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+function plainObject(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
+function id(value, what) { if (typeof value !== 'string' || !uuid.test(value)) throw new TypeError(`${what} must be a UUID`); return value; }
+function httpCode(status) { return status === 401 ? 'RDB_AUTH' : status === 403 ? 'RDB_FORBIDDEN' : status === 404 ? 'RDB_NOT_FOUND' : status === 409 ? 'RDB_CONFLICT' : status === 429 || status === 413 ? 'RDB_LIMIT' : 'RDB_REMOTE'; }
+
+/**
+ * @param {{ url: string, token: () => string, fetch: typeof fetch, timeoutMs: number, assertOpen: () => void, ClientError: any }} connection
+ */
+function createDatabaseFiles(connection) {
+  const { url, fetch, ClientError } = connection;
+  const redact = (message, token) => (token ? message.replaceAll(token, '[redacted]') : message).slice(0, 2048);
+
+  // `changing` requests may have taken effect when their reply is lost; the others have not.
+  async function request(method, path, body, options = {}, changing = false, base = `${url}/files`) {
+    connection.assertOpen();
+    if (!plainObject(options)) throw new TypeError('options require an object');
+    const duration = options.timeoutMs ?? connection.timeoutMs;
+    if (!Number.isInteger(duration) || duration < 1 || duration > 600_000) throw new RangeError('timeoutMs must be 1..600000');
+    if (options.signal !== undefined && !(options.signal instanceof AbortSignal)) throw new TypeError('signal must be an AbortSignal');
+    const failed = changing ? 'unknown' : 'read-failed';
+    if (options.signal?.aborted) throw new ClientError('RDB_CANCELLED', 'Request cancelled before dispatch', 'not-sent');
+    const controller = new AbortController(), stop = () => controller.abort();
+    const timer = setTimeout(stop, duration);
+    options.signal?.addEventListener('abort', stop, { once: true });
+    const token = connection.token();
+    let status;
+    try {
+      const response = await fetch(base + path, {
+        method, redirect: 'manual', signal: controller.signal,
+        headers: { authorization: `Bearer ${token}`, accept: 'application/json', ...(body === undefined ? {} : { 'content-type': 'application/json' }) },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      });
+      status = response.status;
+      if (response.type === 'opaqueredirect' || (status >= 300 && status < 400)) {
+        await response.body?.cancel().catch(() => {});
+        throw new ClientError('RDB_PROTOCOL', 'Database URL redirected; redirects are never followed with a credential', failed, { status });
+      }
+      const text = await response.text();
+      if (text.length > MAX_REPLY) throw new ClientError('RDB_PROTOCOL', 'File reply too large', failed, { status });
+      let reply;
+      try { reply = JSON.parse(text); } catch { reply = undefined; }
+      if (!response.ok) {
+        const message = typeof reply?.error === 'string' ? reply.error : 'File request was rejected';
+        const retry = Number(response.headers.get('retry-after'));
+        throw new ClientError(httpCode(status), redact(message, token), status >= 500 ? failed : 'rolled-back',
+          { status, ...(Number.isFinite(retry) && retry > 0 ? { retryAfterMs: Math.min(retry, 3600) * 1000 } : {}) });
+      }
+      if (!plainObject(reply)) throw new ClientError('RDB_PROTOCOL', 'Invalid file reply', failed, { status });
+      return reply;
+    } catch (error) {
+      if (error instanceof ClientError) throw error;
+      throw new ClientError(options.signal?.aborted ? 'RDB_CANCELLED' : status === undefined ? 'RDB_TRANSPORT' : 'RDB_PROTOCOL', 'File request failed', failed, { ...(status === undefined ? {} : { status }), cause: error });
+    } finally {
+      clearTimeout(timer);
+      options.signal?.removeEventListener('abort', stop);
+    }
+  }
+  const call = options => ({ ...(options?.signal === undefined ? {} : { signal: options.signal }), ...(options?.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }) });
+
+  return Object.freeze({
+    /**
+     * Opens an upload session for one file: { name, size, mediaType?, metadata?, subject?,
+     * binding?, allowedMediaTypes?, expiresInSeconds?, id? }. Give the result to the browser.
+     * The same `id` with the same declaration returns the same session, so a retry is safe.
+     */
+    async createUploadSession(declaration, options) {
+      if (!plainObject(declaration)) throw new TypeError('an upload declaration requires an object');
+      return request('POST', '/uploads', { ...declaration, id: declaration.id === undefined ? crypto.randomUUID() : id(declaration.id, 'id') }, call(options), true);
+    },
+    /** Uploads bytes this process holds: a Blob, an ArrayBuffer or a typed array. Returns the file. */
+    async upload(source, settings = {}) {
+      if (!plainObject(settings)) throw new TypeError('upload options require an object');
+      const blob = typeof Blob !== 'undefined' && source instanceof Blob ? source : new Blob([source]);
+      const name = settings.name ?? source.name;
+      if (typeof name !== 'string' || !name) throw new TypeError('name is required when the source is not a File');
+      const { signal, onProgress, concurrency, checksum, timeoutMs, ...declaration } = settings;
+      const session = await this.createUploadSession({ mediaType: blob.type || 'application/octet-stream', ...declaration, name, size: blob.size }, { signal, timeoutMs });
+      return uploadToSession(session, blob, { fetch, signal, onProgress, concurrency, checksum });
+    },
+    /** The session's state and the parts storage holds. */
+    async uploadStatus(uploadId, options) { return request('GET', `/uploads/${id(uploadId, 'uploadId')}`, undefined, call(options)); },
+    /** Publishes the file from the parts storage holds. A browser normally does this itself. */
+    async completeUpload(uploadId, options) { return (await request('POST', `/uploads/${id(uploadId, 'uploadId')}/complete`, {}, call(options), true)).file; },
+    /** Ends an open upload and frees the space it reserved. */
+    async abortUpload(uploadId, options) { return request('POST', `/uploads/${id(uploadId, 'uploadId')}/abort`, undefined, call(options), true); },
+    async get(fileId, options) { return request('GET', `/${id(fileId, 'fileId')}`, undefined, call(options)); },
+    /** One page: { files, next }. Pass `next` as `after` for the following page. order: 'asc' (oldest first) or 'desc'. */
+    async list(page = {}, options) {
+      if (!plainObject(page) || Object.keys(page).some(key => !['after', 'limit', 'order'].includes(key))) throw new TypeError('list takes after, limit and order');
+      const query = new URLSearchParams();
+      if (page.after !== undefined) query.set('after', id(page.after, 'after'));
+      if (page.limit !== undefined) query.set('limit', String(page.limit));
+      if (page.order !== undefined) query.set('order', page.order);
+      const text = query.toString();
+      return request('GET', text ? `?${text}` : '', undefined, call(options));
+    },
+    /** Changes name, description, tags or metadata. Size, type and checksum never change. */
+    async update(fileId, changes, options) {
+      if (!plainObject(changes)) throw new TypeError('file changes require an object');
+      return request('PATCH', `/${id(fileId, 'fileId')}`, changes, call(options), true);
+    },
+    /**
+     * A URL that downloads the file from storage without a credential until it expires:
+     * { expiresInSeconds?, disposition?: 'attachment' | 'inline', fileName? }. Check the
+     * end user's permission before handing it out; anyone who has the URL can use it.
+     */
+    async createDownloadUrl(fileId, download = {}, options) {
+      if (!plainObject(download)) throw new TypeError('download options require an object');
+      return request('POST', `/${id(fileId, 'fileId')}/download`, download, call(options));
+    },
+    /**
+     * Deletes the file. The record is gone when this returns; `state` is 'done' when the
+     * bytes are gone too, and 'pending' while Cloud is still removing them.
+     */
+    async delete(fileId, options) { return request('DELETE', `/${id(fileId, 'fileId')}`, undefined, call(options), true); },
+    async deletionStatus(fileId, options) { return request('GET', `/${id(fileId, 'fileId')}/deletion`, undefined, call(options)); },
+    /** Stored bytes, the allowance and the monthly charge of the whole organization. Needs an organization key. */
+    async usage(options) { return request('GET', '', undefined, call(options), false, `${url.replace(/\/databases\/[^/]+$/, '')}/files/usage`); },
+  });
+}
+
+module.exports = { createDatabaseFiles };

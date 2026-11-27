@@ -1,4 +1,4 @@
-import { connect, Client, Float64, Record, Vector, Value, encodeValue, decodeValue, saveRequest, loadRequest, ClientError, RequestLimits } from '@romedb/node/client';
+import { connect, Client, Float64, Record, Vector, Value, encodeValue, decodeValue, saveRequest, loadRequest, ClientError, RequestLimits, createUploader, UploadError } from '@romedb/node/client';
 
 async function clientTypes() {
   const db: Client = await connect({ url: 'http://127.0.0.1:4321', token: 'test' });
@@ -18,6 +18,24 @@ async function clientTypes() {
   const exported: number = file.sequence + file.size;
   const reader = file.body.getReader();
   void exported; void reader;
+  const session = await remote.files.createUploadSession({ name: 'a.png', size: 10, mediaType: 'image/png', subject: 'user-1', binding: { articleId: 1 } });
+  const sessionToken: string = session.token;
+  const stored = await remote.files.upload(new Blob(['abc']), { name: 'a.txt', onProgress: step => void step.uploadedBytes });
+  const storedId: string = stored.id;
+  const page = await remote.files.list({ limit: 10, order: 'desc' });
+  const next: string | null = page.next;
+  const download = await remote.files.createDownloadUrl(storedId, { disposition: 'inline', expiresInSeconds: 60 });
+  const deletion = await remote.files.delete(storedId);
+  const pending: boolean = deletion.state === 'pending';
+  const charge: number = (await remote.files.usage()).charge.monthlyUsd;
+  const uploader = createUploader({ authorize: async intent => { void intent.id; return session; } });
+  const uploaded = await uploader.upload(new Blob(['abc']), { name: 'a.txt', context: { articleId: 1 }, signal: new AbortController().signal });
+  try { await uploader.abort(session); } catch (error) { if (error instanceof UploadError && error.recoverable) void error.code; }
+  void sessionToken; void next; void download.url; void pending; void charge; void uploaded.checksum;
+  // @ts-expect-error the size of a file never changes
+  await remote.files.update(storedId, { size: 1 });
+  // @ts-expect-error an upload declaration needs a size
+  await remote.files.createUploadSession({ name: 'a.png' });
   await db.close();
   void count; void value;
   // @ts-expect-error ifSequence is a write condition

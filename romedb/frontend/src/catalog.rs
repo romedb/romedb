@@ -759,6 +759,7 @@ impl Connection {
         crate::validate_path(path)?;
         self.atomic(|| {
             let mut c = self.catalog(table)?;
+            self.managed_schema(&c.name)?;
             let position = c
                 .fields
                 .iter()
@@ -783,6 +784,7 @@ impl Connection {
                 Err(Error::NotFound(_)) if if_exists => return Ok(()),
                 Err(e) => return Err(e),
             };
+            self.managed_schema(&c.name)?;
             for owner in self.collections()? {
                 if owner.name != c.name && owner.relations.iter().any(|r| r.source == c.name) {
                     return Err(Error::Validation(
