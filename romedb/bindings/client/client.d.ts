@@ -151,6 +151,40 @@ export interface FileUsage {
   /** Stored bytes are charged in whole terabytes of 10^12 bytes, rounded up. */
   charge: { terabytes: number; usdPerTerabyteMonth: number; monthlyUsd: number };
 }
+/** How an image job changes a picture. Sizes are pixels, from 1 to 8,192. */
+export interface ImageRecipe {
+  width?: number;
+  height?: number;
+  /** 'inside' (default) never makes the picture larger and never crops; 'cover' and 'contain' give exactly width by height and need both. */
+  fit?: 'inside' | 'cover' | 'contain';
+  /** Default 'webp'. */
+  format?: 'jpeg' | 'png' | 'webp' | 'avif';
+  /** 1 to 100, default 80. Not used for 'png'. */
+  quality?: number;
+}
+export interface FileJobRequest {
+  kind: 'image';
+  recipe: ImageRecipe;
+  /** Who asked, in the application's own terms. Kept as the new file's `createdBy`; default: the source's. */
+  subject?: string;
+}
+export interface FileJob {
+  id: string;
+  databaseId: string;
+  /** The source file. */
+  fileId: string;
+  kind: 'image';
+  /** The recipe with every default written out. */
+  recipe: ImageRecipe;
+  state: 'queued' | 'running' | 'ready' | 'failed' | 'canceled';
+  createdAt: number;
+  startedAt?: number;
+  finishedAt?: number;
+  /** On a failed or canceled job. Codes: bad_image, too_many_pixels, timeout, too_large, source_gone, allowance, lost, canceled, failed. */
+  error?: { code: string; message: string };
+  /** On a ready job: the file it made. */
+  file?: ManagedFile;
+}
 export interface DatabaseFiles {
   /** Opens an upload session for one file. Give the result to the browser's `authorize` callback. */
   createUploadSession(declaration: UploadDeclaration, options?: RequestOptions): Promise<UploadSession>;
@@ -173,6 +207,19 @@ export interface DatabaseFiles {
   /** The record is gone when this returns. `state` is 'pending' while storage still removes the bytes. */
   delete(fileId: string, options?: RequestOptions): Promise<FileDeletion>;
   deletionStatus(fileId: string, options?: RequestOptions): Promise<FileDeletion>;
+  /**
+   * Asks Cloud to make a new file from a stored one, such as a resized image. The same file
+   * and recipe is the same job, so asking again costs nothing and may return a job that is
+   * already 'ready'. Needs `files:write`. Cloud answers 503 where processing is not on.
+   */
+  process(fileId: string, job: FileJobRequest, options?: RequestOptions): Promise<FileJob>;
+  job(jobId: string, options?: RequestOptions): Promise<FileJob>;
+  /** Stops a job that has not finished. Needs `files:write`. */
+  cancelJob(jobId: string, options?: RequestOptions): Promise<FileJob>;
+  /** The files made from a file, oldest first. */
+  derivatives(fileId: string, options?: RequestOptions): Promise<{ files: ManagedFile[] }>;
+  /** Waits until the job is 'ready', 'failed' or 'canceled'. Throws RDB_TIMEOUT after waitMs (default 120,000); the job goes on in Cloud. */
+  waitForJob(jobId: string, wait?: { waitMs?: number; intervalMs?: number; signal?: AbortSignal; timeoutMs?: number }): Promise<FileJob>;
   /** The organization's stored bytes, allowance and monthly charge. Needs an organization key. */
   usage(options?: RequestOptions): Promise<FileUsage>;
 }

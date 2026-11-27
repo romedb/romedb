@@ -251,6 +251,26 @@ download as attachments; `disposition: 'inline'` is allowed only for images, PDF
 text, audio and video. `delete` removes the record at once; `state` is `'pending'` while
 storage still removes the bytes, and `db.files.deletionStatus(fileId)` reports it later.
 
+**Resized images.** Where Cloud has file processing on, the backend can ask for a new
+file made from a stored image:
+
+```js
+const job = await db.files.process(file.id, { kind: 'image', recipe: { width: 640, format: 'webp' } });
+const done = await db.files.waitForJob(job.id);         // 'ready', 'failed' or 'canceled'
+if (done.state === 'ready') {
+  const { url } = await db.files.createDownloadUrl(done.file.id, { disposition: 'inline' });
+}
+const { files } = await db.files.derivatives(file.id);  // every file made from this one
+```
+
+A recipe takes `width` and `height` (1 to 8,192), `fit` (`inside`, `cover` or `contain`),
+`format` (`jpeg`, `png`, `webp` or `avif`) and `quality` (1 to 100). The result is a
+file of its own: it has an id, counts in your storage allowance, and has
+`source: { fileId, kind, recipe }`. The picture is turned the way its EXIF tag says and
+its metadata is removed. The same file and recipe is the same job, so asking twice does
+the work once. Deleting the source deletes the files made from it. `process` and
+`cancelJob` need `files:write`.
+
 A file id is not a permission. Anyone who holds your backend's token can read or delete
 every file of the database, so the token stays on the server.
 

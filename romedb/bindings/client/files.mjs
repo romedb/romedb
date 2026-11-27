@@ -127,6 +127,43 @@ function createDatabaseFiles(connection) {
      */
     async delete(fileId, options) { return request('DELETE', `/${id(fileId, 'fileId')}`, undefined, call(options), true); },
     async deletionStatus(fileId, options) { return request('GET', `/${id(fileId, 'fileId')}/deletion`, undefined, call(options)); },
+    /**
+     * Asks Cloud to make a new file from a stored one: { kind: 'image', recipe: { width?,
+     * height?, fit?, format?, quality? }, subject? }. Returns the job, which is done already
+     * when the same file and recipe were processed before. The same request is the same job.
+     */
+    async process(fileId, job, options) {
+      if (!plainObject(job)) throw new TypeError('a job requires an object');
+      return request('POST', `/${id(fileId, 'fileId')}/jobs`, job, call(options), true);
+    },
+    /** A job's state. A job that is 'ready' has `file`, the file it made; a failed one has `error`. */
+    async job(jobId, options) { return request('GET', `/jobs/${id(jobId, 'jobId')}`, undefined, call(options)); },
+    /** Stops a job that has not finished. */
+    async cancelJob(jobId, options) { return request('DELETE', `/jobs/${id(jobId, 'jobId')}`, undefined, call(options), true); },
+    /** The files made from a file, oldest first: { files }. */
+    async derivatives(fileId, options) { return request('GET', `/${id(fileId, 'fileId')}/derivatives`, undefined, call(options)); },
+    /**
+     * Waits until a job is 'ready', 'failed' or 'canceled' and returns it: { waitMs?
+     * (120,000), intervalMs? (1,000), signal?, timeoutMs? }. When the wait is over first,
+     * it throws RDB_TIMEOUT; the job goes on in Cloud.
+     */
+    async waitForJob(jobId, wait = {}) {
+      if (!plainObject(wait) || Object.keys(wait).some(key => !['waitMs', 'intervalMs', 'signal', 'timeoutMs'].includes(key))) throw new TypeError('waitForJob takes waitMs, intervalMs, signal and timeoutMs');
+      const waitMs = wait.waitMs ?? 120_000, intervalMs = wait.intervalMs ?? 1000;
+      if (!Number.isInteger(waitMs) || waitMs < 1 || waitMs > 3_600_000) throw new RangeError('waitMs must be 1..3600000');
+      if (!Number.isInteger(intervalMs) || intervalMs < 100 || intervalMs > 60_000) throw new RangeError('intervalMs must be 100..60000');
+      const deadline = Date.now() + waitMs;
+      for (;;) {
+        const job = await this.job(jobId, call(wait));
+        if (['ready', 'failed', 'canceled'].includes(job.state)) return job;
+        if (Date.now() + intervalMs > deadline) throw new ClientError('RDB_TIMEOUT', 'The job is still running', 'read-failed');
+        await new Promise((resolve, reject) => {
+          const timer = setTimeout(() => { wait.signal?.removeEventListener('abort', stop); resolve(); }, intervalMs);
+          const stop = () => { clearTimeout(timer); reject(new ClientError('RDB_CANCELLED', 'Wait cancelled', 'read-failed')); };
+          wait.signal?.addEventListener('abort', stop, { once: true });
+        });
+      }
+    },
     /** Stored bytes, the allowance and the monthly charge of the whole organization. Needs an organization key. */
     async usage(options) { return request('GET', '', undefined, call(options), false, `${url.replace(/\/databases\/[^/]+$/, '')}/files/usage`); },
   });

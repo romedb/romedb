@@ -25,6 +25,8 @@ export interface ManagedFile {
   /** Unix milliseconds. */
   createdAt: number;
   updatedAt: number;
+  /** Only on a file a processing job made: the file it was made from, and how. */
+  source?: { fileId: string; kind: 'image'; recipe: { [key: string]: unknown } };
 }
 
 export type UploadState = 'pending' | 'uploading' | 'verifying' | 'ready' | 'aborted' | 'expired' | 'rejected';

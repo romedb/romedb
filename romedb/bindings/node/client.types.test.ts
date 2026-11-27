@@ -28,6 +28,14 @@ async function clientTypes() {
   const deletion = await remote.files.delete(storedId);
   const pending: boolean = deletion.state === 'pending';
   const charge: number = (await remote.files.usage()).charge.monthlyUsd;
+  const job = await remote.files.process(storedId, { kind: 'image', recipe: { width: 320, fit: 'inside', format: 'webp', quality: 80 }, subject: 'user-1' });
+  const finished = await remote.files.waitForJob(job.id, { waitMs: 60_000, intervalMs: 500 });
+  const made: string | undefined = finished.state === 'ready' ? finished.file?.source?.fileId : finished.error?.code;
+  const others: number = (await remote.files.derivatives(storedId)).files.length;
+  const canceled: string = (await remote.files.cancelJob(job.id)).state;
+  void made; void others; void canceled;
+  // @ts-expect-error a recipe has no such fit
+  void remote.files.process(storedId, { kind: 'image', recipe: { fit: 'stretch' } });
   const uploader = createUploader({ authorize: async intent => { void intent.id; return session; } });
   const uploaded = await uploader.upload(new Blob(['abc']), { name: 'a.txt', context: { articleId: 1 }, signal: new AbortController().signal });
   try { await uploader.abort(session); } catch (error) { if (error instanceof UploadError && error.recoverable) void error.code; }

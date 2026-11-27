@@ -214,6 +214,36 @@ test('db.files sends each call to its route with the connection token', async ()
   await assert.rejects(db.files.list(), error => error instanceof ClientError && error.code === 'RDB_CLOSED');
 });
 
+test('db.files asks for a processing job, reads it, waits for it, cancels it and lists what was made', async () => {
+  const file = '01939b2e-7c1a-7000-8000-000000000001', job = 'bbbbbbbb-bbbb-8bbb-8bbb-bbbbbbbbbbbb';
+  const states = ['queued', 'running', 'ready'];
+  const { calls, fetch } = backend(call => call.method === 'GET' && call.url.endsWith(`/files/jobs/${job}`)
+    ? json({ id: job, fileId: file, kind: 'image', recipe: {}, state: states.shift() ?? 'ready', file: { id: 'made' } }) : json({ id: job, state: 'queued', files: [] }));
+  const db = await connect({ url: cloud, token: 'header.payload.signature', fetch, warm: false });
+  assert.equal((await db.files.process(file, { kind: 'image', recipe: { width: 320, format: 'webp' }, subject: 'user-1' })).id, job);
+  assert.equal((await db.files.job(job)).state, 'queued');
+  const done = await db.files.waitForJob(job, { intervalMs: 100 });
+  assert.deepEqual([done.state, done.file.id], ['ready', 'made']);
+  await db.files.cancelJob(job);
+  assert.deepEqual(await db.files.derivatives(file), { id: job, state: 'queued', files: [] });
+  const base = `${org}/databases/${database}/files`;
+  assert.deepEqual(calls.map(call => `${call.method} ${call.url.slice('https://cloud.romedb.com/v1/organizations/'.length)}`), [
+    `POST ${base}/${file}/jobs`, `GET ${base}/jobs/${job}`, `GET ${base}/jobs/${job}`, `GET ${base}/jobs/${job}`, `DELETE ${base}/jobs/${job}`, `GET ${base}/${file}/derivatives`,
+  ]);
+  assert.deepEqual(calls[0].body, { kind: 'image', recipe: { width: 320, format: 'webp' }, subject: 'user-1' });
+  await assert.rejects(db.files.process('nope', { kind: 'image', recipe: {} }), /fileId must be a UUID/);
+  await assert.rejects(db.files.process(file, 'image'), /a job requires an object/);
+  await assert.rejects(db.files.waitForJob(job, { every: 5 }), /waitForJob takes/);
+  await assert.rejects(db.files.waitForJob(job, { intervalMs: 5 }), /intervalMs must be/);
+  // A job that does not end in time: the wait gives up, and says the job goes on.
+  const slow = backend(() => json({ id: job, state: 'running' }));
+  const other = await connect({ url: cloud, token: 'header.payload.signature', fetch: slow.fetch, warm: false });
+  await assert.rejects(other.files.waitForJob(job, { waitMs: 250, intervalMs: 100 }), error => error instanceof ClientError && error.code === 'RDB_TIMEOUT');
+  const controller = new AbortController(); setTimeout(() => controller.abort(), 50);
+  await assert.rejects(other.files.waitForJob(job, { signal: controller.signal, intervalMs: 5000 }), error => error.code === 'RDB_CANCELLED');
+  await db.close(); await other.close();
+});
+
 test('db.files reports refusals as ClientError without the token in the message', async () => {
   const token = 'rdbo_' + 'a'.repeat(64);
   const replies = [json({ error: `Key ${token} lacks the scope` }, 403), json({ error: 'File not found' }, 404), json({ error: 'File storage allowance exceeded' }, 429),
