@@ -37,8 +37,13 @@ async function clientTypes() {
   const film = await remote.files.process(storedId, { kind: 'media', recipe: { output: 'mp4', height: 720, audio: false } });
   void remote.files.process(storedId, { kind: 'media', recipe: { output: 'poster', at: 2.5, width: 640, format: 'webp' } });
   void remote.files.process(storedId, { kind: 'media', recipe: { output: 'audio', format: 'mp3', bitrate: 96 } });
-  const filmKind: 'image' | 'media' = film.kind;
+  const filmKind: 'image' | 'media' | 'text' | 'ai' = film.kind;
   void filmKind;
+  void remote.files.process(storedId, { kind: 'text' });
+  void remote.files.process(storedId, { kind: 'ai', consent: true, recipe: { output: 'summary', words: 100 } });
+  void remote.files.process(storedId, { kind: 'ai', consent: true, recipe: { output: 'transcript', language: 'en' }, subject: 'user-1' });
+  // @ts-expect-error an AI job needs consent
+  void remote.files.process(storedId, { kind: 'ai', recipe: { output: 'embeddings' } });
   // @ts-expect-error a video has no such height
   void remote.files.process(storedId, { kind: 'media', recipe: { output: 'mp4', height: 700 } });
   // @ts-expect-error an image job takes an image recipe

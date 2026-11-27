@@ -170,7 +170,22 @@ export type MediaRecipe =
   | { output: 'poster'; /** Seconds from the start, default 1. */ at?: number; width?: number; format?: 'jpeg' | 'png' | 'webp'; quality?: number }
   | { output: 'mp4'; /** Default 720. */ height?: 240 | 360 | 480 | 720 | 1080; /** Default true. */ audio?: boolean }
   | { output: 'audio'; /** 'aac' (an .m4a file, the default) or 'mp3'. */ format?: 'aac' | 'mp3'; /** Kilobits a second, default 128. */ bitrate?: 64 | 96 | 128 | 192 };
-export type FileJobRequest = ({ kind: 'image'; recipe: ImageRecipe } | { kind: 'media'; recipe: MediaRecipe }) & {
+/**
+ * What an AI job makes. 'summary' and 'embeddings' take a text file of at most 1 MiB;
+ * 'transcript' takes an audio file of at most 20 MiB.
+ */
+export type AiRecipe =
+  | { output: 'summary'; /** 20 to 1,000, default 150. */ words?: number }
+  | { output: 'embeddings'; /** 200 to 6,000, default 1,500. */ chunkCharacters?: number }
+  | { output: 'transcript'; /** Two letters, such as 'en'. */ language?: string };
+export type FileJobRequest = (
+  | { kind: 'image'; recipe: ImageRecipe }
+  | { kind: 'media'; recipe: MediaRecipe }
+  /** The text of a PDF, an HTML page, a plain file or a picture. No model is used. */
+  | { kind: 'text'; recipe?: { [key: string]: never } }
+  /** Sends the content of the file to an AI model: say so with `consent: true`, after your user agreed. */
+  | { kind: 'ai'; recipe: AiRecipe; consent: true }
+) & {
   /** Who asked, in the application's own terms. Kept as the new file's `createdBy`; default: the source's. */
   subject?: string;
 };
@@ -179,14 +194,14 @@ export interface FileJob {
   databaseId: string;
   /** The source file. */
   fileId: string;
-  kind: 'image' | 'media';
+  kind: 'image' | 'media' | 'text' | 'ai';
   /** The recipe with every default written out. */
-  recipe: ImageRecipe | MediaRecipe;
+  recipe: ImageRecipe | MediaRecipe | AiRecipe | { [key: string]: never };
   state: 'queued' | 'running' | 'ready' | 'failed' | 'canceled';
   createdAt: number;
   startedAt?: number;
   finishedAt?: number;
-  /** On a failed or canceled job. Codes: bad_image, bad_media, no_video, no_audio, too_long, too_many_pixels, timeout, too_large, source_gone, allowance, lost, canceled, failed. */
+  /** On a failed or canceled job. Codes: bad_image, bad_media, bad_document, bad_text, no_text, no_video, no_audio, too_long, too_many_pixels, timeout, too_large, ai_failed, store, source_gone, allowance, lost, canceled, failed. */
   error?: { code: string; message: string };
   /** On a ready job: the file it made. */
   file?: ManagedFile;
