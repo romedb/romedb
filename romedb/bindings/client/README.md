@@ -271,6 +271,20 @@ its metadata is removed. The same file and recipe is the same job, so asking twi
 the work once. Deleting the source deletes the files made from it. `process` and
 `cancelJob` need `files:write`.
 
+**Video and audio.** The kind `media` makes a poster picture, an MP4 or the sound alone
+from a stored video or audio file:
+
+```js
+await db.files.process(video.id, { kind: 'media', recipe: { output: 'poster', at: 3, width: 640 } });
+const job = await db.files.process(video.id, { kind: 'media', recipe: { output: 'mp4', height: 720 } });
+const done = await db.files.waitForJob(job.id, { waitMs: 30 * 60_000, intervalMs: 5000 });
+await db.files.process(video.id, { kind: 'media', recipe: { output: 'audio', format: 'mp3', bitrate: 128 } });
+```
+
+An MP4 is H.264 video with AAC sound at 240, 360, 480, 720 or 1080 lines, never larger
+than the source. A source may be 8 GB and 2 hours long. Video work takes minutes, so give
+`waitForJob` a longer `waitMs`, or read the job later with `db.files.job(id)`.
+
 A file id is not a permission. Anyone who holds your backend's token can read or delete
 every file of the database, so the token stays on the server.
 

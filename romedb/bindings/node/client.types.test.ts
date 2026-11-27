@@ -34,6 +34,15 @@ async function clientTypes() {
   const others: number = (await remote.files.derivatives(storedId)).files.length;
   const canceled: string = (await remote.files.cancelJob(job.id)).state;
   void made; void others; void canceled;
+  const film = await remote.files.process(storedId, { kind: 'media', recipe: { output: 'mp4', height: 720, audio: false } });
+  void remote.files.process(storedId, { kind: 'media', recipe: { output: 'poster', at: 2.5, width: 640, format: 'webp' } });
+  void remote.files.process(storedId, { kind: 'media', recipe: { output: 'audio', format: 'mp3', bitrate: 96 } });
+  const filmKind: 'image' | 'media' = film.kind;
+  void filmKind;
+  // @ts-expect-error a video has no such height
+  void remote.files.process(storedId, { kind: 'media', recipe: { output: 'mp4', height: 700 } });
+  // @ts-expect-error an image job takes an image recipe
+  void remote.files.process(storedId, { kind: 'image', recipe: { output: 'mp4' } });
   // @ts-expect-error a recipe has no such fit
   void remote.files.process(storedId, { kind: 'image', recipe: { fit: 'stretch' } });
   const uploader = createUploader({ authorize: async intent => { void intent.id; return session; } });

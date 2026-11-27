@@ -162,25 +162,31 @@ export interface ImageRecipe {
   /** 1 to 100, default 80. Not used for 'png'. */
   quality?: number;
 }
-export interface FileJobRequest {
-  kind: 'image';
-  recipe: ImageRecipe;
+/**
+ * What a video or audio job makes. 'poster': one frame as a picture. 'mp4': H.264 video with
+ * AAC sound, never larger than the source. 'audio': the sound alone.
+ */
+export type MediaRecipe =
+  | { output: 'poster'; /** Seconds from the start, default 1. */ at?: number; width?: number; format?: 'jpeg' | 'png' | 'webp'; quality?: number }
+  | { output: 'mp4'; /** Default 720. */ height?: 240 | 360 | 480 | 720 | 1080; /** Default true. */ audio?: boolean }
+  | { output: 'audio'; /** 'aac' (an .m4a file, the default) or 'mp3'. */ format?: 'aac' | 'mp3'; /** Kilobits a second, default 128. */ bitrate?: 64 | 96 | 128 | 192 };
+export type FileJobRequest = ({ kind: 'image'; recipe: ImageRecipe } | { kind: 'media'; recipe: MediaRecipe }) & {
   /** Who asked, in the application's own terms. Kept as the new file's `createdBy`; default: the source's. */
   subject?: string;
-}
+};
 export interface FileJob {
   id: string;
   databaseId: string;
   /** The source file. */
   fileId: string;
-  kind: 'image';
+  kind: 'image' | 'media';
   /** The recipe with every default written out. */
-  recipe: ImageRecipe;
+  recipe: ImageRecipe | MediaRecipe;
   state: 'queued' | 'running' | 'ready' | 'failed' | 'canceled';
   createdAt: number;
   startedAt?: number;
   finishedAt?: number;
-  /** On a failed or canceled job. Codes: bad_image, too_many_pixels, timeout, too_large, source_gone, allowance, lost, canceled, failed. */
+  /** On a failed or canceled job. Codes: bad_image, bad_media, no_video, no_audio, too_long, too_many_pixels, timeout, too_large, source_gone, allowance, lost, canceled, failed. */
   error?: { code: string; message: string };
   /** On a ready job: the file it made. */
   file?: ManagedFile;
