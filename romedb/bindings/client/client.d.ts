@@ -118,9 +118,72 @@ export interface Client {
   writeAtomic(statements: Statement[], options?: WriteOptions): Promise<BatchResult>;
   close(): Promise<void>;
 }
+/** What a backend declares when it opens an upload session. */
+export interface UploadDeclaration {
+  /** A UUID. The same id with the same declaration returns the same session. Default: a new one. */
+  id?: string;
+  name: string;
+  /** The exact size in bytes. Storage accepts exactly this many and no more. */
+  size: number;
+  /** Default: application/octet-stream. */
+  mediaType?: string;
+  /** Up to 16 KiB of JSON, kept with the file. */
+  metadata?: { [key: string]: unknown };
+  /** Who uploads, in the application's own terms. Kept as the file's `createdBy`. */
+  subject?: string;
+  /** What the upload is for, such as { articleId }. Kept with the session. */
+  binding?: { [key: string]: unknown };
+  /** When given, `mediaType` must be one of these. */
+  allowedMediaTypes?: string[];
+  /** 60 to 604800 (7 days). Default: 86400. */
+  expiresInSeconds?: number;
+}
+export interface FileDeletion { fileId: string; databaseId: string; state: 'pending' | 'done'; requestedAt: number; finishedAt?: number; }
+export interface FileUsage {
+  organizationId: string; plan: string;
+  /** Stored bytes. A deleted file counts until storage removed its bytes. */
+  bytes: number;
+  /** Bytes held for open uploads. */
+  reservedBytes: number;
+  files: number; openUploads: number;
+  /** The most the organization may store: stored and reserved bytes together. */
+  allowanceBytes: number;
+  /** Stored bytes are charged in whole terabytes of 10^12 bytes, rounded up. */
+  charge: { terabytes: number; usdPerTerabyteMonth: number; monthlyUsd: number };
+}
+export interface DatabaseFiles {
+  /** Opens an upload session for one file. Give the result to the browser's `authorize` callback. */
+  createUploadSession(declaration: UploadDeclaration, options?: RequestOptions): Promise<UploadSession>;
+  /** Uploads bytes this process holds. In Node.js, `fs.openAsBlob(path)` gives a Blob of a file on disk. */
+  upload(source: Blob | ArrayBuffer | ArrayBufferView, options?: Omit<UploadDeclaration, 'name' | 'size'> & Omit<TransferOptions, 'fetch'> & { name?: string; timeoutMs?: number }): Promise<ManagedFile>;
+  uploadStatus(uploadId: string, options?: RequestOptions): Promise<UploadStatus>;
+  completeUpload(uploadId: string, options?: RequestOptions): Promise<ManagedFile>;
+  abortUpload(uploadId: string, options?: RequestOptions): Promise<UploadStatus>;
+  get(fileId: string, options?: RequestOptions): Promise<ManagedFile>;
+  /** One page, oldest first unless order is 'desc'. Pass `next` as `after` for the following page. */
+  list(page?: { after?: string; limit?: number; order?: 'asc' | 'desc' }, options?: RequestOptions): Promise<{ files: ManagedFile[]; next: string | null }>;
+  /** Changes the fields an application owns. Size, type and checksum never change. */
+  update(fileId: string, changes: { name?: string; description?: string; tags?: string[]; metadata?: { [key: string]: unknown } }, options?: RequestOptions): Promise<ManagedFile>;
+  /**
+   * A URL that downloads the file from storage until it expires (default 300 seconds, at
+   * most 7 days). Anyone who has the URL can use it, and it cannot be taken back: check the
+   * end user's permission first. `inline` is allowed only for types that cannot run script.
+   */
+  createDownloadUrl(fileId: string, download?: { expiresInSeconds?: number; disposition?: 'attachment' | 'inline'; fileName?: string }, options?: RequestOptions): Promise<{ url: string; expiresAt: number }>;
+  /** The record is gone when this returns. `state` is 'pending' while storage still removes the bytes. */
+  delete(fileId: string, options?: RequestOptions): Promise<FileDeletion>;
+  deletionStatus(fileId: string, options?: RequestOptions): Promise<FileDeletion>;
+  /** The organization's stored bytes, allowance and monthly charge. Needs an organization key. */
+  usage(options?: RequestOptions): Promise<FileUsage>;
+}
 export class RemoteDatabase implements Client {
   private constructor();
   readonly url: string;
+  /**
+   * Managed files of this Cloud database. Needs a token with a file scope (files:read,
+   * files:write, files:delete) or an organization key with `manage`. Use it on a server only.
+   */
+  readonly files: DatabaseFiles;
   /** True for a Cloud database. A loopback organization URL (romedb serve --directory) is not Cloud once info() has run. */
   readonly cloud: boolean;
   /** True once a reply has given the database's current sequence. */
@@ -162,3 +225,6 @@ export function validatePrepared(request: unknown): { requestId: string; afterSe
 export function saveRequest(path: string, request: PreparedWrite): Promise<void>;
 /** Node.js only. Elsewhere it rejects. */
 export function loadRequest(path: string): Promise<PreparedWrite>;
+import type { ManagedFile, TransferOptions, UploadSession, UploadStatus } from './uploads';
+export type { ManagedFile, TransferOptions, UploadIntent, UploadOptions, UploadProgress, UploadSession, UploadState, UploadStatus, Uploader, UploadErrorCode } from './uploads';
+export { createUploader, uploadToSession, UploadError } from './uploads';

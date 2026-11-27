@@ -1,5 +1,5 @@
 'use strict';
-// Writes client.mjs and values.mjs, the entries for Workers, browsers and other
+// Writes client.mjs, values.mjs, uploads.mjs and files.mjs, the entries for Workers, browsers and other
 // non-Node runtimes, from client.cjs and values.cjs. Each .mjs file wraps the
 // unchanged CommonJS source, so both formats run the same code.
 // Run `node build-esm.cjs` after editing either source; `--check` fails when an
@@ -9,10 +9,12 @@ const path = require('node:path');
 
 const MODULES = [
   { source: 'values.cjs', output: 'values.mjs', imports: {}, empty: [], unavailable: {} },
+  { source: 'uploads.cjs', output: 'uploads.mjs', imports: {}, empty: [], unavailable: {} },
+  { source: 'files.cjs', output: 'files.mjs', imports: { './uploads.cjs': './uploads.mjs' }, empty: [], unavailable: {} },
   {
     source: 'client.cjs',
     output: 'client.mjs',
-    imports: { './values.cjs': './values.mjs' },
+    imports: { './values.cjs': './values.mjs', './files.cjs': './files.mjs', './uploads.cjs': './uploads.mjs' },
     empty: ['./client-internal.cjs'],
     unavailable: { './request-journal.cjs': 'saveRequest and loadRequest need Node.js file access; store the PreparedWrite yourself' },
   },

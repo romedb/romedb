@@ -1,7 +1,7 @@
 {
   "name": "@romedb/client",
   "version": "0.2.29",
-  "description": "RomeDB client for Node.js, Cloudflare Workers and browsers. Connects by URL to romedb serve or RomeDB Cloud, with no native addon.",
+  "description": "RomeDB client for Node.js, Cloudflare Workers and browsers. Connects by URL to romedb serve or RomeDB Cloud, with no native addon. Includes managed file uploads for RomeDB Cloud.",
   "main": "client.cjs",
   "types": "client.d.ts",
   "exports": {
@@ -14,6 +14,11 @@
       "types": "./values.d.ts",
       "node": "./values.cjs",
       "default": "./values.mjs"
+    },
+    "./uploads": {
+      "types": "./uploads.d.ts",
+      "node": "./uploads.cjs",
+      "default": "./uploads.mjs"
     },
     "./internal": {
       "node": "./client-internal.cjs"
@@ -29,6 +34,11 @@
     "values.mjs",
     "values.d.ts",
     "request-journal.cjs",
+    "uploads.d.ts",
+    "uploads.mjs",
+    "uploads.cjs",
+    "files.mjs",
+    "files.cjs",
     "LICENSE.md",
     "README.md"
   ],

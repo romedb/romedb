@@ -7,8 +7,8 @@ const path = require('node:path');
 const { test } = require('node:test');
 
 const PACKAGE_FILES = [
-  'LICENSE.md', 'README.md', 'client-internal.cjs', 'client.cjs', 'client.d.ts', 'client.mjs', 'package.json',
-  'request-journal.cjs', 'values.cjs', 'values.d.ts', 'values.mjs',
+  'LICENSE.md', 'README.md', 'client-internal.cjs', 'client.cjs', 'client.d.ts', 'client.mjs', 'files.cjs', 'files.mjs', 'package.json',
+  'request-journal.cjs', 'uploads.cjs', 'uploads.d.ts', 'uploads.mjs', 'values.cjs', 'values.d.ts', 'values.mjs',
 ];
 const supplied = process.env.ROMEDB_CLIENT_TARBALL;
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'romedb-client-test-'));

@@ -38,7 +38,7 @@ async function connect(options) {
 
 class RemoteDatabase {
   #url; #token; #fetch; #timeout; #sequence = 0; #id; #capabilities; #limits = EARLIER_LIMITS; #transport;
-  #closed = false; #active = new Set(); #inflightBytes = 0; #sequenceKnown = false; #deferred = false; #cloud = false; #warm = false; #loopbackOrganization = false;
+  #closed = false; #files; #active = new Set(); #inflightBytes = 0; #sequenceKnown = false; #deferred = false; #cloud = false; #warm = false; #loopbackOrganization = false;
   constructor(options, key, transport) {
     if (key !== construction) throw new TypeError('use connect()');
     if (!plainObject(options)) throw new TypeError('connection options require an object');
@@ -77,6 +77,14 @@ class RemoteDatabase {
   get sequenceKnown() { return this.#sequenceKnown; }
   get databaseId() { return this.#id; }
   get limits() { return this.#limits; }
+  /** Managed files of this Cloud database: upload sessions, file records, download URLs and deletion. */
+  get files() {
+    if (this.#transport) throw new ClientError('RDB_UNSUPPORTED', 'Managed files are a RomeDB Cloud feature; an embedded database has none', 'not-sent');
+    this.#files ??= require('./files.cjs').createDatabaseFiles({
+      url: this.#url, token: () => this.#token, fetch: this.#fetch, timeoutMs: this.#timeout, assertOpen: () => this.#assertOpen(), ClientError,
+    });
+    return this.#files;
+  }
   async info(options = {}) {
     const info = await this.#request('', undefined, options, false);
     if (!plainObject(info) || typeof info.id !== 'string' || !/^[A-Za-z0-9_-]{1,80}$/.test(info.id) || !sequence(info.sequence, true) || (this.#id !== undefined && this.#id !== info.id)) {
@@ -610,4 +618,7 @@ function safeMessage(reply, token) { return redactMessage(typeof reply?.error ==
 async function saveRequest(path, request) { return require('./request-journal.cjs').saveRequest(path, request, validatePrepared); }
 async function loadRequest(path) { return require('./request-journal.cjs').loadRequest(path, validatePrepared); }
 
-module.exports = { connect, RemoteDatabase, ClientError, Float64, Record, Vector, encodeValue, decodeValue, normalizeUrl, validatePrepared, saveRequest, loadRequest };
+const { createUploader, uploadToSession, UploadError } = require('./uploads.cjs');
+
+module.exports = { connect, RemoteDatabase, ClientError, Float64, Record, Vector, encodeValue, decodeValue, normalizeUrl, validatePrepared, saveRequest, loadRequest,
+  createUploader, uploadToSession, UploadError };
