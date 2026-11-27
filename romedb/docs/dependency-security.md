@@ -9,6 +9,10 @@ which stays accepted for the reasons in the 0.2.26 review below.
 No shipping package changed from 0.2.29 other than the nine RomeDB workspace
 packages, which move to 0.2.30.
 
+At release time, the same scan of build commit `912f061e` against the advisory
+database, still at `c5279d0b0c9e8b70df666eb6d1edbabcfd1176bd` (1,571 advisories),
+found the same accepted finding and no other.
+
 ## Dependency security review for 0.2.29
 Reviewed 2026-11-25 for the Linux x64 0.2.29 candidate. The exact lockfile scan
 covers 361 package/version identities against the RustSec advisory database at
