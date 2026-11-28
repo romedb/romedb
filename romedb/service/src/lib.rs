@@ -2,6 +2,8 @@ mod admission;
 #[cfg(unix)]
 pub mod directory;
 #[cfg(unix)]
+pub mod files;
+#[cfg(unix)]
 pub mod http;
 #[cfg(all(test, unix))]
 mod recovery;
@@ -73,6 +75,7 @@ pub struct DatabaseService {
     schema_changes_waiting: AtomicUsize,
     admission: Arc<Admission>,
     fenced: Arc<AtomicBool>,
+    path: PathBuf,
     folder: PathBuf,
     export: Mutex<()>,
     stopping: CancellationToken,
@@ -192,7 +195,8 @@ impl DatabaseService {
     }
 
     fn initialize(database: Database, database_id: &str, path: &Path) -> Result<Self> {
-        let folder = std::path::absolute(path)?
+        let path = std::path::absolute(path)?;
+        let folder = path
             .parent()
             .ok_or_else(|| {
                 Error::new(
@@ -214,6 +218,7 @@ impl DatabaseService {
             schema_changes_waiting: AtomicUsize::new(0),
             admission: Arc::default(),
             fenced: Arc::default(),
+            path,
             folder,
             export: Mutex::new(()),
             stopping: CancellationToken::new(),
@@ -330,6 +335,79 @@ impl DatabaseService {
         body: &str,
         limits: romedb::RequestResultLimits,
     ) -> Result<String> {
+        self.query_with_access(body, limits, false)
+    }
+
+    /// The folder beside the database that holds the bytes of its files.
+    pub fn files_folder(&self) -> PathBuf {
+        let mut name = self.path.as_os_str().to_os_string();
+        name.push(".files");
+        PathBuf::from(name)
+    }
+
+    /// Runs statements the service wrote itself as one more write request of the
+    /// database, with host access. Returns the result of each statement.
+    #[cfg(unix)]
+    pub(crate) fn host_query(&self, statements: &[Value]) -> Result<Vec<Value>> {
+        let mut outcome = Err(Error::new("RDB_BUSY", "host request did not run"));
+        for _ in 0..HOST_QUERY_ATTEMPTS {
+            let sequence = self
+                .lock_before(deadline(), || self.publication.try_lock())?
+                .sequence;
+            let body = json!({
+                "requestId": format!("files-{}", uuid::Uuid::new_v4().simple()),
+                "afterSequence": sequence,
+                "statements": statements,
+            })
+            .to_string();
+            let mut reply: Value = serde_json::from_str(&self.query_with_access(
+                &body,
+                romedb::RequestResultLimits::EARLIER,
+                true,
+            )?)?;
+            let error = &reply["error"];
+            if error.is_null() {
+                return match reply["results"].take() {
+                    Value::Array(results) => Ok(results),
+                    _ => Err(Error::new(
+                        "RDB_STORAGE",
+                        "host request returned no results",
+                    )),
+                };
+            }
+            let code = error["code"].as_str().unwrap_or("RDB_STORAGE");
+            outcome = Err(Error::new(code, error["message"].as_str().unwrap_or(code)));
+            if !matches!(
+                code,
+                "RDB_WRITE_CONFLICT" | "RDB_BUSY_SNAPSHOT" | "RDB_BUSY" | "RDB_CONFLICT"
+            ) {
+                break;
+            }
+        }
+        outcome
+    }
+
+    /// Reads for the service itself at one point in time, like a customer read.
+    #[cfg(unix)]
+    pub(crate) fn host_read<T>(&self, read: impl FnOnce(&Connection) -> Result<T>) -> Result<T> {
+        let started = deadline();
+        self.check_fence()?;
+        let _permit = self.admission.acquire(started, 1)?;
+        let _schema = self.shared_schema(started)?;
+        self.check_fence()?;
+        let scope = self.connection()?;
+        scope.begin(false)?;
+        let outcome = read(&scope.connection);
+        scope.rollback()?;
+        outcome
+    }
+
+    fn query_with_access(
+        &self,
+        body: &str,
+        limits: romedb::RequestResultLimits,
+        host: bool,
+    ) -> Result<String> {
         let started = deadline();
         self.check_fence()?;
         let mut request = Request::parse(body, false)?;
@@ -343,13 +421,15 @@ impl DatabaseService {
         let _permit = self.admission.acquire(started, request_slots(body.len()))?;
         if !schema_change {
             let _schema = self.shared_schema(started)?;
-            if let Some(reply) = self.query_locked(&request, &hash, &statements, started, false)? {
+            if let Some(reply) =
+                self.query_locked(&request, &hash, &statements, started, false, host)?
+            {
                 return Ok(reply);
             }
         }
         let _schema = self.exclusive_schema(started)?;
         Ok(self
-            .query_locked(&request, &hash, &statements, started, true)?
+            .query_locked(&request, &hash, &statements, started, true, host)?
             .expect("an exclusive transaction never asks for another exclusive retry"))
     }
 
@@ -360,6 +440,7 @@ impl DatabaseService {
         statements: &Result<Vec<PreparedStatement>>,
         deadline: Instant,
         schema_change: bool,
+        host: bool,
     ) -> Result<Option<String>> {
         self.check_fence()?;
         {
@@ -402,6 +483,7 @@ impl DatabaseService {
             budget = request.budget()?;
             self.check_fence()?;
             let scope = self.connection()?;
+            scope.connection.set_host_access(host);
             scope.begin(schema_change)?;
             let snapshot = scope.connection.service_catalog()?.sequence;
             let result =
@@ -691,6 +773,8 @@ impl Drop for Scope {
 }
 
 const SHUTDOWN_CHECKPOINT_WAIT: Duration = Duration::from_secs(30);
+#[cfg(unix)]
+const HOST_QUERY_ATTEMPTS: usize = 4;
 
 fn deadline() -> Instant {
     Instant::now() + Duration::from_secs(15)

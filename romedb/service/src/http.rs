@@ -1,5 +1,6 @@
 use crate::{
     directory::{valid_id, DirectoryService},
+    files::{self, Content, FileError, FileResult, FileStore, Refusal},
     DatabaseService, Error, FileDownload, Result,
 };
 use bytes::Bytes;
@@ -37,6 +38,8 @@ const MAX_BODY_BYTES_IN_MEMORY: usize = 64 * 1024 * 1024;
 const FILE_CHUNK_BYTES: usize = 256 * 1024;
 const MAX_FILE_QUERY_BYTES: usize = 4096;
 const DATABASE_FILE_TYPE: &str = "application/vnd.romedb.database";
+const MAX_FILE_REQUEST_BYTES: usize = 32 * 1024;
+const PART_UPLOAD_SECONDS: u64 = 900;
 
 type Body = Either<Full<Bytes>, FileBody>;
 
@@ -173,7 +176,27 @@ pub async fn serve(
     token: Token,
     shutdown: impl Future<Output = ()>,
 ) -> Result<()> {
-    serve_target(listener, Target::Database(database), token, shutdown).await
+    let files = Arc::new(FileStore::new(
+        database.files_folder(),
+        &database.database_id,
+        &database.database_id,
+        files::signing_key()?,
+    ));
+    let started = {
+        let (database, files) = (database.clone(), files.clone());
+        tokio::task::spawn_blocking(move || files.start(&database)).await
+    };
+    if let Ok(Err(error)) = started {
+        eprintln!("romedb-service: files: {}", error.message);
+    }
+    serve_target(
+        listener,
+        Target::Database(database),
+        Some(files),
+        token,
+        shutdown,
+    )
+    .await
 }
 
 pub async fn serve_directory(
@@ -182,12 +205,20 @@ pub async fn serve_directory(
     token: Token,
     shutdown: impl Future<Output = ()>,
 ) -> Result<()> {
-    serve_target(listener, Target::Directory(directory), token, shutdown).await
+    serve_target(
+        listener,
+        Target::Directory(directory),
+        None,
+        token,
+        shutdown,
+    )
+    .await
 }
 
 async fn serve_target(
     listener: TcpListener,
     target: Target,
+    files: Option<Arc<FileStore>>,
     token: Token,
     shutdown: impl Future<Output = ()>,
 ) -> Result<()> {
@@ -214,7 +245,7 @@ async fn serve_target(
             accepted = listener.accept() => {
                 let (stream, _) = match accepted { Ok(accepted) => accepted, Err(error) => break Err(error.into()) };
                 let permit = match connections.clone().try_acquire_owned() { Ok(permit) => permit, Err(_) => { drop(stream); continue; } };
-                let context = Context { target: target.clone(), token: token.clone(), jobs: jobs.clone(), body_bytes: body_bytes.clone(), port: address.port() };
+                let context = Context { target: target.clone(), files: files.clone(), token: token.clone(), jobs: jobs.clone(), body_bytes: body_bytes.clone(), port: address.port() };
                 let mut stopped = stopping.subscribe();
                 tasks.spawn(async move {
                     let _permit = permit;
@@ -252,6 +283,8 @@ async fn serve_target(
 #[derive(Clone)]
 struct Context {
     target: Target,
+    /// The file store of the one database. A directory keeps a store for each database.
+    files: Option<Arc<FileStore>>,
     token: Arc<Token>,
     jobs: Arc<Semaphore>,
     body_bytes: Arc<Semaphore>,
@@ -262,6 +295,9 @@ async fn dispatch(
     context: Context,
     request: Request<Incoming>,
 ) -> std::result::Result<Response<Body>, Infallible> {
+    if let Some(path) = file_path(&context.target, request.uri().path()) {
+        return Ok(respond_to_file_request(context, request, path).await);
+    }
     let management = request.uri().path().starts_with("/v1/organizations/")
         && !request.uri().path().ends_with("/read")
         && !request.uri().path().ends_with("/query")
@@ -293,6 +329,640 @@ async fn dispatch(
         }
     };
     Ok(response)
+}
+
+/// A request under `.../files`, or the usage of an organization's files.
+struct FilePath {
+    /// The database named in the path. A server of one database has none.
+    database: Option<String>,
+    route: FileRoute,
+}
+
+enum FileRoute {
+    Usage,
+    Uploads,
+    Upload(String),
+    UploadAction(String, UploadAction),
+    Part(String, u64),
+    Files,
+    Downloads,
+    File(String),
+    Download(String),
+    Content(String),
+    Deletion(String),
+    Processing(&'static [&'static str]),
+    Unknown,
+}
+
+enum UploadAction {
+    Parts,
+    Complete,
+    Abort,
+}
+
+impl FileRoute {
+    fn methods(&self) -> &'static [&'static str] {
+        match self {
+            Self::Usage | Self::Upload(_) | Self::Files | Self::Content(_) | Self::Deletion(_) => {
+                &["GET"]
+            }
+            Self::Uploads | Self::UploadAction(..) | Self::Downloads | Self::Download(_) => {
+                &["POST"]
+            }
+            Self::Part(..) => &["PUT"],
+            Self::File(_) => &["GET", "PATCH", "DELETE"],
+            Self::Processing(methods) => methods,
+            Self::Unknown => &["GET", "POST", "PUT", "PATCH", "DELETE"],
+        }
+    }
+
+    /// A page of another origin may call these: the status, part URLs, completion and
+    /// abort of one upload with its session token, and the two signed URLs.
+    fn open_to_browsers(&self) -> bool {
+        matches!(
+            self,
+            Self::Upload(_) | Self::UploadAction(..) | Self::Part(..) | Self::Content(_)
+        )
+    }
+
+    fn takes_query(&self) -> bool {
+        matches!(self, Self::Files | Self::Part(..) | Self::Content(_))
+    }
+}
+
+fn file_path(target: &Target, path: &str) -> Option<FilePath> {
+    let (database, rest) = match target {
+        Target::Database(_) => (None, path.strip_prefix("/v1/database/files")?),
+        Target::Directory(directory) => {
+            let rest = path
+                .strip_prefix("/v1/organizations/")?
+                .strip_prefix(directory.organization_id())?;
+            if rest == "/files/usage" {
+                return Some(FilePath {
+                    database: None,
+                    route: FileRoute::Usage,
+                });
+            }
+            let (id, rest) = rest.strip_prefix("/databases/")?.split_at_checked(36)?;
+            if !valid_id(id) {
+                return None;
+            }
+            (Some(id.to_owned()), rest.strip_prefix("/files")?)
+        }
+    };
+    if !rest.is_empty() && !rest.starts_with('/') {
+        return None;
+    }
+    let segments: Vec<&str> = rest.split('/').skip(1).collect();
+    let id = |text: &str| files::is_uuid(text).then(|| text.to_owned());
+    let route = match segments.as_slice() {
+        [] => Some(FileRoute::Files),
+        ["usage"] if database.is_none() => Some(FileRoute::Usage),
+        ["uploads"] => Some(FileRoute::Uploads),
+        ["uploads", upload] => id(upload).map(FileRoute::Upload),
+        ["uploads", upload, "parts"] => {
+            id(upload).map(|upload| FileRoute::UploadAction(upload, UploadAction::Parts))
+        }
+        ["uploads", upload, "complete"] => {
+            id(upload).map(|upload| FileRoute::UploadAction(upload, UploadAction::Complete))
+        }
+        ["uploads", upload, "abort"] => {
+            id(upload).map(|upload| FileRoute::UploadAction(upload, UploadAction::Abort))
+        }
+        ["uploads", upload, "parts", number] => id(upload)
+            .zip(part_number(number))
+            .map(|(upload, number)| FileRoute::Part(upload, number)),
+        ["downloads"] => Some(FileRoute::Downloads),
+        ["jobs", job] => id(job).map(|_| FileRoute::Processing(&["GET", "DELETE"])),
+        [file] => id(file).map(FileRoute::File),
+        [file, "download"] => id(file).map(FileRoute::Download),
+        [file, "content"] => id(file).map(FileRoute::Content),
+        [file, "deletion"] => id(file).map(FileRoute::Deletion),
+        [file, "jobs"] => id(file).map(|_| FileRoute::Processing(&["POST"])),
+        [file, "derivatives"] => id(file).map(|_| FileRoute::Processing(&["GET"])),
+        _ => None,
+    };
+    Some(FilePath {
+        database,
+        route: route.unwrap_or(FileRoute::Unknown),
+    })
+}
+
+fn part_number(text: &str) -> Option<u64> {
+    ((1..=5).contains(&text.len())
+        && !text.starts_with('0')
+        && text.bytes().all(|byte| byte.is_ascii_digit()))
+    .then(|| text.parse().ok())
+    .flatten()
+}
+
+/// Why a file request got no result. Every file route reports it as `{"error": text}`.
+struct Refused {
+    status: StatusCode,
+    message: String,
+}
+
+impl Refused {
+    fn new(status: StatusCode, message: &str) -> Self {
+        Self {
+            status,
+            message: message.to_owned(),
+        }
+    }
+}
+
+impl From<FileError> for Refused {
+    fn from(error: FileError) -> Self {
+        Self {
+            status: match error.refusal {
+                Refusal::Invalid => StatusCode::BAD_REQUEST,
+                Refusal::Unauthorized => StatusCode::UNAUTHORIZED,
+                Refusal::Forbidden => StatusCode::FORBIDDEN,
+                Refusal::NotFound => StatusCode::NOT_FOUND,
+                Refusal::Conflict => StatusCode::CONFLICT,
+                Refusal::TooLarge => StatusCode::PAYLOAD_TOO_LARGE,
+                Refusal::Limit => StatusCode::TOO_MANY_REQUESTS,
+                Refusal::Unavailable => StatusCode::SERVICE_UNAVAILABLE,
+            },
+            message: error.message,
+        }
+    }
+}
+
+/// Who a file request comes from, once its headers were checked.
+enum Access {
+    /// A browser asks whether it may send the request.
+    Preflight,
+    /// The service token.
+    Service,
+    /// The token of one upload session. The store checks which upload it belongs to.
+    Session(String),
+    /// No credential: the URL has a signature that the store checks.
+    Signed,
+}
+
+enum FileReply {
+    Json(StatusCode, serde_json::Value),
+    Content(Content, OwnedSemaphorePermit),
+}
+
+async fn respond_to_file_request(
+    context: Context,
+    request: Request<Incoming>,
+    path: FilePath,
+) -> Response<Body> {
+    let open_to_browsers = path.route.open_to_browsers();
+    let mut reply = match process_file_request(context, request, path).await {
+        Ok(None) => response(StatusCode::NO_CONTENT, String::new()),
+        Ok(Some(FileReply::Json(status, body))) => response(status, body.to_string()),
+        Ok(Some(FileReply::Content(content, permit))) => content_response(content, permit),
+        Err(refused) => response(
+            refused.status,
+            serde_json::json!({"error": refused.message}).to_string(),
+        ),
+    };
+    if open_to_browsers {
+        for (name, value) in [
+            ("access-control-allow-origin", "*"),
+            ("access-control-allow-methods", "GET, POST, PUT, OPTIONS"),
+            (
+                "access-control-allow-headers",
+                "authorization, content-type",
+            ),
+            ("access-control-max-age", "86400"),
+            ("vary", "origin"),
+        ] {
+            reply
+                .headers_mut()
+                .insert(name, header::HeaderValue::from_static(value));
+        }
+    }
+    reply
+}
+
+async fn process_file_request(
+    context: Context,
+    request: Request<Incoming>,
+    path: FilePath,
+) -> std::result::Result<Option<FileReply>, Refused> {
+    let access = validate_file_request(&context, &request, &path)?;
+    if matches!(access, Access::Preflight) {
+        return Ok(None);
+    }
+    let base = format!(
+        "http://{}{}",
+        host(&request).unwrap_or_default(),
+        match (&context.target, &path.database) {
+            (Target::Directory(directory), Some(database)) => format!(
+                "/v1/organizations/{}/databases/{database}",
+                directory.organization_id()
+            ),
+            _ => "/v1/database".to_owned(),
+        }
+    );
+    let method = request.method().clone();
+    let query = request.uri().query().map(str::to_owned);
+    let permit = context.jobs.clone().try_acquire_owned().map_err(|_| {
+        Refused::new(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "File request capacity is full",
+        )
+    })?;
+    if let FileRoute::Part(upload, number) = &path.route {
+        let stored = store_part(
+            &context,
+            request,
+            path.database.clone(),
+            upload.clone(),
+            *number,
+            query.unwrap_or_default(),
+            permit,
+        );
+        stored.await?;
+        return Ok(Some(FileReply::Json(StatusCode::OK, serde_json::json!({}))));
+    }
+    let body = if matches!(method, Method::POST | Method::PATCH) {
+        small_body(request).await?
+    } else {
+        Vec::new()
+    };
+    let operation = tokio::task::spawn_blocking(move || {
+        let outcome = file_operation(
+            &context,
+            &path,
+            method.as_str(),
+            query.as_deref(),
+            &body,
+            &base,
+            &access,
+        );
+        (outcome, permit)
+    });
+    let (outcome, permit) = operation
+        .await
+        .map_err(|_| Refused::new(StatusCode::SERVICE_UNAVAILABLE, "File request task failed"))?;
+    Ok(Some(match outcome? {
+        Operation::Json(status, body) => FileReply::Json(status, body),
+        Operation::Content(content) => FileReply::Content(content, permit),
+    }))
+}
+
+/// The checks every file request passes before anything is read or done. The host
+/// must be this server on loopback, and a cookie is never accepted. A browser origin
+/// is accepted only on the routes a page may call.
+fn validate_file_request(
+    context: &Context,
+    request: &Request<Incoming>,
+    path: &FilePath,
+) -> std::result::Result<Access, Refused> {
+    let route = &path.route;
+    if request.uri().scheme().is_some() || request.uri().authority().is_some() {
+        return Err(Refused::new(
+            StatusCode::BAD_REQUEST,
+            "request requires a relative database path",
+        ));
+    }
+    let host = host(request);
+    let hosts = [
+        format!("127.0.0.1:{}", context.port),
+        format!("localhost:{}", context.port),
+        format!("[::1]:{}", context.port),
+    ];
+    let from_browser = request.headers().contains_key(header::ORIGIN)
+        || request.headers().contains_key("sec-fetch-site");
+    if !hosts.iter().any(|allowed| Some(allowed.as_str()) == host)
+        || request.headers().get_all(header::HOST).iter().count() != 1
+        || request.headers().contains_key(header::COOKIE)
+        || (from_browser && !route.open_to_browsers())
+    {
+        return Err(Refused::new(
+            StatusCode::FORBIDDEN,
+            "this file route accepts loopback clients without cookies, and browser origins only on upload session and signed URLs",
+        ));
+    }
+    if route.open_to_browsers() && request.method() == Method::OPTIONS {
+        return Ok(Access::Preflight);
+    }
+    if !route.methods().contains(&request.method().as_str()) {
+        return Err(Refused::new(
+            StatusCode::METHOD_NOT_ALLOWED,
+            "Method not allowed",
+        ));
+    }
+    let mut credentials = request.headers().get_all(header::AUTHORIZATION).iter();
+    let bearer = match (credentials.next(), credentials.next()) {
+        (Some(value), None) => value.to_str().ok().and_then(|v| v.strip_prefix("Bearer ")),
+        _ => None,
+    };
+    let service = bearer.is_some_and(|value| context.token.authorizes(value.as_bytes()));
+    let access = match route {
+        FileRoute::Part(..) | FileRoute::Content(_) => Access::Signed,
+        _ if service => Access::Service,
+        FileRoute::Upload(_) | FileRoute::UploadAction(..) => match bearer {
+            Some(token) if is_session_token(token) => Access::Session(token.to_owned()),
+            _ => {
+                return Err(Refused::new(
+                    StatusCode::UNAUTHORIZED,
+                    "Database token or upload session token is required",
+                ))
+            }
+        },
+        _ => {
+            return Err(Refused::new(
+                StatusCode::UNAUTHORIZED,
+                "Database token is required",
+            ))
+        }
+    };
+    let expected = match (&context.target, &path.database) {
+        (Target::Database(database), _) => Some(database.database_id.as_str()),
+        (Target::Directory(_), database) => database.as_deref(),
+    };
+    let mut identities = request.headers().get_all("x-romedb-database-id").iter();
+    if identities
+        .next()
+        .is_some_and(|id| expected.is_none() || id.to_str().ok() != expected)
+        || identities.next().is_some()
+    {
+        return Err(Refused::new(
+            StatusCode::CONFLICT,
+            "database identity changed; connect to the intended database before continuing",
+        ));
+    }
+    if let Some(query) = request.uri().query() {
+        if !route.takes_query() || query.len() > MAX_FILE_QUERY_BYTES {
+            return Err(Refused::new(
+                StatusCode::BAD_REQUEST,
+                "This file route takes no query",
+            ));
+        }
+    }
+    if request.headers().contains_key(header::CONTENT_ENCODING) {
+        return Err(Refused::new(
+            StatusCode::BAD_REQUEST,
+            "File requests take an uncompressed body",
+        ));
+    }
+    Ok(access)
+}
+
+fn is_session_token(text: &str) -> bool {
+    text.strip_prefix("rdbu_").is_some_and(|random| {
+        random.len() == 43
+            && random
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
+    })
+}
+
+/// Reads the JSON body of a file request, which is small.
+async fn small_body(request: Request<Incoming>) -> std::result::Result<Vec<u8>, Refused> {
+    let too_large = || {
+        Refused::new(
+            StatusCode::PAYLOAD_TOO_LARGE,
+            "File request body is too large",
+        )
+    };
+    if declared_length(&request).is_some_and(|length| length > MAX_FILE_REQUEST_BYTES as u64) {
+        return Err(too_large());
+    }
+    let collected = timeout(Duration::from_secs(5), async {
+        let mut bytes = Vec::new();
+        let mut body = request.into_body();
+        while let Some(frame) = body.frame().await {
+            let frame = frame.map_err(|_| {
+                Refused::new(StatusCode::BAD_REQUEST, "request body could not be read")
+            })?;
+            if let Ok(data) = frame.into_data() {
+                if bytes.len() + data.len() > MAX_FILE_REQUEST_BYTES {
+                    return Err(too_large());
+                }
+                bytes.extend_from_slice(&data);
+            }
+        }
+        Ok(bytes)
+    });
+    collected
+        .await
+        .map_err(|_| Refused::new(StatusCode::REQUEST_TIMEOUT, "request body deadline expired"))?
+}
+
+fn declared_length(request: &Request<Incoming>) -> Option<u64> {
+    request.headers().get(header::CONTENT_LENGTH).map(|value| {
+        value
+            .to_str()
+            .ok()
+            .and_then(|value| value.parse().ok())
+            .unwrap_or(u64::MAX)
+    })
+}
+
+/// Writes the body of a part to disk as it arrives. The part is kept only when the
+/// body has exactly the size the upload declared for it.
+async fn store_part(
+    context: &Context,
+    request: Request<Incoming>,
+    database: Option<String>,
+    upload: String,
+    number: u64,
+    query: String,
+    permit: OwnedSemaphorePermit,
+) -> std::result::Result<(), Refused> {
+    let failed = || Refused::new(StatusCode::SERVICE_UNAVAILABLE, "File request task failed");
+    let opened = {
+        let context = context.clone();
+        tokio::task::spawn_blocking(move || {
+            file_store(&context, database.as_deref())?.begin_part(&upload, number, &query)
+        })
+    };
+    let mut part = opened.await.map_err(|_| failed())??;
+    if declared_length(&request).is_some_and(|length| length != part.expected()) {
+        return Err(part.wrong_size().into());
+    }
+    let (sender, mut chunks) = mpsc::channel::<Bytes>(8);
+    let writer = tokio::task::spawn_blocking(move || {
+        let _permit = permit;
+        while let Some(chunk) = chunks.blocking_recv() {
+            part.write(&chunk)?;
+        }
+        part.finish()
+    });
+    let mut body = request.into_body();
+    let received = timeout(Duration::from_secs(PART_UPLOAD_SECONDS), async {
+        while let Some(Ok(frame)) = body.frame().await {
+            if let Ok(data) = frame.into_data() {
+                if sender.send(data).await.is_err() {
+                    break;
+                }
+            }
+        }
+        drop(sender);
+    });
+    let in_time = received.await.is_ok();
+    let written = writer.await.map_err(|_| failed())?;
+    if !in_time {
+        return Err(Refused::new(
+            StatusCode::REQUEST_TIMEOUT,
+            "request body deadline expired",
+        ));
+    }
+    Ok(written?)
+}
+
+enum Operation {
+    Json(StatusCode, serde_json::Value),
+    Content(Content),
+}
+
+fn file_operation(
+    context: &Context,
+    path: &FilePath,
+    method: &str,
+    query: Option<&str>,
+    body: &[u8],
+    base: &str,
+    access: &Access,
+) -> FileResult<Operation> {
+    let done = |reply| Ok(Operation::Json(StatusCode::OK, reply));
+    match (&path.route, &context.target, &path.database) {
+        (FileRoute::Unknown, _, _) => {
+            return Err(FileError::new(
+                Refusal::NotFound,
+                "File route does not exist",
+            ))
+        }
+        (FileRoute::Processing(_), _, _) => {
+            return Err(FileError::new(
+                Refusal::Unavailable,
+                "File processing is unavailable",
+            ))
+        }
+        (FileRoute::Usage, Target::Directory(directory), None) => {
+            return done(directory.file_usage()?)
+        }
+        (FileRoute::Content(file), _, _) => {
+            let store = file_store(context, path.database.as_deref())?;
+            let download = store.check_download(file, query.unwrap_or_default())?;
+            let database = database_of(context, path.database.as_deref())?;
+            return Ok(Operation::Content(
+                store.content(&database, file, &download)?,
+            ));
+        }
+        _ => {}
+    }
+    let store = file_store(context, path.database.as_deref())?;
+    if let (
+        Access::Session(token),
+        FileRoute::Upload(upload) | FileRoute::UploadAction(upload, _),
+    ) = (access, &path.route)
+    {
+        if !store.token_matches(upload, token) {
+            return Err(FileError::new(
+                Refusal::Unauthorized,
+                "Upload session token is not valid for this upload",
+            ));
+        }
+    }
+    let database = database_of(context, path.database.as_deref())?;
+    let sent = || serde_json::from_slice(body).unwrap_or(serde_json::Value::Null);
+    let sent_or_empty = || {
+        if body.is_empty() {
+            serde_json::json!({})
+        } else {
+            sent()
+        }
+    };
+    match (&path.route, method) {
+        (FileRoute::Usage, _) => done(store.totals(&database)?.report(store.organization_id())),
+        (FileRoute::Uploads, _) => Ok(Operation::Json(
+            StatusCode::CREATED,
+            store.create_upload(&database, &sent(), base)?,
+        )),
+        (FileRoute::Upload(upload), _) => done(store.upload_status(&database, upload, base)?),
+        (FileRoute::UploadAction(upload, UploadAction::Parts), _) => {
+            done(store.part_urls(upload, &sent(), base)?)
+        }
+        (FileRoute::UploadAction(upload, UploadAction::Complete), _) => {
+            done(store.complete_upload(&database, upload, &sent_or_empty())?)
+        }
+        (FileRoute::UploadAction(upload, UploadAction::Abort), _) => {
+            done(store.abort_upload(upload, base)?)
+        }
+        (FileRoute::Files, _) => done(store.files(&database, query)?),
+        (FileRoute::Downloads, _) => done(store.download_urls(&database, &sent(), base)?),
+        (FileRoute::File(file), "GET") => done(store.file(&database, file)?),
+        (FileRoute::File(file), "PATCH") => done(store.update_file(&database, file, &sent())?),
+        (FileRoute::File(file), _) => done(store.delete_file(&database, file)?),
+        (FileRoute::Download(file), _) => {
+            done(store.download_url(&database, file, &sent_or_empty(), base)?)
+        }
+        (FileRoute::Deletion(file), _) => done(store.deletion(file)?),
+        (
+            FileRoute::Part(..)
+            | FileRoute::Content(_)
+            | FileRoute::Processing(_)
+            | FileRoute::Unknown,
+            _,
+        ) => Err(FileError::new(
+            Refusal::NotFound,
+            "File route does not exist",
+        )),
+    }
+}
+
+/// The store of the files of the database in the path. No database is opened for it,
+/// so the signature of a URL can be checked first.
+fn file_store(context: &Context, database: Option<&str>) -> FileResult<Arc<FileStore>> {
+    match (&context.target, &context.files, database) {
+        (Target::Database(_), Some(files), None) => Ok(files.clone()),
+        (Target::Directory(directory), _, Some(id)) => Ok(directory.file_store(id)?),
+        _ => Err(FileError::new(
+            Refusal::NotFound,
+            "File route does not exist",
+        )),
+    }
+}
+
+fn database_of(context: &Context, database: Option<&str>) -> FileResult<Arc<DatabaseService>> {
+    match (&context.target, database) {
+        (Target::Database(database), None) => Ok(database.clone()),
+        (Target::Directory(directory), Some(id)) => Ok(directory.database(id)?),
+        _ => Err(FileError::new(
+            Refusal::NotFound,
+            "File route does not exist",
+        )),
+    }
+}
+
+fn content_response(content: Content, permit: OwnedSemaphorePermit) -> Response<Body> {
+    let Content {
+        file,
+        bytes,
+        media_type,
+        disposition,
+    } = content;
+    let header_value = |text: &str, otherwise: &'static str| {
+        header::HeaderValue::from_str(text)
+            .unwrap_or_else(|_| header::HeaderValue::from_static(otherwise))
+    };
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(
+            header::CONTENT_TYPE,
+            header_value(&media_type, "application/octet-stream"),
+        )
+        .header(header::CONTENT_LENGTH, bytes)
+        .header(
+            header::CONTENT_DISPOSITION,
+            header_value(&disposition, "attachment"),
+        )
+        .header(header::CACHE_CONTROL, "no-store")
+        .header("x-content-type-options", "nosniff")
+        .body(Either::Right(FileBody {
+            chunks: file_chunks(file, permit),
+            remaining: bytes,
+        }))
+        .expect("fixed HTTP response")
 }
 
 async fn process(context: Context, request: Request<Incoming>) -> Result<Response<Body>> {
@@ -666,11 +1336,34 @@ fn response(status: StatusCode, body: String) -> Response<Body> {
 
 fn file_response(download: FileDownload, permit: OwnedSemaphorePermit) -> Response<Body> {
     let FileDownload {
-        mut file,
+        file,
         bytes,
         sequence,
         database_id,
     } = download;
+    let chunks = file_chunks(file, permit);
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, DATABASE_FILE_TYPE)
+        .header(header::CONTENT_LENGTH, bytes)
+        .header("x-romedb-sequence", sequence)
+        .header("x-romedb-database-id", database_id)
+        .header(header::CACHE_CONTROL, "no-store")
+        // No `connection: close`: the client ends this connection. Node's fetch
+        // crashes the process if the socket closes while its reader is paused.
+        .header("x-content-type-options", "nosniff")
+        .body(Either::Right(FileBody {
+            chunks,
+            remaining: bytes,
+        }))
+        .expect("fixed HTTP response")
+}
+
+/// Reads a file in chunks on a blocking thread, which keeps `permit` until it ends.
+fn file_chunks(
+    mut file: File,
+    permit: OwnedSemaphorePermit,
+) -> mpsc::Receiver<std::io::Result<Bytes>> {
     let (sender, chunks) = mpsc::channel(4);
     tokio::task::spawn_blocking(move || {
         let _permit = permit;
@@ -690,21 +1383,7 @@ fn file_response(download: FileDownload, permit: OwnedSemaphorePermit) -> Respon
             }
         }
     });
-    Response::builder()
-        .status(StatusCode::OK)
-        .header(header::CONTENT_TYPE, DATABASE_FILE_TYPE)
-        .header(header::CONTENT_LENGTH, bytes)
-        .header("x-romedb-sequence", sequence)
-        .header("x-romedb-database-id", database_id)
-        .header(header::CACHE_CONTROL, "no-store")
-        // No `connection: close`: the client ends this connection. Node's fetch
-        // crashes the process if the socket closes while its reader is paused.
-        .header("x-content-type-options", "nosniff")
-        .body(Either::Right(FileBody {
-            chunks,
-            remaining: bytes,
-        }))
-        .expect("fixed HTTP response")
+    chunks
 }
 
 struct FileBody {
