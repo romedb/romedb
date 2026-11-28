@@ -27,7 +27,15 @@ async function clientTypes() {
   const download = await remote.files.createDownloadUrl(storedId, { disposition: 'inline', expiresInSeconds: 60 });
   const deletion = await remote.files.delete(storedId);
   const pending: boolean = deletion.state === 'pending';
-  const charge: number = (await remote.files.usage()).charge.monthlyUsd;
+  const usage = await remote.files.usage();
+  const charge: number = usage.charge.monthlyUsd + usage.charge.blocks * usage.charge.usdPerBlockMonth + usage.charge.blockBytes + usage.charge.billedBytes + usage.peakBytes;
+  // @ts-expect-error storage is charged in blocks of 100 GB, not in terabytes
+  void usage.charge.terabytes;
+  const several = await remote.files.createDownloadUrls([storedId], { disposition: 'inline', expiresInSeconds: 60 });
+  const links: string[] = several.downloads.map(link => `${link.fileId} ${link.url} ${link.expiresAt}`);
+  // @ts-expect-error one name for many files makes no sense
+  void remote.files.createDownloadUrls([storedId], { fileName: 'a.png' });
+  void links;
   const job = await remote.files.process(storedId, { kind: 'image', recipe: { width: 320, fit: 'inside', format: 'webp', quality: 80 }, subject: 'user-1' });
   const finished = await remote.files.waitForJob(job.id, { waitMs: 60_000, intervalMs: 500 });
   const made: string | undefined = finished.state === 'ready' ? finished.file?.source?.fileId : finished.error?.code;

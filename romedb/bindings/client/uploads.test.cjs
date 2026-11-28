@@ -194,6 +194,8 @@ test('db.files sends each call to its route with the connection token', async ()
   await db.files.delete(file);
   await db.files.deletionStatus(file);
   await db.files.usage();
+  await db.files.createDownloadUrls([file, upload], { expiresInSeconds: 60, disposition: 'inline' });
+  await db.files.createDownloadUrls([file]);
   assert.deepEqual(calls.map(call => `${call.method} ${call.url.slice('https://cloud.romedb.com/v1/organizations/'.length)}`), [
     `POST ${org}/databases/${database}/files/uploads`, `POST ${org}/databases/${database}/files/uploads`,
     `GET ${org}/databases/${database}/files/uploads/${upload}`, `POST ${org}/databases/${database}/files/uploads/${upload}/complete`,
@@ -201,7 +203,14 @@ test('db.files sends each call to its route with the connection token', async ()
     `GET ${org}/databases/${database}/files`, `GET ${org}/databases/${database}/files?after=${file}&limit=10&order=desc`,
     `PATCH ${org}/databases/${database}/files/${file}`, `POST ${org}/databases/${database}/files/${file}/download`,
     `DELETE ${org}/databases/${database}/files/${file}`, `GET ${org}/databases/${database}/files/${file}/deletion`, `GET ${org}/files/usage`,
+    `POST ${org}/databases/${database}/files/downloads`, `POST ${org}/databases/${database}/files/downloads`,
   ]);
+  assert.deepEqual(calls[13].body, { files: [file, upload], expiresInSeconds: 60, disposition: 'inline' });
+  assert.deepEqual(calls[14].body, { files: [file] });
+  await assert.rejects(db.files.createDownloadUrls(file), /fileIds must be an array of UUIDs/);
+  await assert.rejects(db.files.createDownloadUrls(['nope']), /fileId must be a UUID/);
+  await assert.rejects(db.files.createDownloadUrls([file], { fileName: 'a.png' }), /download options take expiresInSeconds and disposition/);
+  assert.equal(calls.length, 15);
   assert.ok(calls.every(call => call.headers.authorization === 'Bearer header.payload.signature' && call.redirect === 'manual'));
   assert.match(calls[0].body.id, /^[0-9a-f]{8}-[0-9a-f]{4}-4/);
   assert.deepEqual({ ...calls[0].body, id: 0 }, { id: 0, name: 'a.png', size: 10, mediaType: 'image/png', subject: 'user-1' });

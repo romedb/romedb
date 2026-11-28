@@ -3,6 +3,7 @@
 // the connection's token, so this code belongs on a server. A token needs a file scope
 // (files:read, files:write, files:delete), or the organization key needs `manage`.
 // Browsers use ./uploads.cjs, which works with an upload session and no token.
+// `romedb serve` offers the same routes for local development, without processing jobs.
 const { uploadToSession } = require('./uploads.cjs');
 
 const MAX_REPLY = 1_048_576;
@@ -117,6 +118,16 @@ function createDatabaseFiles(connection) {
       return request('POST', `/${id(fileId, 'fileId')}/download`, download, call(options));
     },
     /**
+     * Download URLs of 1 to 100 files in one call: { expiresInSeconds?, disposition? }.
+     * Returns { downloads: [{ fileId, url, expiresAt }] }. A file that is gone is left out,
+     * and so is one that may not be shown inline when `inline` is asked.
+     */
+    async createDownloadUrls(fileIds, download = {}, options) {
+      if (!Array.isArray(fileIds)) throw new TypeError('fileIds must be an array of UUIDs');
+      if (!plainObject(download) || Object.keys(download).some(key => !['expiresInSeconds', 'disposition'].includes(key))) throw new TypeError('download options take expiresInSeconds and disposition');
+      return request('POST', '/downloads', { files: fileIds.map(fileId => id(fileId, 'fileId')), ...download }, call(options));
+    },
+    /**
      * Deletes the file. The record is gone when this returns; `state` is 'done' when the
      * bytes are gone too, and 'pending' while Cloud is still removing them.
      */
@@ -159,7 +170,10 @@ function createDatabaseFiles(connection) {
         });
       }
     },
-    /** Stored bytes, the allowance and the monthly charge of the whole organization. Needs an organization key. */
+    /**
+     * Stored bytes, the allowance and the monthly charge of the whole organization. Needs an
+     * organization key. For `romedb serve` with one database, it is that database's usage.
+     */
     async usage(options) { return request('GET', '', undefined, call(options), false, `${url.replace(/\/databases\/[^/]+$/, '')}/files/usage`); },
   });
 }

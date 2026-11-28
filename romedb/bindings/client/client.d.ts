@@ -138,6 +138,7 @@ export interface UploadDeclaration {
   /** 60 to 604800 (7 days). Default: 86400. */
   expiresInSeconds?: number;
 }
+export interface FileDownloadUrl { fileId: string; url: string; expiresAt: number; }
 export interface FileDeletion { fileId: string; databaseId: string; state: 'pending' | 'done'; requestedAt: number; finishedAt?: number; }
 export interface FileUsage {
   organizationId: string; plan: string;
@@ -146,10 +147,15 @@ export interface FileUsage {
   /** Bytes held for open uploads. */
   reservedBytes: number;
   files: number; openUploads: number;
+  /** The most bytes stored at one time in the current month (UTC). */
+  peakBytes: number;
   /** The most the organization may store: stored and reserved bytes together. */
   allowanceBytes: number;
-  /** Stored bytes are charged in whole terabytes of 10^12 bytes, rounded up. */
-  charge: { terabytes: number; usdPerTerabyteMonth: number; monthlyUsd: number };
+  /**
+   * The month's charge. Storage is charged in whole blocks of `blockBytes` (100 GB, 10^11
+   * bytes), rounded up, by `billedBytes`: the most stored at one time in the month.
+   */
+  charge: { blocks: number; blockBytes: number; usdPerBlockMonth: number; billedBytes: number; monthlyUsd: number };
 }
 /** How an image job changes a picture. Sizes are pixels, from 1 to 8,192. */
 export interface ImageRecipe {
@@ -225,6 +231,12 @@ export interface DatabaseFiles {
    * end user's permission first. `inline` is allowed only for types that cannot run script.
    */
   createDownloadUrl(fileId: string, download?: { expiresInSeconds?: number; disposition?: 'attachment' | 'inline'; fileName?: string }, options?: RequestOptions): Promise<{ url: string; expiresAt: number }>;
+  /**
+   * Download URLs of 1 to 100 files in one call, for a page that shows many at once. A
+   * file that is gone is left out, and so is one that may not be shown inline when
+   * `inline` is asked.
+   */
+  createDownloadUrls(fileIds: string[], download?: { expiresInSeconds?: number; disposition?: 'attachment' | 'inline' }, options?: RequestOptions): Promise<{ downloads: FileDownloadUrl[] }>;
   /** The record is gone when this returns. `state` is 'pending' while storage still removes the bytes. */
   delete(fileId: string, options?: RequestOptions): Promise<FileDeletion>;
   deletionStatus(fileId: string, options?: RequestOptions): Promise<FileDeletion>;
@@ -250,6 +262,7 @@ export class RemoteDatabase implements Client {
   /**
    * Managed files of this Cloud database. Needs a token with a file scope (files:read,
    * files:write, files:delete) or an organization key with `manage`. Use it on a server only.
+   * `romedb serve` offers the same calls for local development, without processing jobs.
    */
   readonly files: DatabaseFiles;
   /** True for a Cloud database. A loopback organization URL (romedb serve --directory) is not Cloud once info() has run. */
