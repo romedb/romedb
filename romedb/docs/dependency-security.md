@@ -1,4 +1,15 @@
-# Dependency security review for 0.2.30
+# Dependency security review for 0.2.31
+Reviewed 2026-11-28 for the Linux x64 0.2.31 candidate. The exact lockfile scan
+covers 361 package/version identities against the RustSec advisory database at
+`c5279d0b0c9e8b70df666eb6d1edbabcfd1176bd` (1,571 advisories) using the pinned
+`cargo-audit 0.22.2` binary. It found no vulnerabilities and the same one
+informational finding as 0.2.30, RUSTSEC-2026-0543 (`chrono` is unmaintained),
+which stays accepted for the reasons in the 0.2.26 review below.
+
+No shipping package changed from 0.2.30 other than the nine RomeDB workspace
+packages, which move to 0.2.31.
+
+## Dependency security review for 0.2.30
 Reviewed 2026-11-27 for the Linux x64 0.2.30 candidate. The exact lockfile scan
 covers 361 package/version identities against the RustSec advisory database at
 `c5279d0b0c9e8b70df666eb6d1edbabcfd1176bd` (1,571 advisories) using the pinned
