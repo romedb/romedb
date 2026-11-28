@@ -151,6 +151,61 @@ export interface FileUsage {
   /** Stored bytes are charged in whole terabytes of 10^12 bytes, rounded up. */
   charge: { terabytes: number; usdPerTerabyteMonth: number; monthlyUsd: number };
 }
+/** How an image job changes a picture. Sizes are pixels, from 1 to 8,192. */
+export interface ImageRecipe {
+  width?: number;
+  height?: number;
+  /** 'inside' (default) never makes the picture larger and never crops; 'cover' and 'contain' give exactly width by height and need both. */
+  fit?: 'inside' | 'cover' | 'contain';
+  /** Default 'webp'. */
+  format?: 'jpeg' | 'png' | 'webp' | 'avif';
+  /** 1 to 100, default 80. Not used for 'png'. */
+  quality?: number;
+}
+/**
+ * What a video or audio job makes. 'poster': one frame as a picture. 'mp4': H.264 video with
+ * AAC sound, never larger than the source. 'audio': the sound alone.
+ */
+export type MediaRecipe =
+  | { output: 'poster'; /** Seconds from the start, default 1. */ at?: number; width?: number; format?: 'jpeg' | 'png' | 'webp'; quality?: number }
+  | { output: 'mp4'; /** Default 720. */ height?: 240 | 360 | 480 | 720 | 1080; /** Default true. */ audio?: boolean }
+  | { output: 'audio'; /** 'aac' (an .m4a file, the default) or 'mp3'. */ format?: 'aac' | 'mp3'; /** Kilobits a second, default 128. */ bitrate?: 64 | 96 | 128 | 192 };
+/**
+ * What an AI job makes. 'summary' and 'embeddings' take a text file of at most 1 MiB;
+ * 'transcript' takes an audio file of at most 20 MiB.
+ */
+export type AiRecipe =
+  | { output: 'summary'; /** 20 to 1,000, default 150. */ words?: number }
+  | { output: 'embeddings'; /** 200 to 6,000, default 1,500. */ chunkCharacters?: number }
+  | { output: 'transcript'; /** Two letters, such as 'en'. */ language?: string };
+export type FileJobRequest = (
+  | { kind: 'image'; recipe: ImageRecipe }
+  | { kind: 'media'; recipe: MediaRecipe }
+  /** The text of a PDF, an HTML page, a plain file or a picture. No model is used. */
+  | { kind: 'text'; recipe?: { [key: string]: never } }
+  /** Sends the content of the file to an AI model: say so with `consent: true`, after your user agreed. */
+  | { kind: 'ai'; recipe: AiRecipe; consent: true }
+) & {
+  /** Who asked, in the application's own terms. Kept as the new file's `createdBy`; default: the source's. */
+  subject?: string;
+};
+export interface FileJob {
+  id: string;
+  databaseId: string;
+  /** The source file. */
+  fileId: string;
+  kind: 'image' | 'media' | 'text' | 'ai';
+  /** The recipe with every default written out. */
+  recipe: ImageRecipe | MediaRecipe | AiRecipe | { [key: string]: never };
+  state: 'queued' | 'running' | 'ready' | 'failed' | 'canceled';
+  createdAt: number;
+  startedAt?: number;
+  finishedAt?: number;
+  /** On a failed or canceled job. Codes: bad_image, bad_media, bad_document, bad_text, no_text, no_video, no_audio, too_long, too_many_pixels, timeout, too_large, ai_failed, store, source_gone, allowance, lost, canceled, failed. */
+  error?: { code: string; message: string };
+  /** On a ready job: the file it made. */
+  file?: ManagedFile;
+}
 export interface DatabaseFiles {
   /** Opens an upload session for one file. Give the result to the browser's `authorize` callback. */
   createUploadSession(declaration: UploadDeclaration, options?: RequestOptions): Promise<UploadSession>;
@@ -173,6 +228,19 @@ export interface DatabaseFiles {
   /** The record is gone when this returns. `state` is 'pending' while storage still removes the bytes. */
   delete(fileId: string, options?: RequestOptions): Promise<FileDeletion>;
   deletionStatus(fileId: string, options?: RequestOptions): Promise<FileDeletion>;
+  /**
+   * Asks Cloud to make a new file from a stored one, such as a resized image. The same file
+   * and recipe is the same job, so asking again costs nothing and may return a job that is
+   * already 'ready'. Needs `files:write`. Cloud answers 503 where processing is not on.
+   */
+  process(fileId: string, job: FileJobRequest, options?: RequestOptions): Promise<FileJob>;
+  job(jobId: string, options?: RequestOptions): Promise<FileJob>;
+  /** Stops a job that has not finished. Needs `files:write`. */
+  cancelJob(jobId: string, options?: RequestOptions): Promise<FileJob>;
+  /** The files made from a file, oldest first. */
+  derivatives(fileId: string, options?: RequestOptions): Promise<{ files: ManagedFile[] }>;
+  /** Waits until the job is 'ready', 'failed' or 'canceled'. Throws RDB_TIMEOUT after waitMs (default 120,000); the job goes on in Cloud. */
+  waitForJob(jobId: string, wait?: { waitMs?: number; intervalMs?: number; signal?: AbortSignal; timeoutMs?: number }): Promise<FileJob>;
   /** The organization's stored bytes, allowance and monthly charge. Needs an organization key. */
   usage(options?: RequestOptions): Promise<FileUsage>;
 }

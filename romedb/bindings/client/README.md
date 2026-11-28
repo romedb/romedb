@@ -251,6 +251,58 @@ download as attachments; `disposition: 'inline'` is allowed only for images, PDF
 text, audio and video. `delete` removes the record at once; `state` is `'pending'` while
 storage still removes the bytes, and `db.files.deletionStatus(fileId)` reports it later.
 
+**Resized images.** Where Cloud has file processing on, the backend can ask for a new
+file made from a stored image:
+
+```js
+const job = await db.files.process(file.id, { kind: 'image', recipe: { width: 640, format: 'webp' } });
+const done = await db.files.waitForJob(job.id);         // 'ready', 'failed' or 'canceled'
+if (done.state === 'ready') {
+  const { url } = await db.files.createDownloadUrl(done.file.id, { disposition: 'inline' });
+}
+const { files } = await db.files.derivatives(file.id);  // every file made from this one
+```
+
+A recipe takes `width` and `height` (1 to 8,192), `fit` (`inside`, `cover` or `contain`),
+`format` (`jpeg`, `png`, `webp` or `avif`) and `quality` (1 to 100). The result is a
+file of its own: it has an id, counts in your storage allowance, and has
+`source: { fileId, kind, recipe }`. The picture is turned the way its EXIF tag says and
+its metadata is removed. The same file and recipe is the same job, so asking twice does
+the work once. Deleting the source deletes the files made from it. `process` and
+`cancelJob` need `files:write`.
+
+**Video and audio.** The kind `media` makes a poster picture, an MP4 or the sound alone
+from a stored video or audio file:
+
+```js
+await db.files.process(video.id, { kind: 'media', recipe: { output: 'poster', at: 3, width: 640 } });
+const job = await db.files.process(video.id, { kind: 'media', recipe: { output: 'mp4', height: 720 } });
+const done = await db.files.waitForJob(job.id, { waitMs: 30 * 60_000, intervalMs: 5000 });
+await db.files.process(video.id, { kind: 'media', recipe: { output: 'audio', format: 'mp3', bitrate: 128 } });
+```
+
+An MP4 is H.264 video with AAC sound at 240, 360, 480, 720 or 1080 lines, never larger
+than the source. A source may be 8 GB and 2 hours long. Video work takes minutes, so give
+`waitForJob` a longer `waitMs`, or read the job later with `db.files.job(id)`.
+
+**Text and AI.** The kind `text` gives the text of a PDF, an HTML page, a plain file or a
+picture (English) as a text file, without any model. The kind `ai` gives a summary or the
+embeddings of a text file, or the transcript of an audio file:
+
+```js
+const text = await db.files.waitForJob((await db.files.process(pdf.id, { kind: 'text' })).id);
+const summary = await db.files.process(text.file.id, { kind: 'ai', consent: true, recipe: { output: 'summary', words: 120 } });
+await db.files.process(text.file.id, { kind: 'ai', consent: true, recipe: { output: 'embeddings' } });
+await db.files.process(recording.id, { kind: 'ai', consent: true, recipe: { output: 'transcript', language: 'en' } });
+```
+
+An AI job sends the content of the file to an AI model. Pass `consent: true` only when
+your user agreed to that. A text file for an AI job may be 1 MiB and an audio file
+20 MiB; make a larger recording smaller first with a `media` job that has
+`output: 'audio'`. What a model wrote is a file of its own with `metadata.generated: true`
+and `metadata.model`; it never changes your file. Embeddings are a JSON file:
+`{ model, dimensions, chunks: [{ index, start, end, text, embedding }] }`.
+
 A file id is not a permission. Anyone who holds your backend's token can read or delete
 every file of the database, so the token stays on the server.
 

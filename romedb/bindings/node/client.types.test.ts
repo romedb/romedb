@@ -28,6 +28,28 @@ async function clientTypes() {
   const deletion = await remote.files.delete(storedId);
   const pending: boolean = deletion.state === 'pending';
   const charge: number = (await remote.files.usage()).charge.monthlyUsd;
+  const job = await remote.files.process(storedId, { kind: 'image', recipe: { width: 320, fit: 'inside', format: 'webp', quality: 80 }, subject: 'user-1' });
+  const finished = await remote.files.waitForJob(job.id, { waitMs: 60_000, intervalMs: 500 });
+  const made: string | undefined = finished.state === 'ready' ? finished.file?.source?.fileId : finished.error?.code;
+  const others: number = (await remote.files.derivatives(storedId)).files.length;
+  const canceled: string = (await remote.files.cancelJob(job.id)).state;
+  void made; void others; void canceled;
+  const film = await remote.files.process(storedId, { kind: 'media', recipe: { output: 'mp4', height: 720, audio: false } });
+  void remote.files.process(storedId, { kind: 'media', recipe: { output: 'poster', at: 2.5, width: 640, format: 'webp' } });
+  void remote.files.process(storedId, { kind: 'media', recipe: { output: 'audio', format: 'mp3', bitrate: 96 } });
+  const filmKind: 'image' | 'media' | 'text' | 'ai' = film.kind;
+  void filmKind;
+  void remote.files.process(storedId, { kind: 'text' });
+  void remote.files.process(storedId, { kind: 'ai', consent: true, recipe: { output: 'summary', words: 100 } });
+  void remote.files.process(storedId, { kind: 'ai', consent: true, recipe: { output: 'transcript', language: 'en' }, subject: 'user-1' });
+  // @ts-expect-error an AI job needs consent
+  void remote.files.process(storedId, { kind: 'ai', recipe: { output: 'embeddings' } });
+  // @ts-expect-error a video has no such height
+  void remote.files.process(storedId, { kind: 'media', recipe: { output: 'mp4', height: 700 } });
+  // @ts-expect-error an image job takes an image recipe
+  void remote.files.process(storedId, { kind: 'image', recipe: { output: 'mp4' } });
+  // @ts-expect-error a recipe has no such fit
+  void remote.files.process(storedId, { kind: 'image', recipe: { fit: 'stretch' } });
   const uploader = createUploader({ authorize: async intent => { void intent.id; return session; } });
   const uploaded = await uploader.upload(new Blob(['abc']), { name: 'a.txt', context: { articleId: 1 }, signal: new AbortController().signal });
   try { await uploader.abort(session); } catch (error) { if (error instanceof UploadError && error.recoverable) void error.code; }
