@@ -1,0 +1,49 @@
+{
+  "version": "0.2.32",
+  "verifiedAtUtc": "2026-11-28T09:08:03.423130+00:00",
+  "releaseUrl": "https://github.com/romedb/romedb/releases/tag/romedb-v0.2.32",
+  "archiveUrl": "https://github.com/romedb/romedb/releases/download/romedb-v0.2.32/romedb-0.2.32-linux-x64.tar.gz",
+  "archiveSha256": "12b9956053dd1a51ca47e39ff9e0c1ad4dac22c1e09ddcd3fd20b52e10255141",
+  "archiveBytes": 105220864,
+  "archiveReproduced": "the downloaded tar.gz is byte-identical to the archive built from the assembled bundle (fixed owner and commit-time mtimes)",
+  "sourceCommit": "3f3d3b205213351db1e92ede3b18de907e26e208",
+  "sourceArchiveSha256": "2cce70a261fd9c70a8889a062cade5c2f37d3bb5eef9cf6b19db24ae31919f77",
+  "anonymousDownload": true,
+  "outerChecksumMatches": true,
+  "internalChecksumsPass": true,
+  "internalFiles": 342,
+  "sourceArchiveMatchesTag": "the tag is on the manifest's source commit and the source archive has the manifest's checksum",
+  "cAbiSmoke": "not repeated on the download; the c-abi group passed on the same files before assembly",
+  "cliVersion": "bin/romedb --version prints 'romedb 0.2.32'",
+  "nodePackageAsset": {
+    "url": "https://github.com/romedb/romedb/releases/download/romedb-v0.2.32/romedb-node-0.2.32.tgz",
+    "sha256": "fdc68c95e0e75a319c61ceb9d11a4c45ec95b680ba9529dcef27f2aa93a8988f",
+    "bytes": 15666777,
+    "matchesBundle": "byte-identical to packages/romedb-node-0.2.32.tgz in the archive"
+  },
+  "npmPackage": {
+    "url": "https://www.npmjs.com/package/@romedb/node/v/0.2.32",
+    "tarball": "https://registry.npmjs.org/@romedb/node/-/node-0.2.32.tgz",
+    "matchesAsset": "the registry tarball is byte-identical to romedb-node-0.2.32.tgz",
+    "dependsOn": "@romedb/client 0.2.32",
+    "publishedBy": "GitHub Actions run https://github.com/romedb/romedb/actions/runs/46128683719 of npm-publish.yml through npm trusted publishing, without an npm token",
+    "provenance": "npm audit signatures reports a verified attestation; transparency log https://search.sigstore.dev/?logIndex=4159109138"
+  },
+  "consumerChecks": "from clean npm installs of @romedb/client and @romedb/node 0.2.32, on Node 22.0.0 and 24.19.0: one installed copy of @romedb/client; Record is the same class through @romedb/client and @romedb/node/client; @romedb/client/uploads gives createUploader as CommonJS and as an ES module; db.files of a Cloud connection has its calls, with the job calls and createDownloadUrls; the released bin/romedb serve stores a 9 MiB file sent by the published client in two parts, shows its row in romedb_files, gives its bytes back through one and through several download URLs, reports usage, answers \"unavailable\" to a job and removes the bytes on delete; in an embedded database CREATE TABLE romedb_mine and an INSERT into romedb_files are refused, and the 0.2.28 statements still run. pnpm add of the romedb-node-0.2.32.tgz asset URL alone installs @romedb/client 0.2.32 from the registry, and the embedded checks pass there",
+  "workersCheck": "not repeated in workerd: the client change is one more call of db.files, covered by the client's own tests in the source check",
+  "cloudCheck": "RomeDB Cloud runs 0.2.32 from 2026-11-28 (romedb/cloud#128, Worker fad07222, image romedb-engine-0232-r1, native e6199558). A hosted check in a scratch organization in each of Singapore, US East and Europe saw engineVersion 0.2.32 and passed the 22 steps of the files check. The jobs check passed its 20 steps in Singapore. The file API of romedb serve is not part of Cloud: Cloud has its own",
+  "manifestSha256": "0caae877a2fba9dedd0f7ae28fdf557e2949484c9e9dfcbf98740cb13a170818",
+  "clientPackageAsset": {
+    "url": "https://github.com/romedb/romedb/releases/download/romedb-v0.2.32/romedb-client-0.2.32.tgz",
+    "sha256": "3f7000c50e5791197bf2679e081eac0fa6d85cd796a9f42143271fc4750c035b",
+    "bytes": 59479,
+    "matchesBundle": "byte-identical to packages/romedb-client-0.2.32.tgz in the archive"
+  },
+  "npmClientPackage": {
+    "url": "https://www.npmjs.com/package/@romedb/client/v/0.2.32",
+    "tarball": "https://registry.npmjs.org/@romedb/client/-/client-0.2.32.tgz",
+    "matchesAsset": "the registry tarball is byte-identical to romedb-client-0.2.32.tgz",
+    "publishedBy": "the same run, before @romedb/node",
+    "provenance": "npm audit signatures reports a verified attestation; transparency log https://search.sigstore.dev/?logIndex=4159108889"
+  }
+}
