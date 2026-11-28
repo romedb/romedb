@@ -126,13 +126,13 @@ A page of another origin, such as an application on `http://localhost:5173`, may
 
 These routes reply to `OPTIONS` with 204 and send `access-control-allow-origin: *`,
 `access-control-allow-methods: GET, POST, PUT, OPTIONS` and
-`access-control-allow-headers: authorization, content-type`. They refuse a request that
-has a cookie.
+`access-control-allow-headers: authorization, content-type`.
 
-A browser sends the cookies of a host name to every port of that name. When the
-application's page sets cookies on `localhost`, give the file server's URL with
-`127.0.0.1` (or the other way round), so that an `<img>` or a link to a download URL has
-no cookie.
+No file route reads a cookie. The routes that take a token refuse a request that has
+one. The two signed URLs accept it and ignore it: a browser sends the cookies of a host
+name to every port of that name, so an `<img>` on `localhost:5173` that shows a file of
+`localhost:4321` carries the page's cookies, and the signature in the URL is the whole
+authority there.
 
 Every other route refuses a request that has an `Origin` or `Sec-Fetch-Site` header,
 with 403. Opening an upload session, listing, changing and deleting files, and asking

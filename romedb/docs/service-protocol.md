@@ -104,8 +104,9 @@ There is one exception for browser origins: the routes of [local files](local-fi
 that a page calls to upload and show a file. These are the status, part URLs, completion
 and abort of one upload session, which take that session's token, and the signed URLs
 that store a part and download a file, which take no token. They reply to `OPTIONS` and
-send `access-control-allow-origin: *`. They still refuse cookies and any `Host` that is
-not this server on loopback. Every other route, file routes included, refuses a request
+send `access-control-allow-origin: *`. They still refuse any `Host` that is not this
+server on loopback. The routes that take a token refuse a cookie; the signed URLs ignore
+one, because a browser sends a page's cookies to every port of its host name. Every other route, file routes included, refuses a request
 that has an `Origin` or `Sec-Fetch-Site` header.
 
 After discovering the database ID, the shared client sends
