@@ -789,8 +789,8 @@ async fn wrong_signatures_sizes_parts_and_checksums_are_refused() {
     assert_eq!(server.send("PUT", &moved, "", tail).await.status, 403);
     let unsigned = second.split('?').next().unwrap();
     assert_eq!(server.send("PUT", unsigned, "", tail).await.status, 403);
-    let with_cookie = server.send("PUT", second, "Cookie: a=b\r\n", tail).await;
-    assert_eq!(with_cookie.status, 403);
+    let forged_with_cookie = server.send("PUT", &forged, "Cookie: a=b\r\n", tail).await;
+    assert_eq!(forged_with_cookie.status, 403);
 
     for wrong in [&tail[..999], &bytes[8 * MIB - 1..]] {
         let refused = server.send("PUT", second, "", wrong).await;
@@ -918,13 +918,26 @@ async fn wrong_signatures_sizes_parts_and_checksums_are_refused() {
     );
     let unsigned = link.split('?').next().unwrap();
     assert_eq!(server.send("GET", unsigned, "", b"").await.status, 403);
+    let from_a_page = server
+        .send(
+            "GET",
+            link,
+            "Cookie: session=of-the-page\r\nSec-Fetch-Site: same-site\r\nSec-Fetch-Dest: image\r\n",
+            b"",
+        )
+        .await;
     assert_eq!(
-        server
-            .send("GET", link, "Cookie: a=b\r\n", b"")
-            .await
-            .status,
-        403
+        (from_a_page.status, from_a_page.body.as_slice()),
+        (200, &b"small"[..])
     );
+    let unsigned_with_cookie = server.send("GET", unsigned, "Cookie: a=b\r\n", b"").await;
+    assert_eq!(unsigned_with_cookie.status, 403);
+    let with_token_and_cookie =
+        format!("Authorization: Bearer {}\r\nCookie: a=b\r\n", server.token);
+    let listed = server
+        .send("GET", "/files", &with_token_and_cookie, b"")
+        .await;
+    assert_eq!(listed.status, 403);
     tokio::time::sleep(Duration::from_millis(1100)).await;
     let expired = server.send("GET", link, "", b"").await;
     assert_eq!(

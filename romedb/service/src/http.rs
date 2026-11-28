@@ -385,6 +385,11 @@ impl FileRoute {
         )
     }
 
+    /// The URLs that carry their own signature: one part of an upload, and one download.
+    fn is_signed(&self) -> bool {
+        matches!(self, Self::Part(..) | Self::Content(_))
+    }
+
     fn takes_query(&self) -> bool {
         matches!(self, Self::Files | Self::Part(..) | Self::Content(_))
     }
@@ -608,8 +613,11 @@ async fn process_file_request(
 }
 
 /// The checks every file request passes before anything is read or done. The host
-/// must be this server on loopback, and a cookie is never accepted. A browser origin
-/// is accepted only on the routes a page may call.
+/// must be this server on loopback. A browser origin is accepted only on the routes a
+/// page may call. A cookie is refused everywhere but on the two signed URLs: a browser
+/// sends a page's cookies to every port of its host name, so an `<img>` on
+/// `localhost:5173` that shows a file of `localhost:4321` carries them. There the
+/// signature is the whole authority, and the cookie is never read.
 fn validate_file_request(
     context: &Context,
     request: &Request<Incoming>,
@@ -632,7 +640,7 @@ fn validate_file_request(
         || request.headers().contains_key("sec-fetch-site");
     if !hosts.iter().any(|allowed| Some(allowed.as_str()) == host)
         || request.headers().get_all(header::HOST).iter().count() != 1
-        || request.headers().contains_key(header::COOKIE)
+        || (request.headers().contains_key(header::COOKIE) && !route.is_signed())
         || (from_browser && !route.open_to_browsers())
     {
         return Err(Refused::new(
@@ -656,7 +664,7 @@ fn validate_file_request(
     };
     let service = bearer.is_some_and(|value| context.token.authorizes(value.as_bytes()));
     let access = match route {
-        FileRoute::Part(..) | FileRoute::Content(_) => Access::Signed,
+        _ if route.is_signed() => Access::Signed,
         _ if service => Access::Service,
         FileRoute::Upload(_) | FileRoute::UploadAction(..) => match bearer {
             Some(token) if is_session_token(token) => Access::Session(token.to_owned()),
