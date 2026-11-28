@@ -100,6 +100,14 @@ Use `Authorization: Bearer <token>` for all database endpoints. No cookies or
 browser origins are accepted by the database service. Studio connects from its
 Node backend. The service binds only to loopback in this release.
 
+There is one exception for browser origins: the routes of [local files](local-files.md)
+that a page calls to upload and show a file. These are the status, part URLs, completion
+and abort of one upload session, which take that session's token, and the signed URLs
+that store a part and download a file, which take no token. They reply to `OPTIONS` and
+send `access-control-allow-origin: *`. They still refuse cookies and any `Host` that is
+not this server on loopback. Every other route, file routes included, refuses a request
+that has an `Origin` or `Sec-Fetch-Site` header.
+
 After discovering the database ID, the shared client sends
 `X-RomeDB-Database-ID: <id>` on subsequent requests. Prepared writes use the ID
 saved with that request. The local service rejects a mismatched or repeated ID

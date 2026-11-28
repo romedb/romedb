@@ -45,7 +45,11 @@ credentials must be owned regular files with mode 0600 and one link; symlinks ar
 refused. Tokens contain 32–128 ASCII letters, digits, underscores or hyphens.
 
 Applications and Studio use the same URL and token through a Node backend. The
-service rejects browser origins, cookies and browser fetch metadata. Native file
+service rejects browser origins, cookies and browser fetch metadata. The one exception
+is the part of the [local file API](../docs/local-files.md) that a page calls to upload
+and show a file: it accepts browser origins and still rejects cookies.
+`node romedb/service/tests/files-sdk.cjs target/debug/romedb` runs the file API with the
+client that applications use. Native file
 access requires the service to stop first. `romedb-cli serve` is the compatibility
 command; its existing embedded, script, SQLite adoption and Cloud commands remain.
 

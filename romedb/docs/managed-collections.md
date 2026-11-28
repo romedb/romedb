@@ -44,8 +44,13 @@ A customer can read this collection and cannot write it. RomeDB Cloud reads it a
 commit, deletes the file or copies the changed fields, and removes the row at the version
 it read.
 
-A file that is opened outside Cloud has nobody to read these rows. Deleting a row of
-`romedb_files` there removes the row, records the request, and deletes nothing else.
+`romedb serve` does the same for its [local files](local-files.md): before it lists
+files or reports usage, and when it starts, it removes the bytes of each deleted row and
+then the record.
+
+A file that is opened without Cloud or `romedb serve`, such as an embedded database, has
+nobody to read these rows. Deleting a row of `romedb_files` there removes the row,
+records the request, and deletes nothing else.
 
 ## Host access
 
@@ -65,6 +70,10 @@ itself.
 `set_file_access` narrows customer access: without `write`, an `UPDATE` of a file row is
 refused, and without `delete`, a `DELETE` is. Both are allowed until a host says
 otherwise, which is the case for `romedb serve` and for embedded use.
+
+`romedb serve` is such a host. It writes the row of each file that its
+[local file API](local-files.md) stores, with host access, as one more write request of
+the database. Customer SQL through `/query` never has host access.
 
 ## Copies
 

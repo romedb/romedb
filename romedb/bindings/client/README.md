@@ -241,6 +241,7 @@ const file = await db.files.get(fileId);                // size, mediaType, chec
 const page = await db.files.list({ limit: 50, order: 'desc' });
 await db.files.update(fileId, { description: 'Signed copy', tags: ['contract'] });
 const { url } = await db.files.createDownloadUrl(fileId, { expiresInSeconds: 300 });
+const { downloads } = await db.files.createDownloadUrls(fileIds, { disposition: 'inline' });
 const deletion = await db.files.delete(fileId);         // { state: 'done' | 'pending' }
 const stored = await db.files.upload(await fs.openAsBlob('report.pdf'), { name: 'report.pdf' });
 ```
@@ -250,6 +251,17 @@ Check your user's permission before you create one, and keep its life short. Fil
 download as attachments; `disposition: 'inline'` is allowed only for images, PDF, plain
 text, audio and video. `delete` removes the record at once; `state` is `'pending'` while
 storage still removes the bytes, and `db.files.deletionStatus(fileId)` reports it later.
+
+`createDownloadUrls` takes 1 to 100 file ids and returns `{ downloads: [{ fileId, url,
+expiresAt }] }` in one call, for a page that shows many files at once. Its options are
+`expiresInSeconds` and `disposition`. A file that is gone is left out of the result, and
+so is one that may not be shown inline when `inline` is asked.
+
+**Local development.** `romedb serve` offers the same file API, so `db.files` and the
+browser uploader work unchanged against a local database URL. It has no processing jobs
+(`process` fails with "File processing is unavailable"), no storage limit and no charge,
+and it keeps the files in a folder beside the database (`app.romedb.files/`). See
+[local files](https://github.com/romedb/romedb/blob/main/romedb/docs/local-files.md).
 
 **Resized images.** Where Cloud has file processing on, the backend can ask for a new
 file made from a stored image:

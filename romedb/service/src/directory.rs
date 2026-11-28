@@ -1,4 +1,7 @@
-use crate::{DatabaseService, Error, Result};
+use crate::{
+    files::{self, FileResult, FileStore, Totals},
+    DatabaseService, Error, Result,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
@@ -24,6 +27,8 @@ pub struct DirectoryService {
     organization_id: String,
     max_open: usize,
     state: Mutex<State>,
+    /// Signs the part and download URLs of every database until the server stops.
+    file_key: [u8; 32],
     _lock: File,
 }
 
@@ -34,6 +39,9 @@ struct State {
     closing: bool,
     /// Names of copies that are still being built.
     copying: HashSet<String>,
+    /// The file store of each database that had a file request. A store outlives the
+    /// open database, because it holds the upload sessions.
+    stores: HashMap<String, Arc<FileStore>>,
 }
 
 struct OpenDatabase {
@@ -123,7 +131,9 @@ impl DirectoryService {
                 clock: 0,
                 closing: false,
                 copying: HashSet::new(),
+                stores: HashMap::new(),
             }),
+            file_key: files::signing_key()?,
             _lock: lock,
         })
     }
@@ -274,9 +284,61 @@ impl DirectoryService {
                 Err(error) => return Err(error.into()),
             }
         }
+        state.stores.remove(id);
+        match std::fs::remove_dir_all(self.files_folder(id)) {
+            Ok(()) => {}
+            Err(error) if error.kind() == ErrorKind::NotFound => {}
+            Err(error) => return Err(error.into()),
+        }
         File::open(&self.root)?.sync_all()?;
         state.manifest.databases.remove(position);
         write_manifest(&self.root, &state.manifest)
+    }
+
+    /// The database and the store of its files, which is beside it in `ID.files`.
+    pub fn files(&self, id: &str) -> Result<(Arc<DatabaseService>, Arc<FileStore>)> {
+        let service = self.open_database(id)?.0;
+        Ok((service, self.file_store(id)?))
+    }
+
+    /// The store of a database's files. The database is not opened for it.
+    pub fn file_store(&self, id: &str) -> Result<Arc<FileStore>> {
+        let mut state = self.state()?;
+        if !state.manifest.databases.iter().any(|entry| entry.id == id) {
+            return Err(not_found());
+        }
+        let store = state.stores.entry(id.to_owned()).or_insert_with(|| {
+            Arc::new(FileStore::new(
+                self.files_folder(id),
+                id,
+                &self.organization_id,
+                self.file_key,
+            ))
+        });
+        Ok(store.clone())
+    }
+
+    /// Stored files of every database together. A database that never had a file is
+    /// not opened for this.
+    pub fn file_usage(&self) -> FileResult<Value> {
+        let ids: Vec<String> = {
+            let state = self.state()?;
+            state
+                .manifest
+                .databases
+                .iter()
+                .filter(|entry| {
+                    state.stores.contains_key(&entry.id) || self.files_folder(&entry.id).is_dir()
+                })
+                .map(|entry| entry.id.clone())
+                .collect()
+        };
+        let mut totals = Totals::default();
+        for id in ids {
+            let (database, store) = self.files(&id)?;
+            totals.add(store.totals(&database)?);
+        }
+        Ok(totals.report(&self.organization_id))
     }
 
     pub fn begin_shutdown(&self) {
@@ -366,6 +428,10 @@ impl DirectoryService {
 
     fn path(&self, id: &str) -> PathBuf {
         self.root.join(format!("{id}.{EXTENSION}"))
+    }
+
+    fn files_folder(&self, id: &str) -> PathBuf {
+        self.root.join(format!("{id}.files"))
     }
 
     fn state(&self) -> Result<MutexGuard<'_, State>> {
