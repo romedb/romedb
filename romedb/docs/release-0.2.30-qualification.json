@@ -1,0 +1,133 @@
+{
+  "version": "0.2.30",
+  "qualified": true,
+  "qualifiedAtUtc": "2026-11-27T15:56:48.628663+00:00",
+  "sourceCommit": "912f061e87d18901041ed840fd57a375250e01e5",
+  "sourceArchiveSha256": "69a903156d70893fdb163373dc120c4c2f21c576b570726ea37a247665247c47",
+  "cargoLockSha256": "9c0849b5f35e46d5065b515594dc9c6901c2088b58f454c0cc03439f98ba8019",
+  "buildManifestSha256": "6cbe1140628927f4ec4f34b6264a39f6668e50d9bbc52f09205fbd6fee3c31f4",
+  "buildChecksumsSha256": "2b3960a114bba1813a7f6f3154446d81153ef9e80a01b431c8d84e756ca57f70",
+  "buildProfile": "romedb-production",
+  "sourceCi": "https://github.com/romedb/romedb/actions/runs/46022929836",
+  "sourceTests": {
+    "rust": 1188,
+    "rustIgnored": 4,
+    "node": 247,
+    "cAbi": 5,
+    "releasePolicy": 2,
+    "upgradeTable": 4,
+    "formatting": "passed",
+    "scopedClippy": "passed",
+    "strictTypeScript": "passed"
+  },
+  "installedGroups": [
+    "c-abi",
+    "cli",
+    "cli-v22",
+    "cli-graph",
+    "cli-spatial",
+    "sqlite-adoption",
+    "cli-elf",
+    "c-elf",
+    "node-0",
+    "node-client-0",
+    "node-1",
+    "node-client-1",
+    "python-0",
+    "python-1",
+    "python-2",
+    "php-package",
+    "go-package",
+    "swift-package",
+    "node-upgrade-install",
+    "node-ownership-0",
+    "v0213-upgrade-restore-0",
+    "v0214-upgrade-restore-0",
+    "v0215-upgrade-restore-0",
+    "v0216-upgrade-restore-0",
+    "v0217-upgrade-restore-0",
+    "v0218-upgrade-restore-0",
+    "v0219-upgrade-restore-0",
+    "v0220-upgrade-restore-0",
+    "v0221-upgrade-restore-0",
+    "v0222-upgrade-restore-0",
+    "v0223-upgrade-restore-0",
+    "v0224-upgrade-restore-0",
+    "v0225-upgrade-restore-0",
+    "v0226-upgrade-restore-0",
+    "v0227-upgrade-restore-0",
+    "v0228-upgrade-restore-0",
+    "v0229-upgrade-restore-0",
+    "node-ownership-1",
+    "v0213-upgrade-restore-1",
+    "v0214-upgrade-restore-1",
+    "v0215-upgrade-restore-1",
+    "v0216-upgrade-restore-1",
+    "v0217-upgrade-restore-1",
+    "v0218-upgrade-restore-1",
+    "v0219-upgrade-restore-1",
+    "v0220-upgrade-restore-1",
+    "v0221-upgrade-restore-1",
+    "v0222-upgrade-restore-1",
+    "v0223-upgrade-restore-1",
+    "v0224-upgrade-restore-1",
+    "v0225-upgrade-restore-1",
+    "v0226-upgrade-restore-1",
+    "v0227-upgrade-restore-1",
+    "v0228-upgrade-restore-1",
+    "v0229-upgrade-restore-1",
+    "nuget-package"
+  ],
+  "nodeVersions": [
+    "22.0.0",
+    "24.19.0"
+  ],
+  "pythonVersions": [
+    "3.10.21",
+    "3.12.3",
+    "3.14.7"
+  ],
+  "standaloneRustConsumer": "passed with the romedb-production profile; 344 registry/git package identities match the workspace lockfile",
+  "upgradeRestore": "Passed from the 0.2.13 to 0.2.29 packages on Node 22.0.0 and 24.19.0 (groups v0213-upgrade-restore to v0229-upgrade-restore). 0.2.13 is the floor: it changed the stored value prefix, and earlier files are refused. 0.2.30 adds no storage format change, and 0.2.29 can open its files.",
+  "engine": {
+    "upstream": "Turso v0.8.4",
+    "upstreamCommit": "72eafab83fee6ad5876657c5861b1fc9e5a39ec1",
+    "previousUpstream": "607bff9fd0e547a25a97b3bf06e83bcc5d99d53c",
+    "exceptions": "the maintained engine exceptions and the test-only backport of 0.2.29 retained (romedb/docs/core-exceptions.md)",
+    "storageFormat": "__romedb_ schema prefix, .romedb extension, stored values prefixed RDB 01 (FDB 01 before 0.2.13); openEmbedded and serve use MVCC files; collections with a * array path index use catalog version 8, others keep version 7 or earlier; collections with a weighted full-text index use catalog version 9; collections with a folded or stemmed full-text index use catalog version 10; collections with a full-text index that declares filter paths use catalog version 11",
+    "sync": "romedb/romedb#103",
+    "change": "Turso v0.8.4 (72eafab83) unchanged from 0.2.29; Tantivy 0.27.0 unchanged. No engine sync and no new engine exception in this release. RomeDB adds the managed file collections romedb_files and romedb_file_changes and reserves names that start with romedb_ (romedb/romedb#106). No storage format change and no catalog version change"
+  },
+  "spatial": {
+    "catalogVersion": 7,
+    "explainReadsNoData": "metered EXPLAIN reports zero rows read for every spatial form (spatial_explain_reads_no_documents_or_index_entries)",
+    "cliSpatialCheck": "passed"
+  },
+  "supportedScope": {
+    "platform": "Linux x64",
+    "clients": [
+      "rust",
+      "node",
+      "python",
+      "php",
+      "swift",
+      "csharp",
+      "go"
+    ],
+    "ownership": "One owning process per database file; shared clients connect to its service"
+  },
+  "security": {
+    "unresolvedFindings": 0,
+    "acceptedInformational": [
+      "RUSTSEC-2026-0543"
+    ],
+    "advisoryDatabase": "c5279d0b0c9e8b70df666eb6d1edbabcfd1176bd",
+    "resolvedForRelease": []
+  },
+  "documentationOverrides": {
+    "ENVELOPE.md": "Historical 2.1.0 measurements; the raw-evidence link points to the immutable fastdb-v2.1.0 release"
+  },
+  "performance": "Historical 2.1.0 operating envelope retained; fresh bounded application sample, not capacity guarantees",
+  "buildHost": "Built and qualified under scripts/romedb-heavy (shared lock, 16 jobs, cgroup memory ceiling)",
+  "publication": "Qualified for publication; anonymous public-download verification is separate"
+}
